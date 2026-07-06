@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/images.dart';
-import 'package:buddy/widgets/animated_money_text.dart';
+import 'package:buddy/views/widgets/animated_money_text.dart';
 import 'package:buddy/repositories/transaction_repository.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/pdf_service.dart';
