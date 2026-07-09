@@ -1,8 +1,9 @@
 // lib/services/app_init_helper.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'transaction_sync_helper.dart';
-import 'db_helper.dart';
+import 'firestore_service.dart';
 
 class AppInitHelper {
   static bool _isInitialized = false;
@@ -20,19 +21,28 @@ class AppInitHelper {
     debugPrint('🚀 ============ APP INITIALIZATION ============');
 
     try {
-      // 1. Initialize database
-      debugPrint('📊 Initializing database...');
-      await DatabaseHelper.instance.initdb();
-      debugPrint('✅ Database initialized');
+      // 1. Enable Firestore offline persistence
+      debugPrint('📊 Enabling Firestore persistence...');
+      await FirestoreService.enableOfflinePersistence();
+      debugPrint('✅ Firestore persistence enabled');
 
-      // 2. Sync transactions from native storage (added while app was closed)
+      // 2. Seed default categories if user is logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        debugPrint('🌱 Checking default categories...');
+        try {
+          await FirestoreService.instance.seedDefaultCategories();
+        } catch (e) {
+          debugPrint('⚠️ Failed to seed categories (non-critical): $e');
+        }
+      }
+
+      // 3. Sync transactions from native storage
       debugPrint('🔄 Syncing transactions from native storage...');
       final syncedCount = await TransactionSyncHelper.syncNativeTransactions();
 
       if (syncedCount > 0) {
         debugPrint('🎉 Synced $syncedCount transactions!');
-
-        // Notify UI to refresh
         if (onTransactionsSynced != null) {
           onTransactionsSynced!();
         }
@@ -40,12 +50,10 @@ class AppInitHelper {
         debugPrint('✅ No transactions to sync');
       }
 
-      // 3. Start notification listener
+      // 4. Start notification listener
       debugPrint('🎧 Starting notification listener...');
       await NotificationService.startListening((transactionMap, hash) async {
         debugPrint('🆕 New transaction detected in app: $hash');
-
-        // Notify UI to refresh
         if (onTransactionsSynced != null) {
           onTransactionsSynced!();
         }
@@ -71,14 +79,16 @@ class AppInitHelper {
     return count;
   }
 
-  /// Check if there are unsynced transactions
-  static Future<bool> hasUnsyncedTransactions() async {
-    return await TransactionSyncHelper.needsSync();
-  }
-
-  /// Get unsynced transaction count
-  static Future<int> getUnsyncedCount() async {
-    return await TransactionSyncHelper.getUnsyncedCount();
+  /// Seed categories for current user
+  static Future<void> seedCategoriesIfNeeded() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        await FirestoreService.instance.seedDefaultCategories();
+      } catch (e) {
+        debugPrint('⚠️ Failed to seed categories: $e');
+      }
+    }
   }
 
   /// Dispose resources

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:buddy/utils/colors.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
+import 'package:buddy/models/transaction.dart';
+import 'package:buddy/models/category.dart' as cat;
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -14,97 +16,106 @@ class AddTransactionScreen extends StatefulWidget {
 }
 
 class _AddTransactionScreenState extends State<AddTransactionScreen>
-    with SingleTickerProviderStateMixin {
-  int _typeIndex = 0;
-  double _page = 0;
-  bool _dragging = false;
-  double _dragIndicatorPage = 0;
-  double _dragStartPage = 0;
-  double _dragAccumX = 0;
-  bool _showCategories = false;
-  String _categoryQuery = '';
-
+    with TickerProviderStateMixin {
+  int _typeIndex = 0; // 0 = expense, 1 = income
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
-  _CategoryOption? _selectedCategory;
+  final FocusNode _amountFocus = FocusNode();
+  String? _selectedCategoryId;
+  String? _selectedCategoryName;
+  IconData? _selectedCategoryIcon;
   DateTime _selectedDate = DateTime.now();
+  bool _isSaving = false;
 
-  late final AnimationController _bobController;
-  late final Animation<double> _bobAnimation;
+  List<cat.Category> _expenseCategories = [];
+  List<cat.Category> _incomeCategories = [];
+  bool _loadingCategories = true;
+  String _categoryQuery = '';
 
-  late final List<_CategoryOption> _defaultExpenseCategories = [
-    _CategoryOption('Food', Icons.restaurant_rounded),
-    _CategoryOption('Icecream', Icons.icecream_rounded),
-    _CategoryOption('Sweets', Icons.cake_rounded),
-    _CategoryOption('Fuel', Icons.local_gas_station_rounded),
-    _CategoryOption('Netflix', Icons.movie_rounded),
-    _CategoryOption('Youtube', Icons.ondemand_video_rounded),
-    _CategoryOption('Hotstar', Icons.live_tv_rounded),
-    _CategoryOption('Gym', Icons.fitness_center_rounded),
-    _CategoryOption('Charity', Icons.volunteer_activism_rounded),
-    _CategoryOption('Friends', Icons.handshake_rounded),
-    _CategoryOption('Travel', Icons.flight_rounded),
-    _CategoryOption('Party', Icons.celebration_rounded),
-  ];
+  late final AnimationController _saveAnimController;
+  late final Animation<double> _saveAnim;
 
-  late final List<_CategoryOption> _defaultIncomeCategories = [
-    _CategoryOption('Salary', Icons.payments_rounded),
-    _CategoryOption('Freelance', Icons.work_outline_rounded),
-    _CategoryOption('Gift', Icons.card_giftcard_rounded),
-    _CategoryOption('Interest', Icons.savings_rounded),
-    _CategoryOption('Refund', Icons.reply_rounded),
-  ];
+  List<cat.Category> get _currentCategories =>
+      _typeIndex == 0 ? _expenseCategories : _incomeCategories;
 
-  List<_CategoryOption> get _currentCategories =>
-      _typeIndex == 0 ? _defaultExpenseCategories : _defaultIncomeCategories;
+  bool get _isEditing => widget.existingTransaction != null;
 
   @override
   void initState() {
     super.initState();
-    _bobController = AnimationController(
+    _saveAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 600),
     );
-    _bobAnimation = Tween<double>(
-      begin: -6.0,
-      end: 6.0,
-    ).animate(CurvedAnimation(parent: _bobController, curve: Curves.easeInOut));
-    _bobController.repeat(reverse: true);
+    _saveAnim = CurvedAnimation(
+      parent: _saveAnimController,
+      curve: Curves.easeOutBack,
+    );
+
+    _loadCategories();
 
     // Pre-fill if editing
-    if (widget.existingTransaction != null) {
+    if (_isEditing) {
       final tx = widget.existingTransaction!;
-      _amountController.text = (tx['amount'] as double).toStringAsFixed(2);
+      _amountController.text =
+          (tx['amount'] as double).toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
       _noteController.text = tx['note'] as String? ?? '';
       _selectedDate = tx['date'] as DateTime;
       final type = (tx['type'] as String).toLowerCase().trim();
       _typeIndex = type == 'income' ? 1 : 0;
-      _page = _typeIndex.toDouble();
-
-      // Find matching category
-      final catName = tx['category'] as String;
+      _selectedCategoryName = tx['category'] as String?;
       final iconCode = tx['icon'] as int?;
-      final cats = type == 'income'
-          ? _defaultIncomeCategories
-          : _defaultExpenseCategories;
-      _selectedCategory = cats.firstWhere(
-        (c) => c.name == catName,
-        orElse: () => iconCode != null
-            ? _CategoryOption(
-                catName,
-                IconData(iconCode, fontFamily: 'MaterialIcons'),
-              )
-            : cats.first,
-      );
+      if (iconCode != null) {
+        _selectedCategoryIcon = IconData(iconCode, fontFamily: 'MaterialIcons');
+      }
     }
+
+    // Auto-focus amount field
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isEditing) {
+        _amountFocus.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
-    _bobController.dispose();
+    _saveAnimController.dispose();
     _noteController.dispose();
     _amountController.dispose();
+    _amountFocus.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final firestore = FirestoreService.instance;
+      final expense = await firestore.getCategories('expense');
+      final income = await firestore.getCategories('income');
+
+      if (mounted) {
+        setState(() {
+          _expenseCategories = expense;
+          _incomeCategories = income;
+          _loadingCategories = false;
+
+          // If editing, match category by name
+          if (_isEditing && _selectedCategoryName != null) {
+            final cats = _typeIndex == 0 ? expense : income;
+            for (final c in cats) {
+              if (c.name == _selectedCategoryName) {
+                _selectedCategoryId = c.id;
+                _selectedCategoryIcon = c.icon;
+                break;
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading categories: $e');
+      if (mounted) setState(() => _loadingCategories = false);
+    }
   }
 
   Future<void> _pickDate() async {
@@ -113,22 +124,37 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       context: context,
       builder: (ctx) {
         return Container(
-          height: 300,
-          color: Colors.white,
+          height: 320,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
           child: Column(
             children: [
-              SizedBox(
-                height: 44,
+              Container(
+                height: 52,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
+                    ),
                     CupertinoButton(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       onPressed: () {
                         Navigator.of(ctx).pop();
                         setState(() => _selectedDate = temp);
                       },
-                      child: const Text('Done'),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -138,6 +164,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   mode: CupertinoDatePickerMode.date,
                   use24hFormat: false,
                   initialDateTime: _selectedDate,
+                  maximumDate: DateTime.now().add(const Duration(days: 1)),
                   onDateTimeChanged: (d) {
                     temp = d;
                     HapticFeedback.selectionClick();
@@ -151,12 +178,711 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Future<_CategoryOption?> _showCreateCategory(BuildContext context) async {
-    final TextEditingController nameCtrl = TextEditingController();
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+
+    return Scaffold(
+      resizeToAvoidBottomInset: false,
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Header ──
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 16, 0),
+              child: Row(
+                children: [
+                  _buildCloseButton(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _isEditing ? 'Edit Transaction' : 'New Transaction',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Type Toggle ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildTypeToggle(),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Scrollable Content ──
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: bottomInset + 16,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Amount Card ──
+                    _buildAmountCard(),
+                    const SizedBox(height: 16),
+
+                    // ── Category Section ──
+                    _buildSectionLabel('Category'),
+                    const SizedBox(height: 10),
+                    _buildCategorySearch(),
+                    const SizedBox(height: 12),
+                    _buildCategoryGrid(),
+                    const SizedBox(height: 20),
+
+                    // ── Note ──
+                    _buildSectionLabel('Note (optional)'),
+                    const SizedBox(height: 10),
+                    _buildNoteField(),
+                    const SizedBox(height: 16),
+
+                    // ── Date ──
+                    _buildDateSelector(),
+                    const SizedBox(height: 24),
+
+                    // ── Save Button ──
+                    _buildSaveButton(),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCloseButton() {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          Icons.close_rounded,
+          size: 20,
+          color: Colors.grey.shade700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTypeToggle() {
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildToggleOption('Expense', 0),
+          _buildToggleOption('Income', 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption(String label, int index) {
+    final isSelected = _typeIndex == index;
+    final color = index == 0 ? AppColors.expense : AppColors.income;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (_typeIndex != index) {
+            HapticFeedback.selectionClick();
+            setState(() {
+              _typeIndex = index;
+              _selectedCategoryId = null;
+              _selectedCategoryName = null;
+              _selectedCategoryIcon = null;
+              _categoryQuery = '';
+            });
+          }
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            color: isSelected ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountCard() {
+    final typeColor = _typeIndex == 0 ? AppColors.expense : AppColors.income;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        children: [
+          Text(
+            _typeIndex == 0 ? 'How much did you spend?' : 'How much did you earn?',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '₹',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: typeColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              IntrinsicWidth(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 60, maxWidth: 260),
+                  child: TextField(
+                    controller: _amountController,
+                    focusNode: _amountFocus,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 42,
+                      fontWeight: FontWeight.w800,
+                      color: typeColor,
+                      letterSpacing: -1,
+                    ),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                    ],
+                    decoration: InputDecoration(
+                      border: InputBorder.none,
+                      hintText: '0',
+                      hintStyle: TextStyle(
+                        fontSize: 42,
+                        fontWeight: FontWeight.w800,
+                        color: typeColor.withValues(alpha: 0.25),
+                        letterSpacing: -1,
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Text(
+      label,
+      style: TextStyle(
+        color: Colors.grey.shade600,
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
+      ),
+    );
+  }
+
+  Widget _buildCategorySearch() {
+    return TextField(
+      onChanged: (v) => setState(() => _categoryQuery = v.trim()),
+      decoration: InputDecoration(
+        hintText: 'Search categories...',
+        hintStyle: TextStyle(
+          color: Colors.grey.shade400,
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(
+          Icons.search_rounded,
+          color: Colors.grey.shade400,
+          size: 20,
+        ),
+        suffixIcon: _categoryQuery.isNotEmpty
+            ? GestureDetector(
+                onTap: () => setState(() => _categoryQuery = ''),
+                child: Icon(Icons.close_rounded, color: Colors.grey.shade400, size: 18),
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryGrid() {
+    if (_loadingCategories) {
+      return _buildCategoryShimmer();
+    }
+
+    final filtered = _currentCategories.where((c) {
+      if (_categoryQuery.isEmpty) return true;
+      return c.name.toLowerCase().contains(_categoryQuery.toLowerCase());
+    }).toList();
+
+    if (filtered.isEmpty && _categoryQuery.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            children: [
+              Icon(Icons.search_off_rounded, size: 32, color: Colors.grey.shade400),
+              const SizedBox(height: 8),
+              Text(
+                'No categories found',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        ...filtered.map((c) => _buildCategoryChip(c)),
+        _buildAddCategoryChip(),
+      ],
+    );
+  }
+
+  Widget _buildCategoryChip(cat.Category category) {
+    final isSelected = _selectedCategoryName == category.name;
+    final catColor = AppColors.getCategoryColor(category.name);
+
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _selectedCategoryId = category.id;
+          _selectedCategoryName = category.name;
+          _selectedCategoryIcon = category.icon;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? catColor.withValues(alpha: 0.15)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? catColor : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: catColor.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: catColor.withValues(alpha: isSelected ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                category.icon,
+                size: 16,
+                color: catColor,
+              ),
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 100),
+              child: Text(
+                category.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13,
+                  color: isSelected ? catColor : AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddCategoryChip() {
+    return GestureDetector(
+      onTap: () => _showCreateCategory(context),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.25),
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.add_rounded,
+                size: 16,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Add New',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppColors.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryShimmer() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: List.generate(
+        8,
+        (_) => Container(
+          width: 110,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoteField() {
+    return TextField(
+      controller: _noteController,
+      textCapitalization: TextCapitalization.sentences,
+      maxLines: 1,
+      style: const TextStyle(fontSize: 15),
+      decoration: InputDecoration(
+        hintText: 'e.g., Lunch with friends',
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateSelector() {
+    final now = DateTime.now();
+    final isToday = _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = _selectedDate.year == yesterday.year &&
+        _selectedDate.month == yesterday.month &&
+        _selectedDate.day == yesterday.day;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('Date'),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            _buildDateChip('Today', isToday, () {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedDate = now);
+            }),
+            const SizedBox(width: 8),
+            _buildDateChip('Yesterday', isYesterday, () {
+              HapticFeedback.selectionClick();
+              setState(() => _selectedDate = yesterday);
+            }),
+            const Spacer(),
+            GestureDetector(
+              onTap: _pickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (!isToday && !isYesterday)
+                      ? AppColors.primary.withValues(alpha: 0.1)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: (!isToday && !isYesterday)
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : Colors.grey.shade200,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_rounded,
+                      size: 16,
+                      color: (!isToday && !isYesterday)
+                          ? AppColors.primary
+                          : Colors.grey.shade500,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _formatDate(_selectedDate),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: (!isToday && !isYesterday)
+                            ? AppColors.primary
+                            : Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDateChip(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.grey.shade200,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : Colors.grey.shade600,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSaveButton() {
+    final typeColor = _typeIndex == 0 ? AppColors.expense : AppColors.income;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: typeColor,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+        ),
+        onPressed: _isSaving ? null : _saveTransaction,
+        child: _isSaving
+            ? const SizedBox(
+                height: 22,
+                width: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Text(
+                _isEditing
+                    ? 'Update ${_typeIndex == 0 ? 'Expense' : 'Income'}'
+                    : 'Add ${_typeIndex == 0 ? 'Expense' : 'Income'}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Future<void> _saveTransaction() async {
+    final amountStr = _amountController.text.trim();
+    if (amountStr.isEmpty) {
+      _showError('Please enter an amount');
+      return;
+    }
+    final amount = double.tryParse(amountStr);
+    if (amount == null || amount <= 0) {
+      _showError('Please enter a valid amount');
+      return;
+    }
+    if (_selectedCategoryName == null) {
+      _showError('Please select a category');
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    HapticFeedback.mediumImpact();
+
+    final type = _typeIndex == 0 ? 'expense' : 'income';
+    final note = _noteController.text.trim().isEmpty
+        ? null
+        : _noteController.text.trim();
+    final iconCodePoint = _selectedCategoryIcon?.codePoint ?? Icons.note_rounded.codePoint;
+
+    final firestore = FirestoreService.instance;
+
+    try {
+      if (_isEditing) {
+        final id = widget.existingTransaction!['id'] as String;
+        await firestore.updateTransaction(id, {
+          'amount': amount.abs(),
+          'type': type,
+          'date': _selectedDate,
+          'note': note,
+          'category': _selectedCategoryName,
+          'icon': iconCodePoint,
+        });
+        if (!mounted) return;
+        _showSuccess('Transaction updated!');
+      } else {
+        final txn = TransactionModel(
+          amount: amount.abs(),
+          type: type,
+          date: _selectedDate,
+          note: note,
+          category: _selectedCategoryName!,
+          icon: iconCodePoint,
+        );
+        await firestore.addTransaction(txn);
+        if (!mounted) return;
+        _showSuccess('Transaction saved!');
+      }
+
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      debugPrint('❌ Error saving transaction: $e');
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      _showError('Failed to save. Please try again.');
+    }
+  }
+
+  Future<void> _showCreateCategory(BuildContext context) async {
+    final nameCtrl = TextEditingController();
     IconData? pickedIcon;
+
     final icons = _iconChoices;
 
-    return await showModalBottomSheet<_CategoryOption>(
+    final result = await showModalBottomSheet<cat.Category>(
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
@@ -168,7 +894,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         return StatefulBuilder(
           builder: (context, setModalState) {
             return DraggableScrollableSheet(
-              initialChildSize: 0.9,
+              initialChildSize: 0.85,
               minChildSize: 0.5,
               maxChildSize: 0.95,
               expand: false,
@@ -184,6 +910,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Handle bar
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Row(
                         children: [
                           const Text(
@@ -194,27 +932,50 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                             ),
                           ),
                           const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            icon: const Icon(Icons.close_rounded),
+                          GestureDetector(
+                            onTap: () => Navigator.of(ctx).pop(),
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 18,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       TextField(
                         controller: nameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
+                        textCapitalization: TextCapitalization.words,
+                        decoration: InputDecoration(
+                          labelText: 'Category Name',
+                          hintText: 'e.g., Starbucks',
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
                           ),
-                          contentPadding: EdgeInsets.symmetric(
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(
+                              color: AppColors.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       const Text(
                         'Pick an icon',
                         style: TextStyle(
@@ -226,34 +987,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       Expanded(
                         child: GridView.builder(
                           controller: scrollController,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6,
-                                mainAxisSpacing: 10,
-                                crossAxisSpacing: 10,
-                              ),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 6,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                          ),
                           itemCount: icons.length,
                           itemBuilder: (c, i) {
                             final ic = icons[i];
                             final selected = pickedIcon == ic;
                             return GestureDetector(
                               onTap: () {
-                                setModalState(() {
-                                  pickedIcon = ic;
-                                });
+                                HapticFeedback.selectionClick();
+                                setModalState(() => pickedIcon = ic);
                               },
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? AppColors.primary.withValues(
-                                          alpha: 0.15,
-                                        )
+                                      ? AppColors.primary.withValues(alpha: 0.15)
                                       : Colors.grey.shade50,
                                   border: Border.all(
                                     color: selected
                                         ? AppColors.primary
-                                        : Colors.black12,
+                                        : Colors.grey.shade200,
                                     width: selected ? 2 : 1,
                                   ),
                                   borderRadius: BorderRadius.circular(12),
@@ -262,8 +1019,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                   ic,
                                   color: selected
                                       ? AppColors.secondary
-                                      : Colors.black87,
-                                  size: 24,
+                                      : Colors.grey.shade700,
+                                  size: 22,
                                 ),
                               ),
                             );
@@ -275,35 +1032,39 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: () {
-                            if (nameCtrl.text.trim().isEmpty ||
-                                pickedIcon == null) {
-                              Navigator.of(ctx).pop();
+                          onPressed: () async {
+                            if (nameCtrl.text.trim().isEmpty || pickedIcon == null) {
                               return;
                             }
-                            Navigator.of(ctx).pop(
-                              _CategoryOption(
-                                nameCtrl.text.trim(),
-                                pickedIcon!,
-                              ),
+                            final name = nameCtrl.text.trim();
+                            final newCat = cat.Category(
+                              id: '',
+                              name: name,
+                              icon: pickedIcon!,
+                              color: AppColors.getCategoryColor(name),
+                              type: _typeIndex == 0 ? 'expense' : 'income',
+                              order: _currentCategories.length,
                             );
+
+                            try {
+                              final id = await FirestoreService.instance.addCategory(newCat);
+                              if (!ctx.mounted) return;
+                              Navigator.of(ctx).pop(newCat.copyWith(id: id));
+                            } catch (e) {
+                              debugPrint('❌ Error adding category: $e');
+                            }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary.withValues(
-                              alpha: 0.88,
-                            ),
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
-                            elevation: 2,
+                            elevation: 0,
                           ),
                           child: const Text(
-                            'Add Category',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 16,
-                            ),
+                            'Create Category',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                           ),
                         ),
                       ),
@@ -317,670 +1078,63 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         );
       },
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        if (_typeIndex == 0) {
+          _expenseCategories.add(result);
+        } else {
+          _incomeCategories.add(result);
+        }
+        _selectedCategoryId = result.id;
+        _selectedCategoryName = result.name;
+        _selectedCategoryIcon = result.icon;
+      });
+    }
   }
 
   List<IconData> get _iconChoices => const [
-    Icons.restaurant_rounded,
-    Icons.icecream_rounded,
-    Icons.cake_rounded,
-    Icons.local_gas_station_rounded,
-    Icons.movie_rounded,
-    Icons.ondemand_video_rounded,
-    Icons.live_tv_rounded,
-    Icons.fitness_center_rounded,
-    Icons.volunteer_activism_rounded,
-    Icons.handshake_rounded,
-    Icons.payments_rounded,
-    Icons.work_outline_rounded,
-    Icons.card_giftcard_rounded,
-    Icons.savings_rounded,
-    Icons.reply_rounded,
-    Icons.shopping_bag_rounded,
-    Icons.shopping_cart_rounded,
-    Icons.pets_rounded,
-    Icons.fastfood_rounded,
-    Icons.medical_services_rounded,
-    Icons.school_rounded,
-    Icons.home_rounded,
-    Icons.phone_android_rounded,
-    Icons.subway_rounded,
-    Icons.flight_rounded,
-    Icons.local_taxi_rounded,
-    Icons.sports_esports_rounded,
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top;
-
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: AppColors.background,
-      body: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (details) {
-          _dragAccumX = 0;
-          setState(() {
-            _dragging = true;
-            _dragStartPage = _page;
-            _dragIndicatorPage = _page;
-          });
-        },
-        onHorizontalDragUpdate: (details) {
-          final screenWidth = MediaQuery.of(context).size.width;
-          final itemWidth = screenWidth / 2;
-          _dragAccumX += details.delta.dx;
-          final deltaPages = _dragAccumX / itemWidth;
-          final double newPage = (_dragStartPage + deltaPages).clamp(0.0, 1.0);
-          setState(() {
-            _dragIndicatorPage = newPage;
-          });
-        },
-        onHorizontalDragEnd: (details) {
-          final target = _dragIndicatorPage.round();
-          setState(() {
-            _dragging = false;
-            _page = target.toDouble();
-            _typeIndex = target;
-            _showCategories = false;
-          });
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(height: topPadding),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Row(
-                children: [
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.secondary.withValues(alpha: 0.24),
-                          width: 1,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(10),
-                      child: const Icon(Icons.close_rounded),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.existingTransaction != null
-                          ? 'Edit Transaction'
-                          : 'Add Transaction',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 14),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final totalWidth = constraints.maxWidth;
-                  const itemCount = 2;
-                  final itemWidth = totalWidth / itemCount;
-                  final indicatorWidth = itemWidth - 12;
-                  final animatedLeft =
-                      (_dragging
-                          ? (_dragIndicatorPage.clamp(0, itemCount - 1) *
-                                itemWidth)
-                          : (_page.clamp(0, itemCount - 1) * itemWidth)) +
-                      6;
-
-                  return Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: AppColors.secondary.withValues(alpha: 0.24),
-                        width: 1,
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: animatedLeft,
-                          top: 4,
-                          width: indicatorWidth,
-                          height: 42,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 120),
-                            curve: Curves.easeOut,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary.withValues(alpha: 0.38),
-                                  AppColors.secondary.withValues(alpha: 0.30),
-                                ],
-                              ),
-                              border: Border.all(
-                                color: AppColors.secondary.withValues(
-                                  alpha: 0.35,
-                                ),
-                                width: 1,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () {
-                                  setState(() {
-                                    _typeIndex = 0;
-                                    _page = 0;
-                                    _showCategories = false;
-                                  });
-                                },
-                                child: Center(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'Expense',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color:
-                                            (((_dragging
-                                                    ? _dragIndicatorPage
-                                                    : _page)) <
-                                                0.5)
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () {
-                                  setState(() {
-                                    _typeIndex = 1;
-                                    _page = 1;
-                                    _showCategories = false;
-                                  });
-                                },
-                                child: Center(
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      'Income',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color:
-                                            (((_dragging
-                                                    ? _dragIndicatorPage
-                                                    : _page)) >=
-                                                0.5)
-                                            ? Colors.white
-                                            : Colors.black87,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                child: AnimatedPadding(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(
-                    left: 16,
-                    right: 16,
-                    bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: AppColors.cardBackground,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white70, width: 1),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x33000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-                        child: Column(
-                          children: [
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Amount',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _amountController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              inputFormatters: [
-                                FilteringTextInputFormatter.allow(
-                                  RegExp(r'^\d*\.?\d{0,2}'),
-                                ),
-                              ],
-                              decoration: InputDecoration(
-                                prefixIcon: Container(
-                                  width: 40,
-                                  alignment: Alignment.center,
-                                  child: const Text(
-                                    '₹',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                hintText: '0.00',
-                                hintStyle: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 16,
-                                ),
-                                border: const OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(12),
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                'Category',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _showCategories = !_showCategories;
-                                });
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: _showCategories
-                                        ? AppColors.primary.withValues(
-                                            alpha: 0.5,
-                                          )
-                                        : Colors.black26,
-                                    width: _showCategories ? 2 : 1,
-                                  ),
-                                  color: _showCategories
-                                      ? AppColors.primary.withValues(
-                                          alpha: 0.05,
-                                        )
-                                      : Colors.transparent,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    _selectedCategory != null
-                                        ? Row(
-                                            children: [
-                                              Icon(
-                                                _selectedCategory!.icon,
-                                                size: 20,
-                                                color: AppColors.secondary,
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Text(
-                                                _selectedCategory!.name,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 15,
-                                                ),
-                                              ),
-                                            ],
-                                          )
-                                        : Text(
-                                            'Select a category',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 15,
-                                            ),
-                                          ),
-                                    AnimatedRotation(
-                                      turns: _showCategories ? 0.5 : 0,
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      child: Icon(
-                                        Icons.keyboard_arrow_down_rounded,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                              child: _showCategories
-                                  ? Column(
-                                      children: [
-                                        const SizedBox(height: 16),
-                                        TextField(
-                                          decoration: InputDecoration(
-                                            hintText: 'Search categories',
-                                            prefixIcon: const Icon(
-                                              Icons.search_rounded,
-                                              color: AppColors.primary,
-                                            ),
-                                            isDense: true,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 10,
-                                                ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide(
-                                                color: AppColors.primary
-                                                    .withValues(alpha: 0.3),
-                                              ),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: const BorderSide(
-                                                color: AppColors.primary,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            suffixIcon:
-                                                _categoryQuery.isNotEmpty
-                                                ? InkWell(
-                                                    onTap: () => setState(
-                                                      () => _categoryQuery = '',
-                                                    ),
-                                                    child: const Icon(
-                                                      Icons.close_rounded,
-                                                    ),
-                                                  )
-                                                : null,
-                                          ),
-                                          onChanged: (v) => setState(
-                                            () => _categoryQuery = v.trim(),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        _InlineCategoryGrid(
-                                          current: _selectedCategory,
-                                          options: (() {
-                                            final list = _currentCategories
-                                                .where(
-                                                  (c) => c.name
-                                                      .toLowerCase()
-                                                      .contains(
-                                                        _categoryQuery
-                                                            .toLowerCase(),
-                                                      ),
-                                                )
-                                                .toList();
-                                            list.sort(
-                                              (a, b) => a.name
-                                                  .toLowerCase()
-                                                  .compareTo(
-                                                    b.name.toLowerCase(),
-                                                  ),
-                                            );
-                                            return list;
-                                          })(),
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setState(() {
-                                                _selectedCategory = val;
-                                                _showCategories = false;
-                                                _categoryQuery = '';
-                                              });
-                                            }
-                                          },
-                                          onAddNew: (created) => setState(() {
-                                            if (_typeIndex == 0) {
-                                              _defaultExpenseCategories.add(
-                                                created,
-                                              );
-                                            } else {
-                                              _defaultIncomeCategories.add(
-                                                created,
-                                              );
-                                            }
-                                            _selectedCategory = created;
-                                            _showCategories = false;
-                                            _categoryQuery = '';
-                                          }),
-                                        ),
-                                        const SizedBox(height: 8),
-                                      ],
-                                    )
-                                  : const SizedBox.shrink(),
-                            ),
-                            const SizedBox(height: 12),
-                            TextFormField(
-                              controller: _noteController,
-                              decoration: const InputDecoration(
-                                labelText: 'Note',
-                                hintText: 'Enter a name or note',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: _pickDate,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.black26),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text(
-                                      'Date',
-                                      style: TextStyle(fontSize: 15),
-                                    ),
-                                    Text(
-                                      _formatDate(_selectedDate),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      AnimatedBuilder(
-                        animation: _bobAnimation,
-                        builder: (context, child) {
-                          return Transform.translate(
-                            offset: Offset(0, _bobAnimation.value),
-                            child: child,
-                          );
-                        },
-                        child: SizedBox(
-                          width: double.infinity,
-                          height: 54,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _typeIndex == 0
-                                  ? AppColors.expense.withValues(alpha: 0.88)
-                                  : AppColors.income.withValues(alpha: 0.88),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              elevation: 8,
-                              shadowColor: const Color(0x33000000),
-                            ),
-                            onPressed: _saveTransaction,
-                            child: Text(
-                              _typeIndex == 0 ? 'Add Expense' : 'Add Income',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveTransaction() async {
-    final String amountStr = _amountController.text.trim();
-    if (amountStr.isEmpty) {
-      _showError('Please enter an amount');
-      return;
-    }
-    final double? amount = double.tryParse(amountStr);
-    if (amount == null) {
-      _showError('Invalid amount');
-      return;
-    }
-    if (amount == 0) {
-      _showError('Amount cannot be zero');
-      return;
-    }
-    if (_selectedCategory == null) {
-      _showError('Please select a category');
-      return;
-    }
-
-    final type = _typeIndex == 0 ? 'expense' : 'income';
-    final category = _selectedCategory!.name;
-    final iconCodePoint = _selectedCategory!.icon.codePoint;
-    final note = _noteController.text.trim().isEmpty
-        ? null
-        : _noteController.text.trim();
-
-    final repo = TransactionRepository();
-    try {
-      if (widget.existingTransaction != null) {
-        // Update existing
-        final id = widget.existingTransaction!['id'] as int;
-        final map = <String, Object?>{
-          'amount': amount.abs(),
-          'type': type,
-          'date': _selectedDate.toIso8601String(),
-          'note': note,
-          'category': category,
-          'icon': iconCodePoint,
-        };
-        await repo.update(id, map);
-        if (!mounted) return;
-        _showSuccess('Transaction updated successfully');
-      } else {
-        // Insert new
-        await repo.add(
-          amount: amount.abs(),
-          type: type,
-          date: _selectedDate,
-          note: note,
-          category: category,
-          iconCodePoint: iconCodePoint,
-        );
-        if (!mounted) return;
-        _showSuccess('Transaction saved successfully');
-      }
-      await Future.delayed(const Duration(milliseconds: 500));
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      _showError('Failed to save transaction');
-    }
-  }
+        Icons.restaurant_rounded,
+        Icons.fastfood_rounded,
+        Icons.coffee_rounded,
+        Icons.delivery_dining_rounded,
+        Icons.shopping_cart_rounded,
+        Icons.shopping_bag_rounded,
+        Icons.local_gas_station_rounded,
+        Icons.directions_car_rounded,
+        Icons.local_taxi_rounded,
+        Icons.two_wheeler_rounded,
+        Icons.flight_rounded,
+        Icons.movie_rounded,
+        Icons.tv_rounded,
+        Icons.ondemand_video_rounded,
+        Icons.music_note_rounded,
+        Icons.live_tv_rounded,
+        Icons.fitness_center_rounded,
+        Icons.medical_services_rounded,
+        Icons.school_rounded,
+        Icons.home_rounded,
+        Icons.receipt_long_rounded,
+        Icons.phone_android_rounded,
+        Icons.bolt_rounded,
+        Icons.storefront_rounded,
+        Icons.inventory_2_rounded,
+        Icons.checkroom_rounded,
+        Icons.celebration_rounded,
+        Icons.volunteer_activism_rounded,
+        Icons.payments_rounded,
+        Icons.work_outline_rounded,
+        Icons.business_center_rounded,
+        Icons.trending_up_rounded,
+        Icons.savings_rounded,
+        Icons.card_giftcard_rounded,
+        Icons.currency_exchange_rounded,
+        Icons.house_rounded,
+        Icons.autorenew_rounded,
+        Icons.pets_rounded,
+        Icons.sports_esports_rounded,
+        Icons.note_rounded,
+      ];
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -988,6 +1142,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         content: Text(message),
         backgroundColor: AppColors.expense,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(seconds: 2),
       ),
     );
@@ -996,9 +1151,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   void _showSuccess(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Text(message),
+          ],
+        ),
         backgroundColor: AppColors.income,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         duration: const Duration(milliseconds: 800),
       ),
     );
@@ -1006,138 +1168,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   String _formatDate(DateTime dt) {
     final months = const [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-  }
-}
-
-class _CategoryOption {
-  final String name;
-  final IconData icon;
-  _CategoryOption(this.name, this.icon);
-}
-
-class _InlineCategoryGrid extends StatelessWidget {
-  final _CategoryOption? current;
-  final List<_CategoryOption> options;
-  final ValueChanged<_CategoryOption?> onChanged;
-  final ValueChanged<_CategoryOption> onAddNew;
-  const _InlineCategoryGrid({
-    required this.current,
-    required this.options,
-    required this.onChanged,
-    required this.onAddNew,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tiles = <Widget>[
-      _buildAddTile(context),
-      ...options.map((opt) => _buildOption(context, opt)),
-    ];
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      alignment: WrapAlignment.start,
-      children: tiles,
-    );
-  }
-
-  Widget _buildAddTile(BuildContext context) {
-    return InkWell(
-      onTap: () async {
-        final created = await context
-            .findAncestorStateOfType<_AddTransactionScreenState>()
-            ?._showCreateCategory(context);
-        if (created != null) onAddNew(created);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.08),
-          border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.3),
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.add_rounded, size: 20, color: AppColors.primary),
-            const SizedBox(width: 6),
-            const Text(
-              'Add New',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: AppColors.primary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOption(BuildContext context, _CategoryOption opt) {
-    final selected = current?.name == opt.name;
-    return Material(
-      color: selected
-          ? AppColors.primary.withValues(alpha: 0.15)
-          : Colors.grey.shade50,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => onChanged(opt),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: selected ? AppColors.primary : Colors.black26,
-              width: selected ? 2 : 1,
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                opt.icon,
-                size: 20,
-                color: selected ? AppColors.secondary : Colors.black87,
-              ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 150),
-                child: Text(
-                  opt.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: selected ? AppColors.secondary : Colors.black87,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

@@ -1,6 +1,8 @@
 // lib/models/transaction.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class TransactionModel {
-  final int? id;
+  final String? id;
   final double amount;
   final String type; // 'expense' or 'income'
   final DateTime date;
@@ -10,6 +12,7 @@ class TransactionModel {
   final bool autoDetected;
   final String? notificationSource;
   final String? notificationHash;
+  final DateTime? createdAt;
 
   TransactionModel({
     this.id,
@@ -22,36 +25,83 @@ class TransactionModel {
     this.autoDetected = false,
     this.notificationSource,
     this.notificationHash,
+    this.createdAt,
   });
 
-  Map<String, Object?> toMap() {
+  Map<String, dynamic> toFirestore() {
     return {
-      if (id != null) 'id': id,
       'amount': amount,
       'type': type,
-      'date': date.toIso8601String(),
+      'date': Timestamp.fromDate(date),
       'note': note,
       'category': category,
       'icon': icon,
-      'auto_detected': autoDetected ? 1 : 0,
-      'notification_source': notificationSource,
-      'notification_hash': notificationHash,
+      'autoDetected': autoDetected,
+      'notificationSource': notificationSource,
+      'notificationHash': notificationHash,
+      'createdAt': createdAt != null
+          ? Timestamp.fromDate(createdAt!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
-  factory TransactionModel.fromMap(Map<String, Object?> map) {
+  factory TransactionModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return TransactionModel(
-      id: map['id'] as int?,
-      amount: (map['amount'] as num).toDouble(),
-      type: map['type'] as String,
-      date: DateTime.parse(map['date'] as String),
-      note: map['note'] as String?,
-      category: map['category'] as String,
-      icon: (map['icon'] as num).toInt(),
-      autoDetected:
-          (map['auto_detected'] == 1) || (map['auto_detected'] == true),
-      notificationSource: map['notification_source'] as String?,
-      notificationHash: map['notification_hash'] as String?,
+      id: doc.id,
+      amount: (data['amount'] as num?)?.toDouble() ?? 0.0,
+      type: data['type'] as String? ?? 'expense',
+      date: (data['date'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      note: data['note'] as String?,
+      category: data['category'] as String? ?? 'Other',
+      icon: (data['icon'] as num?)?.toInt() ?? 0xe237,
+      autoDetected: data['autoDetected'] as bool? ?? false,
+      notificationSource: data['notificationSource'] as String?,
+      notificationHash: data['notificationHash'] as String?,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
+
+  /// For backward compat with screens that use Map<String, dynamic>
+  Map<String, dynamic> toDisplayMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'type': type,
+      'date': date,
+      'note': note,
+      'category': category,
+      'icon': icon,
+      'auto_detected': autoDetected,
+      'notificationSource': notificationSource,
+    };
+  }
+
+  TransactionModel copyWith({
+    String? id,
+    double? amount,
+    String? type,
+    DateTime? date,
+    String? note,
+    String? category,
+    int? icon,
+    bool? autoDetected,
+    String? notificationSource,
+    String? notificationHash,
+    DateTime? createdAt,
+  }) {
+    return TransactionModel(
+      id: id ?? this.id,
+      amount: amount ?? this.amount,
+      type: type ?? this.type,
+      date: date ?? this.date,
+      note: note ?? this.note,
+      category: category ?? this.category,
+      icon: icon ?? this.icon,
+      autoDetected: autoDetected ?? this.autoDetected,
+      notificationSource: notificationSource ?? this.notificationSource,
+      notificationHash: notificationHash ?? this.notificationHash,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 }

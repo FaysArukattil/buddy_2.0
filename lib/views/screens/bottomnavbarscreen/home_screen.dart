@@ -4,11 +4,13 @@ import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 import 'package:buddy/views/screens/filtered_transactions_screen.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
+import 'package:buddy/models/transaction.dart';
 import 'package:buddy/views/widgets/setting_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,9 +31,9 @@ class HomeScreenState extends State<HomeScreen>
   late final AnimationController _controller;
   late final Animation<double> _bobAnimation;
   final ScrollController _scrollController = ScrollController();
-  final List<Map<String, dynamic>> _transactions = [];
-  late final TransactionRepository _repo;
+  List<TransactionModel> _transactions = [];
   bool _isLoading = true;
+  StreamSubscription? _txnSubscription;
 
   @override
   void initState() {
@@ -40,11 +42,9 @@ class HomeScreenState extends State<HomeScreen>
     NotificationService.requestNotificationAccess();
     NotificationService.startListening();
 
-    // Add lifecycle observer to detect app resume
     WidgetsBinding.instance.addObserver(this);
 
     _loadUser();
-    _repo = TransactionRepository();
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -55,179 +55,97 @@ class HomeScreenState extends State<HomeScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
 
-    // Load data after frame
+    // Listen to Firestore transactions in real-time
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshFromDb();
+      _startListening();
     });
   }
 
   @override
   void dispose() {
+    _txnSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  // Called when app lifecycle changes
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-
     if (state == AppLifecycleState.resumed) {
-      debugPrint('📱 HOME SCREEN: App resumed - refreshing data');
-      _refreshAll(); // Refresh everything including name
+      _loadUser();
     }
   }
 
-  // Public method for external refresh
-  Future<void> refreshData() async {
-    debugPrint('🔄 HOME SCREEN: External refresh requested');
-    await _refreshAll();
-  }
-
-  // NEW: Refresh everything (name + transactions)
-  Future<void> _refreshAll() async {
-    await Future.wait([_loadUser(), _refreshFromDb()]);
-  }
-
-  Future<void> _refreshFromDb() async {
-    if (!mounted) return;
-
-    debugPrint('📊 HOME SCREEN: Loading transactions...');
-
+  void _startListening() {
     try {
-      // Get all transactions from database
-      final rows = await _repo.getAll();
-      debugPrint('📖 Found ${rows.length} total transactions');
+      _txnSubscription?.cancel();
+      _txnSubscription =
+          FirestoreService.instance.getTransactionsStream().listen(
+        (transactions) {
+          if (!mounted) return;
 
-      if (!mounted) return;
+          final now = DateTime.now();
+          double monthIncome = 0;
+          double monthExpense = 0;
 
-      // Calculate current month totals
-      final now = DateTime.now();
-      double monthIncome = 0;
-      double monthExpense = 0;
-
-      // Process all transactions
-      final List<Map<String, dynamic>> allTransactions = [];
-
-      for (final row in rows) {
-        // Parse transaction data
-        final amount = (row['amount'] as num?)?.toDouble() ?? 0;
-        final type = (row['type'] as String?)?.toLowerCase() ?? '';
-        final dateStr = row['date'] as String? ?? '';
-        final date = DateTime.tryParse(dateStr) ?? now;
-
-        // Check if transaction is in current month
-        if (date.year == now.year && date.month == now.month) {
-          if (type == 'income') {
-            monthIncome += amount;
-          } else if (type == 'expense') {
-            monthExpense += amount;
+          for (final txn in transactions) {
+            if (txn.date.year == now.year && txn.date.month == now.month) {
+              if (txn.type == 'income') {
+                monthIncome += txn.amount;
+              } else {
+                monthExpense += txn.amount;
+              }
+            }
           }
-        }
 
-        // Add to transaction list
-        allTransactions.add({
-          'id': row['id'],
-          'type': row['type'],
-          'title': (row['note'] as String?)?.isNotEmpty == true
-              ? row['note']
-              : row['category'],
-          'subtitle': row['category'],
-          'amount': amount,
-          'time': _formatTime(date),
-          'date': date,
-          'category': row['category'],
-          'note': row['note'],
-          'avatarText': (row['category'] as String?)?.isNotEmpty == true
-              ? (row['category'] as String).substring(0, 1).toUpperCase()
-              : '?',
-          'icon': row['icon'],
-          'auto_detected': row['auto_detected'] == 1,
-        });
-      }
-
-      // Sort transactions by date (newest first)
-      allTransactions.sort((a, b) {
-        final dateA = a['date'] as DateTime;
-        final dateB = b['date'] as DateTime;
-        return dateB.compareTo(dateA);
-      });
-
-      // Calculate balance
-      final balance = monthIncome - monthExpense;
-
-      debugPrint('💰 Current Month Summary:');
-      debugPrint('   Income: ₹$monthIncome');
-      debugPrint('   Expense: ₹$monthExpense');
-      debugPrint('   Balance: ₹$balance');
-
-      // Update UI
-      if (mounted) {
-        setState(() {
-          _transactions.clear();
-          _transactions.addAll(allTransactions);
-          _income = monthIncome;
-          _expenses = monthExpense;
-          _totalBalance = balance;
-          _isLoading = false;
-        });
-
-        debugPrint('✅ UI Updated Successfully');
-      }
+          setState(() {
+            _transactions = transactions;
+            _income = monthIncome;
+            _expenses = monthExpense;
+            _totalBalance = monthIncome - monthExpense;
+            _isLoading = false;
+          });
+        },
+        onError: (e) {
+          debugPrint('❌ HOME: Error listening to transactions: $e');
+          if (mounted) setState(() => _isLoading = false);
+        },
+      );
     } catch (e) {
-      debugPrint('❌ Error loading transactions: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      debugPrint('❌ HOME: Error starting listener: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> refreshData() async {
+    _loadUser();
+    // Stream auto-refreshes, but we can restart it
+    _startListening();
   }
 
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     final user = FirebaseAuth.instance.currentUser;
 
-    // Get saved name from SharedPreferences
     final savedName = prefs.getString('name')?.trim() ?? '';
-
-    // Get email from Firebase Auth first, then fallback to SharedPreferences
     final email = user?.email ?? prefs.getString('email')?.trim() ?? '';
 
-    debugPrint('👤 Loading user...');
-    debugPrint('   Saved Name: $savedName');
-    debugPrint('   Email: $email');
-    debugPrint('   Firebase Display Name: ${user?.displayName}');
-
-    // Use the same logic as ProfileScreen to generate display name
     String displayName = savedName;
-
-    // If no saved name, try Firebase displayName (from Google sign-in)
     if (displayName.isEmpty && user?.displayName != null) {
       displayName = user!.displayName!;
     }
-
-    // If still empty, generate from email
     if (displayName.isEmpty && email.isNotEmpty) {
       displayName = email.contains('@') ? email.split('@').first : email;
       if (displayName.isNotEmpty) {
         displayName = displayName[0].toUpperCase() + displayName.substring(1);
       }
     }
-
-    // Fallback to 'Guest' if still empty
-    if (displayName.isEmpty) {
-      displayName = 'Guest';
-    }
-
-    debugPrint('👤 Final display name: $displayName');
+    if (displayName.isEmpty) displayName = 'Guest';
 
     if (mounted) {
-      setState(() {
-        _displayName = displayName;
-      });
+      setState(() => _displayName = displayName);
     }
   }
 
@@ -246,27 +164,20 @@ class HomeScreenState extends State<HomeScreen>
     return '$h12:$minute $ampm';
   }
 
-  IconData _iconForNote(String? note) {
-    final n = (note ?? '').toLowerCase();
-    if (n.contains('coffee') || n.contains('cafe') || n.contains('food')) {
-      return Icons.fastfood_rounded;
+  String _getDateHeader(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final txnDay = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(txnDay).inDays;
+
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return days[date.weekday - 1];
     }
-    if (n.contains('fuel') || n.contains('petrol')) {
-      return Icons.local_gas_station_rounded;
-    }
-    if (n.contains('uber') || n.contains('taxi')) {
-      return Icons.local_taxi_rounded;
-    }
-    if (n.contains('rent') || n.contains('home')) {
-      return Icons.home_rounded;
-    }
-    if (n.contains('salary') || n.contains('payment')) {
-      return Icons.payments_rounded;
-    }
-    if (n.contains('shopping')) {
-      return Icons.shopping_bag_rounded;
-    }
-    return Icons.receipt_long_rounded;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}';
   }
 
   @override
@@ -275,6 +186,13 @@ class HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+
+    // Group transactions by date
+    final grouped = <String, List<TransactionModel>>{};
+    for (final txn in _transactions) {
+      final header = _getDateHeader(txn.date);
+      grouped.putIfAbsent(header, () => []).add(txn);
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -290,12 +208,11 @@ class HomeScreenState extends State<HomeScreen>
 
           SafeArea(
             child: RefreshIndicator(
-              onRefresh: _refreshAll,
+              onRefresh: refreshData,
               color: AppColors.primary,
               backgroundColor: Colors.white,
-              displacement: 60, // Distance from top before indicator appears
+              displacement: 60,
               strokeWidth: 3.0,
-              edgeOffset: 0, // Start detecting from the very top
               child: CustomScrollView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(
@@ -308,17 +225,15 @@ class HomeScreenState extends State<HomeScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Header with Settings Icon
+                          // Header
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              // Greeting and Name
                               Expanded(
                                 child: Padding(
                                   padding: const EdgeInsets.all(8.0),
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         _greeting(),
@@ -342,7 +257,6 @@ class HomeScreenState extends State<HomeScreen>
                                   ),
                                 ),
                               ),
-                              // Settings Icon
                               IconButton(
                                 onPressed: () {
                                   showModalBottomSheet(
@@ -350,21 +264,17 @@ class HomeScreenState extends State<HomeScreen>
                                     backgroundColor: Colors.transparent,
                                     isScrollControlled: true,
                                     builder: (context) => SettingsModal(
-                                      onDataCleared: () {
-                                        _refreshAll();
-                                      },
+                                      onDataCleared: () => refreshData(),
                                     ),
                                   );
                                 },
                                 icon: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.1,
-                                    ),
+                                    color: AppColors.primary.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: Icon(
+                                  child: const Icon(
                                     Icons.settings_rounded,
                                     size: 24,
                                     color: AppColors.primary,
@@ -373,7 +283,6 @@ class HomeScreenState extends State<HomeScreen>
                               ),
                             ],
                           ),
-
                           const SizedBox(height: 20),
 
                           // Balance Card
@@ -391,11 +300,9 @@ class HomeScreenState extends State<HomeScreen>
                                   context,
                                   MaterialPageRoute(
                                     builder: (_) =>
-                                        const FilteredTransactionsScreen(
-                                          type: 'All',
-                                        ),
+                                        const FilteredTransactionsScreen(type: 'All'),
                                   ),
-                                ).then((_) => _refreshAll());
+                                ).then((_) => refreshData());
                               },
                               child: Container(
                                 width: double.infinity,
@@ -411,9 +318,7 @@ class HomeScreenState extends State<HomeScreen>
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      color: AppColors.primary.withValues(alpha: 0.3),
                                       blurRadius: 15,
                                       offset: const Offset(0, 8),
                                     ),
@@ -474,7 +379,7 @@ class HomeScreenState extends State<HomeScreen>
 
                           const SizedBox(height: 24),
 
-                          // Transactions Section
+                          // Transactions Header
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -493,24 +398,21 @@ class HomeScreenState extends State<HomeScreen>
                                       context,
                                       MaterialPageRoute(
                                         builder: (_) =>
-                                            const FilteredTransactionsScreen(
-                                              type: 'All',
-                                            ),
+                                            const FilteredTransactionsScreen(type: 'All'),
                                       ),
-                                    ).then((_) => _refreshAll());
+                                    ).then((_) => refreshData());
                                   },
                                   child: const Text('See all'),
                                 ),
                             ],
                           ),
-
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 4),
                         ],
                       ),
                     ),
                   ),
 
-                  // Transaction List or Loading/Empty State
+                  // Transaction List
                   if (_isLoading)
                     const SliverFillRemaining(
                       hasScrollBody: false,
@@ -535,7 +437,7 @@ class HomeScreenState extends State<HomeScreen>
                               Icon(
                                 Icons.receipt_long_rounded,
                                 size: 64,
-                                color: Colors.grey.shade400,
+                                color: Colors.grey.shade300,
                               ),
                               const SizedBox(height: 16),
                               Text(
@@ -548,7 +450,7 @@ class HomeScreenState extends State<HomeScreen>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Tap + to add your first transaction\nor enable notification access',
+                                'Tap + to add your first transaction',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 14,
@@ -562,12 +464,48 @@ class HomeScreenState extends State<HomeScreen>
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                       sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate((context, index) {
-                          final tx = _transactions[index];
-                          return _buildTransactionTile(tx);
-                        }, childCount: _transactions.length),
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            // Build flat list with date headers
+                            int itemIndex = 0;
+                            for (final entry in grouped.entries) {
+                              // Date header
+                              if (index == itemIndex) {
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    top: itemIndex == 0 ? 0 : 16,
+                                    bottom: 8,
+                                  ),
+                                  child: Text(
+                                    entry.key,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey.shade500,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                );
+                              }
+                              itemIndex++;
+
+                              // Transactions under this header
+                              for (final txn in entry.value) {
+                                if (index == itemIndex) {
+                                  return _buildTransactionTile(txn);
+                                }
+                                itemIndex++;
+                              }
+                            }
+                            return const SizedBox.shrink();
+                          },
+                          childCount: grouped.entries.fold<int>(
+                            0,
+                            (sum, e) => sum + 1 + e.value.length,
+                          ),
+                        ),
                       ),
                     ),
                 ],
@@ -594,7 +532,7 @@ class HomeScreenState extends State<HomeScreen>
               type: label == 'Income' ? 'Income' : 'Expense',
             ),
           ),
-        ).then((_) => _refreshAll());
+        ).then((_) => refreshData());
       },
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -638,26 +576,26 @@ class HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildTransactionTile(Map<String, dynamic> tx) {
-    final isIncome = (tx['type'] as String).toLowerCase() == 'income';
-    final color = isIncome ? AppColors.income : AppColors.expense;
-    final isAutoDetected = tx['auto_detected'] == true;
+  Widget _buildTransactionTile(TransactionModel txn) {
+    final isIncome = txn.type.toLowerCase() == 'income';
+    final catColor = AppColors.getCategoryColor(txn.category);
+    final isAutoDetected = txn.autoDetected;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        elevation: 2,
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: () {
+            final displayMap = txn.toDisplayMap();
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => TransactionDetailScreen(data: tx),
+                builder: (_) => TransactionDetailScreen(data: displayMap),
               ),
-            ).then((_) => _refreshAll());
+            ).then((_) => refreshData());
           },
           child: Padding(
             padding: const EdgeInsets.all(12.0),
@@ -669,18 +607,13 @@ class HomeScreenState extends State<HomeScreen>
                       width: 48,
                       height: 48,
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+                        color: catColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
-                        tx['icon'] != null
-                            ? IconData(
-                                tx['icon'] as int,
-                                fontFamily: 'MaterialIcons',
-                              )
-                            : _iconForNote(tx['note'] as String?),
-                        color: color,
-                        size: 24,
+                        IconData(txn.icon, fontFamily: 'MaterialIcons'),
+                        color: catColor,
+                        size: 22,
                       ),
                     ),
                     if (isAutoDetected)
@@ -692,11 +625,11 @@ class HomeScreenState extends State<HomeScreen>
                           decoration: BoxDecoration(
                             color: Colors.blue,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1),
+                            border: Border.all(color: Colors.white, width: 1.5),
                           ),
                           child: const Icon(
                             Icons.auto_awesome,
-                            size: 10,
+                            size: 8,
                             color: Colors.white,
                           ),
                         ),
@@ -709,16 +642,19 @@ class HomeScreenState extends State<HomeScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        tx['title'] as String,
+                        txn.note?.isNotEmpty == true ? txn.note! : txn.category,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        tx['subtitle'] as String,
+                        txn.category,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: Colors.grey.shade500,
                           fontSize: 12,
                         ),
                       ),
@@ -729,17 +665,18 @@ class HomeScreenState extends State<HomeScreen>
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(tx['amount'] as double, compact: false)}',
+                      '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
                       style: TextStyle(
-                        color: color,
+                        color: isIncome ? AppColors.income : AppColors.expense,
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      tx['time'] as String,
+                      _formatTime(txn.date),
                       style: TextStyle(
-                        color: Colors.grey.shade500,
+                        color: Colors.grey.shade400,
                         fontSize: 11,
                       ),
                     ),

@@ -7,7 +7,8 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
+import 'package:buddy/models/transaction.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:intl/intl.dart';
 
@@ -37,8 +38,8 @@ class StatisticsScreenState extends State<StatisticsScreen>
   double _typeDragStartPage = 0;
   double _typeDragStartX = 0;
 
-  late final TransactionRepository _repo;
-  List<Map<String, Object?>> _rows = [];
+  final FirestoreService _firestore = FirestoreService.instance;
+  List<Map<String, dynamic>> _rows = [];
 
   // Optimized cache system
   List<double> _cachedPoints = [];
@@ -57,7 +58,6 @@ class StatisticsScreenState extends State<StatisticsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _repo = TransactionRepository();
     _load();
   }
 
@@ -78,8 +78,18 @@ class StatisticsScreenState extends State<StatisticsScreen>
   Future<void> _load() async {
     debugPrint('📊 STATISTICS: Loading transactions...');
     try {
-      final rows = await _repo.getAll();
-      debugPrint('📊 STATISTICS: Loaded ${rows.length} transactions');
+      final txns = await _firestore.getAllTransactions();
+      debugPrint('📊 STATISTICS: Loaded ${txns.length} transactions');
+      // Convert to maps for backward compat with computation methods
+      final rows = txns.map((t) => <String, dynamic>{
+        'amount': t.amount,
+        'type': t.type,
+        'date': t.date.toIso8601String(),
+        'category': t.category,
+        'icon': t.icon,
+        'note': t.note,
+        'id': t.id,
+      }).toList();
       if (!mounted) return;
       setState(() {
         _rows = rows;

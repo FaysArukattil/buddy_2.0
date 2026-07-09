@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 
 class FilteredTransactionsScreen extends StatefulWidget {
@@ -18,8 +18,8 @@ class FilteredTransactionsScreen extends StatefulWidget {
 
 class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     with TickerProviderStateMixin {
-  late final TransactionRepository _repo;
-  List<Map<String, Object?>> _allRows = [];
+  final FirestoreService _firestore = FirestoreService.instance;
+  List<Map<String, dynamic>> _allRows = [];
   List<Map<String, dynamic>> _displayedTransactions = [];
   List<Map<String, dynamic>> _nextTransactions = [];
   DateTime _currentMonth = DateTime.now();
@@ -55,7 +55,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   @override
   void initState() {
     super.initState();
-    _repo = TransactionRepository();
+    _load();
 
     _slideController = AnimationController(
       vsync: this,
@@ -72,7 +72,6 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     );
 
     _updateSlideAnimations(true);
-    _load();
   }
 
   void _updateSlideAnimations(bool isNext) {
@@ -103,8 +102,17 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   Future<void> _load() async {
     setState(() => _isLoading = true);
     try {
-      final rows = await _repo.getAll();
+      final txns = await _firestore.getAllTransactions();
       if (!mounted) return;
+      final rows = txns.map((t) => <String, dynamic>{
+        'amount': t.amount,
+        'type': t.type,
+        'date': t.date.toIso8601String(),
+        'category': t.category,
+        'icon': t.icon,
+        'note': t.note,
+        'id': t.id,
+      }).toList();
       setState(() {
         _allRows = rows;
         _isLoading = false;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/images.dart';
 import 'package:buddy/views/widgets/animated_money_text.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/pdf_service.dart';
 
@@ -605,9 +605,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen>
     if (ok != true) return;
 
     final id = widget.data['id'];
-    if (id is int) {
-      final repo = TransactionRepository();
-      await repo.delete(id);
+    if (id is String && id.isNotEmpty) {
+      await FirestoreService.instance.deleteTransaction(id);
       if (!mounted) return;
       Navigator.of(context).pop(true);
     }

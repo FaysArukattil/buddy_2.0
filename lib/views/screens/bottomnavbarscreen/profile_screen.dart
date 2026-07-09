@@ -10,7 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/images.dart';
 import 'package:buddy/utils/format_utils.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/notification_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -106,28 +106,22 @@ class ProfileScreenState extends State<ProfileScreen>
         }
       }
 
-      // Load transaction data
-      final repo = TransactionRepository();
-      final rows = await repo.getAll();
+      // Load transaction data from Firestore
       final now = DateTime.now();
       double income = 0, expense = 0;
-
-      for (final r in rows) {
-        final dt = DateTime.tryParse(r['date'] as String) ?? now;
-        if (dt.year == now.year && dt.month == now.month) {
-          final amt = (r['amount'] as num).toDouble();
-          final type = (r['type'] as String).toLowerCase().trim();
-          if (type == 'income') {
-            income += amt;
-          } else if (type == 'expense') {
-            expense += amt;
-          }
-        }
+      try {
+        final totals = await FirestoreService.instance.getMonthlyTotals(
+          now.year,
+          now.month,
+        );
+        income = totals['income'] ?? 0;
+        expense = totals['expense'] ?? 0;
+      } catch (e) {
+        debugPrint('⚠️ Error loading totals: $e');
       }
 
       // Load auto-detection settings
       await NotificationService.isAutoDetectionEnabled();
-      await repo.getAutoDetectedTransactions();
 
       // Update UI
       if (mounted) {

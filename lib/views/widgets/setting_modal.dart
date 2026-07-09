@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
-import 'package:buddy/repositories/transaction_repository.dart';
+import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/utils/colors.dart';
 
 class SettingsModal extends StatefulWidget {
@@ -146,28 +146,23 @@ class _SettingsModalState extends State<SettingsModal> {
     if (!confirmed) return;
 
     try {
-      final repo = TransactionRepository();
-      final rows = await repo.getAll();
+      final firestore = FirestoreService.instance;
+      final txns = await firestore.getAllTransactions();
       final today = DateTime.now();
       int deletedCount = 0;
 
-      for (final r in rows) {
-        final dateStr = r['date'] as String?;
-        if (dateStr == null) continue;
-
-        final dt = DateTime.tryParse(dateStr);
-        if (dt != null &&
-            dt.year == today.year &&
-            dt.month == today.month &&
-            dt.day == today.day) {
-          await repo.delete(r['id'] as int);
+      for (final txn in txns) {
+        if (txn.date.year == today.year &&
+            txn.date.month == today.month &&
+            txn.date.day == today.day) {
+          await firestore.deleteTransaction(txn.id!);
           deletedCount++;
         }
       }
 
       if (!mounted) return;
 
-      Navigator.pop(context); // Close modal
+      Navigator.pop(context);
       widget.onDataCleared();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -202,32 +197,26 @@ class _SettingsModalState extends State<SettingsModal> {
     if (!confirmed) return;
 
     try {
-      final repo = TransactionRepository();
-      final rows = await repo.getAll();
+      final firestore = FirestoreService.instance;
+      final txns = await firestore.getAllTransactions();
       final now = DateTime.now();
       int deletedCount = 0;
 
-      for (final r in rows) {
-        final dateStr = r['date'] as String?;
-        if (dateStr == null) continue;
-
-        final dt = DateTime.tryParse(dateStr);
-        if (dt != null && dt.year == now.year && dt.month == now.month) {
-          await repo.delete(r['id'] as int);
+      for (final txn in txns) {
+        if (txn.date.year == now.year && txn.date.month == now.month) {
+          await firestore.deleteTransaction(txn.id!);
           deletedCount++;
         }
       }
 
       if (!mounted) return;
 
-      Navigator.pop(context); // Close modal
+      Navigator.pop(context);
       widget.onDataCleared();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            '✅ Deleted $deletedCount transaction(s) from this month',
-          ),
+          content: Text('✅ Deleted $deletedCount transaction(s) from this month'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -258,23 +247,16 @@ class _SettingsModalState extends State<SettingsModal> {
     if (!confirmed) return;
 
     try {
-      final repo = TransactionRepository();
-      final rows = await repo.getAll();
-      int deletedCount = 0;
-
-      for (final r in rows) {
-        await repo.delete(r['id'] as int);
-        deletedCount++;
-      }
+      await FirestoreService.instance.clearAllData();
 
       if (!mounted) return;
 
-      Navigator.pop(context); // Close modal
+      Navigator.pop(context);
       widget.onDataCleared();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✅ Deleted $deletedCount transaction(s)'),
+          content: const Text('✅ All data cleared'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
