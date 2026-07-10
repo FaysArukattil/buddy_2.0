@@ -101,8 +101,40 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   Future<void> _loadCategories() async {
     try {
       final firestore = FirestoreService.instance;
+      
+      // Load categories
       final expense = await firestore.getCategories('expense');
       final income = await firestore.getCategories('income');
+      
+      // Load all transactions to count category usage frequency
+      List<TransactionModel> txns = [];
+      try {
+        txns = await firestore.getAllTransactions();
+      } catch (e) {
+        debugPrint('⚠️ Error fetching transactions for sorting categories: $e');
+      }
+
+      // Count usage frequency of each category name
+      final usageCounts = <String, int>{};
+      for (final txn in txns) {
+        final catName = txn.category;
+        usageCounts[catName] = (usageCounts[catName] ?? 0) + 1;
+      }
+
+      // Sort categories: highest usage count first, alphabetical fallback
+      void sortCategories(List<cat.Category> categories) {
+        categories.sort((a, b) {
+          final countA = usageCounts[a.name] ?? 0;
+          final countB = usageCounts[b.name] ?? 0;
+          if (countA != countB) {
+            return countB.compareTo(countA); // Descending order of usage
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase()); // Alphabetical fallback
+        });
+      }
+
+      sortCategories(expense);
+      sortCategories(income);
 
       if (mounted) {
         setState(() {
@@ -887,6 +919,16 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         : _noteController.text.trim();
     final iconCodePoint = _selectedCategoryIcon?.codePoint ?? Icons.note_rounded.codePoint;
 
+    final now = DateTime.now();
+    final dateWithTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      now.hour,
+      now.minute,
+      now.second,
+    );
+
     final firestore = FirestoreService.instance;
 
     try {
@@ -895,7 +937,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         await firestore.updateTransaction(id, {
           'amount': amount.abs(),
           'type': type,
-          'date': _selectedDate,
+          'date': dateWithTime,
           'note': note,
           'category': _selectedCategoryName,
           'icon': iconCodePoint,
@@ -906,7 +948,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         final txn = TransactionModel(
           amount: amount.abs(),
           type: type,
-          date: _selectedDate,
+          date: dateWithTime,
           note: note,
           category: _selectedCategoryName!,
           icon: iconCodePoint,

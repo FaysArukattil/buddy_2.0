@@ -258,7 +258,9 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                             const Divider(height: 20, color: Color(0xFFF1F1F1)),
                             _detailRow(
                               'Time',
-                              (widget.data['time'] as String?) ?? '-',
+                              widget.data['date'] is DateTime
+                                  ? _formatTime(widget.data['date'] as DateTime)
+                                  : '-',
                             ),
                             const Divider(height: 20, color: Color(0xFFF1F1F1)),
                             _detailRow(
@@ -315,6 +317,14 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         ),
       ),
     );
+  }
+
+  String _formatTime(DateTime d) {
+    final hour = d.hour;
+    final minute = d.minute.toString().padLeft(2, '0');
+    final ampm = hour >= 12 ? 'PM' : 'AM';
+    final h12 = hour % 12 == 0 ? 12 : hour % 12;
+    return '$h12:$minute $ampm';
   }
 
   Widget _avatarChild(Map<String, dynamic> data) {

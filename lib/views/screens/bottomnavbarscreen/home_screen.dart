@@ -1,5 +1,4 @@
 import 'package:buddy/services/notification_service.dart';
-import 'package:buddy/utils/images.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
@@ -277,515 +276,503 @@ class HomeScreenState extends State<HomeScreen>
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Background
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Image.asset(AppImages.curvedBackground, fit: BoxFit.cover),
-          ),
-
-          SafeArea(
-            child: RefreshIndicator(
-              onRefresh: refreshData,
-              color: AppColors.primary,
-              backgroundColor: Colors.white,
-              displacement: 60,
-              strokeWidth: 3.0,
-              child: CustomScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: refreshData,
+          color: AppColors.primary,
+          backgroundColor: Colors.white,
+          displacement: 60,
+          strokeWidth: 3.0,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Header
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _greeting(),
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _displayName,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                      letterSpacing: -0.5,
+                                    ),
+                                    textAlign: TextAlign.start,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                                  child: Column(
+                              IconButton(
+                                onPressed: _showSettings,
+                                icon: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.grey.shade100,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.settings_rounded,
+                                    size: 20,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () => context.findAncestorStateOfType<BottomNavbarScreenState>()?.switchTab(2),
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFFFFB74D), // Light gold
+                                        Color(0xFFFF8A65), // Peach
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.1),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _displayName.isNotEmpty ? _displayName[0].toUpperCase() : 'G',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Balance Card (Credit Card look)
+                      AnimatedBuilder(
+                        animation: _bobAnimation,
+                        builder: (context, child) {
+                          return Transform.translate(
+                            offset: Offset(0, _bobAnimation.value),
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFF1E5D57), // Deep emerald
+                                Color(0xFF3B8E85), // Soft teal
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF1E5D57).withValues(alpha: 0.35),
+                                blurRadius: 18,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(22),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'CURRENT BALANCE',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  // Gold card chip
+                                  Container(
+                                    width: 38,
+                                    height: 28,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.2),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(4.0),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+                                          ),
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                FormatUtils.formatCurrency(
+                                  _totalBalance,
+                                  compact: false,
+                                ),
+                                style: TextStyle(
+                                  color: _totalBalance >= 0
+                                      ? Colors.white
+                                      : Colors.red.shade300,
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        _greeting(),
+                                      const Text(
+                                        'CARD HOLDER',
                                         style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white.withValues(alpha: 0.8),
+                                          color: Colors.white54,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        _displayName,
+                                        _displayName.toUpperCase(),
                                         style: const TextStyle(
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
                                           color: Colors.white,
-                                          letterSpacing: -0.5,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.5,
                                         ),
-                                        textAlign: TextAlign.start,
                                       ),
                                     ],
                                   ),
-                                ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      const Text(
+                                        'BUDDY PAY',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.5,
+                                        ),
+                                      ),
+                                      Text(
+                                        'PREMIUM',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.5),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
+                              const SizedBox(height: 18),
+                              // Stats Capsules (Glassmorphic look)
                               Row(
                                 children: [
-                                  IconButton(
-                                    onPressed: _showSettings,
-                                    icon: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.white.withValues(alpha: 0.1),
-                                          width: 1,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.settings_rounded,
-                                        size: 20,
-                                        color: Colors.white,
-                                      ),
+                                  Expanded(
+                                    child: _buildStatTile(
+                                      label: 'Income',
+                                      value: _income,
+                                      icon: Icons.arrow_upward_rounded,
+                                      color: AppColors.income,
                                     ),
                                   ),
-                                  const SizedBox(width: 4),
-                                  GestureDetector(
-                                    onTap: () => context.findAncestorStateOfType<BottomNavbarScreenState>()?.switchTab(2),
-                                    child: Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFFFFB74D), // Light gold
-                                            Color(0xFFFF8A65), // Peach
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 1.5,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.1),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 3),
-                                          ),
-                                        ],
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          _displayName.isNotEmpty ? _displayName[0].toUpperCase() : 'G',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
-                                        ),
-                                      ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildStatTile(
+                                      label: 'Expenses',
+                                      value: _expenses,
+                                      icon: Icons.arrow_downward_rounded,
+                                      color: AppColors.expense,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                 ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 16),
+                        ),
+                      ),
 
-                          // Balance Card (Credit Card look)
-                          AnimatedBuilder(
-                            animation: _bobAnimation,
-                            builder: (context, child) {
-                              return Transform.translate(
-                                offset: Offset(0, _bobAnimation.value),
-                                child: child,
-                              );
-                            },
-                            child: Container(
-                              width: double.infinity,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF1E5D57), // Deep emerald
-                                    Color(0xFF3B8E85), // Soft teal
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(0xFF1E5D57).withValues(alpha: 0.35),
-                                    blurRadius: 18,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.all(22),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        'CURRENT BALANCE',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                      // Gold card chip
-                                      Container(
-                                        width: 38,
-                                        height: 28,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                          ),
-                                          borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.2),
-                                          ),
-                                        ),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(4.0),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
-                                              ),
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    FormatUtils.formatCurrency(
-                                      _totalBalance,
-                                      compact: false,
-                                    ),
-                                    style: TextStyle(
-                                      color: _totalBalance >= 0
-                                          ? Colors.white
-                                          : Colors.red.shade300,
-                                      fontSize: 34,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: -0.5,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 24),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'CARD HOLDER',
-                                            style: TextStyle(
-                                              color: Colors.white54,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.0,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _displayName.toUpperCase(),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          const Text(
-                                            'BUDDY PAY',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 1.5,
-                                            ),
-                                          ),
-                                          Text(
-                                            'PREMIUM',
-                                            style: TextStyle(
-                                              color: Colors.white.withValues(alpha: 0.5),
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.0,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 18),
-                                  // Stats Capsules (Glassmorphic look)
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildStatTile(
-                                          label: 'Income',
-                                          value: _income,
-                                          icon: Icons.arrow_upward_rounded,
-                                          color: AppColors.income,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: _buildStatTile(
-                                          label: 'Expenses',
-                                          value: _expenses,
-                                          icon: Icons.arrow_downward_rounded,
-                                          color: AppColors.expense,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
+                      const SizedBox(height: 24),
+
+                      // Quick Actions Section
+                      const Text(
+                        'Quick Actions',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildQuickActionButton(
+                            icon: Icons.add_circle_outline_rounded,
+                            label: 'Add Txn',
+                            color: const Color(0xFF69AEA9),
+                            onTap: _showAddTransactionSheet,
                           ),
+                          _buildQuickActionButton(
+                            icon: Icons.history_toggle_off_rounded,
+                            label: 'History',
+                            color: const Color(0xFF5C6BC0),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const FilteredTransactionsScreen(type: 'All'),
+                                ),
+                              ).then((_) => refreshData());
+                            },
+                          ),
+                          _buildQuickActionButton(
+                            icon: Icons.bar_chart_rounded,
+                            label: 'Analytics',
+                            color: const Color(0xFFAB47BC),
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const FilteredTransactionsScreen(type: 'Expense'),
+                                ),
+                              ).then((_) => refreshData());
+                            },
+                          ),
+                          _buildQuickActionButton(
+                            icon: Icons.tune_rounded,
+                            label: 'Settings',
+                            color: const Color(0xFFFFA726),
+                            onTap: _showSettings,
+                          ),
+                        ],
+                      ),
 
-                          const SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
-                          // Quick Actions Section
+                      // Transactions Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                           const Text(
-                            'Quick Actions',
+                            'Recent Transactions',
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildQuickActionButton(
-                                icon: Icons.add_circle_outline_rounded,
-                                label: 'Add Txn',
-                                color: const Color(0xFF69AEA9),
-                                onTap: _showAddTransactionSheet,
-                              ),
-                              _buildQuickActionButton(
-                                icon: Icons.history_toggle_off_rounded,
-                                label: 'History',
-                                color: const Color(0xFF5C6BC0),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const FilteredTransactionsScreen(type: 'All'),
-                                    ),
-                                  ).then((_) => refreshData());
-                                },
-                              ),
-                              _buildQuickActionButton(
-                                icon: Icons.bar_chart_rounded,
-                                label: 'Analytics',
-                                color: const Color(0xFFAB47BC),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const FilteredTransactionsScreen(type: 'Expense'),
-                                    ),
-                                  ).then((_) => refreshData());
-                                },
-                              ),
-                              _buildQuickActionButton(
-                                icon: Icons.tune_rounded,
-                                label: 'Settings',
-                                color: const Color(0xFFFFA726),
-                                onTap: _showSettings,
-                              ),
-                            ],
-                          ),
+                          if (_transactions.isNotEmpty)
+                            TextButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const FilteredTransactionsScreen(type: 'All'),
+                                  ),
+                                ).then((_) => refreshData());
+                              },
+                              child: const Text('See all'),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+                  ),
+                ),
+              ),
 
-                          const SizedBox(height: 24),
-
-                          // Transactions Header
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Recent Transactions',
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              if (_transactions.isNotEmpty)
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const FilteredTransactionsScreen(type: 'All'),
-                                      ),
-                                    ).then((_) => refreshData());
-                                  },
-                                  child: const Text('See all'),
-                                ),
-                            ],
+              // Transaction List
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                )
+              else if (_transactions.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(40.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.receipt_long_rounded,
+                            size: 64,
+                            color: Colors.grey.shade300,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No transactions yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap + to add your first transaction',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade500,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        // Build flat list with date headers
+                        int itemIndex = 0;
+                        for (final entry in grouped.entries) {
+                          // Date header
+                          if (index == itemIndex) {
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                top: itemIndex == 0 ? 0 : 20,
+                                bottom: 10,
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    entry.key.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.grey.shade500,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Divider(
+                                      color: Colors.grey.shade200,
+                                      thickness: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          itemIndex++;
 
-                  // Transaction List
-                  if (_isLoading)
-                    const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(40.0),
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                    )
-                  else if (_transactions.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(40.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.receipt_long_rounded,
-                                size: 64,
-                                color: Colors.grey.shade300,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'No transactions yet',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap + to add your first transaction',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey.shade500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            // Build flat list with date headers
-                            int itemIndex = 0;
-                            for (final entry in grouped.entries) {
-                              // Date header
+                          // Transactions under this header
+                          for (final txn in entry.value) {
                               if (index == itemIndex) {
-                                return Padding(
-                                  padding: EdgeInsets.only(
-                                    top: itemIndex == 0 ? 0 : 20,
-                                    bottom: 10,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        entry.key.toUpperCase(),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.grey.shade500,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Divider(
-                                          color: Colors.grey.shade200,
-                                          thickness: 1,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
+                                return _buildTransactionTile(txn);
                               }
                               itemIndex++;
-
-                              // Transactions under this header
-                              for (final txn in entry.value) {
-                                  if (index == itemIndex) {
-                                    return _buildTransactionTile(txn);
-                                  }
-                                  itemIndex++;
-                              }
-                            }
-                            return const SizedBox.shrink();
-                          },
-                          childCount: grouped.entries.fold<int>(
-                            0,
-                            (sum, e) => sum + 1 + e.value.length,
-                          ),
-                        ),
+                          }
+                        }
+                        return const SizedBox.shrink();
+                      },
+                      childCount: grouped.entries.fold<int>(
+                        0,
+                        (sum, e) => sum + 1 + e.value.length,
                       ),
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
