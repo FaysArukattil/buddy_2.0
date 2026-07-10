@@ -112,6 +112,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
         'icon': t.icon,
         'note': t.note,
         'id': t.id,
+        'autoDetected': t.autoDetected,
       }).toList();
       setState(() {
         _allRows = rows;
@@ -176,6 +177,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
         'avatarText': (r['category'] as String?)?.substring(0, 1) ?? '?',
         'icon': r['icon'],
         'id': r['id'],
+        'autoDetected': r['autoDetected'] as bool? ?? false,
       };
     }).toList();
   }
@@ -503,23 +505,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   String _formatCurrency(double v) =>
       FormatUtils.formatCurrency(v, compact: true);
 
-  String _formatTxDate(DateTime d) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[d.month - 1]} ${d.day}, ${d.year}';
-  }
+
 
   String _monthYearLabel() {
     const months = [
@@ -627,106 +613,168 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   Widget _buildTransactionCard(Map<String, dynamic> tx, bool isAll) {
     final txType = (tx['type'] as String).toLowerCase();
     final isTxIncome = txType == 'income';
-    final amountColor = isTxIncome ? AppColors.income : AppColors.expense;
+    final category = (tx['category'] as String?) ?? 'Other';
+    final catColor = AppColors.getCategoryColor(category);
+    final isAutoDetected = tx['autoDetected'] as bool? ?? false;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        elevation: 2,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => TransactionDetailScreen(data: tx),
-              ),
-            );
-            if (mounted) await _load();
-          },
-          child: Container(
-            padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: IntrinsicHeight(
             child: Row(
               children: [
+                // Category-specific brand color vertical stripe on the left edge
                 Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    gradient: LinearGradient(
-                      colors: [
-                        amountColor.withValues(alpha: 0.15),
-                        Colors.white,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    tx['icon'] != null
-                        ? IconData(
-                            tx['icon'] as int,
-                            fontFamily: 'MaterialIcons',
-                          )
-                        : _iconForNote(tx['note'] as String?),
-                    size: 24,
-                    color: AppColors.secondary,
-                  ),
+                  width: 4.5,
+                  color: catColor,
                 ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tx['title'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 15,
-                          color: AppColors.textPrimary,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => TransactionDetailScreen(data: tx),
+                          ),
+                        );
+                        if (mounted) await _load();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                        child: Row(
+                          children: [
+                            Stack(
+                              children: [
+                                Container(
+                                  width: 46,
+                                  height: 46,
+                                  decoration: BoxDecoration(
+                                    color: catColor.withValues(alpha: 0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    tx['icon'] != null
+                                        ? IconData(tx['icon'] as int, fontFamily: 'MaterialIcons') // ignore: non_const_argument_for_const_parameter
+                                        : _iconForNote(tx['note'] as String?),
+                                    color: catColor,
+                                    size: 20,
+                                  ),
+                                ),
+                                if (isAutoDetected)
+                                  Positioned(
+                                    right: -2,
+                                    bottom: -2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2196F3),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: Colors.white, width: 1.5),
+                                      ),
+                                      child: const Icon(
+                                        Icons.auto_awesome,
+                                        size: 8,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    (tx['title'] as String?)?.isNotEmpty == true ? tx['title'] as String : category,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          category,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isAutoDetected) ...[
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Auto',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade600,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${isTxIncome ? '+' : '-'}${_formatCurrency(tx['amount'] as double)}',
+                                  style: TextStyle(
+                                    color: isTxIncome ? AppColors.income : AppColors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  _formatTime(tx['date'] as DateTime),
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        tx['subtitle'] as String,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      (isTxIncome ? '+' : '-') +
-                          _formatCurrency(tx['amount'] as double),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                        color: amountColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _formatTxDate(tx['date'] as DateTime),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textLight,
-                      ),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -742,58 +790,61 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     final isAll = widget.type.toLowerCase() == 'all';
     final screenWidth = MediaQuery.of(context).size.width;
 
+    final accentColor = isAll
+        ? AppColors.primary
+        : (isIncome ? AppColors.income : AppColors.expense);
+
+    final cardBgColor = isAll
+        ? AppColors.primary.withValues(alpha: 0.08)
+        : (isIncome ? AppColors.income.withValues(alpha: 0.08) : AppColors.expense.withValues(alpha: 0.08));
+
+    final textTotalColor = isAll
+        ? AppColors.primary
+        : (isIncome ? AppColors.income : AppColors.expense);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
-      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: false,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(
+            Icons.arrow_back_rounded,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        title: Text(
+          widget.type == 'All' ? 'All Transactions' : '${widget.type} Transactions',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(
+            color: Colors.grey.shade100,
+            height: 1,
+            thickness: 1,
+          ),
+        ),
+      ),
       body: Stack(
         children: [
           Column(
             children: [
-              // Header
+              // Filter controls & Summary card
               Container(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  MediaQuery.of(context).padding.top + 12,
-                  16,
-                  16,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary,
-                      AppColors.primary.withValues(alpha: 0.8),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
+                color: Colors.white,
+                padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            widget.type,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 48),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    // Toggle
+                    // Toggle View (Today / Month)
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final totalWidth = constraints.maxWidth * 0.7;
@@ -844,7 +895,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                               width: totalWidth,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
+                                color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Stack(
@@ -862,6 +913,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                       decoration: BoxDecoration(
                                         color: Colors.white,
                                         borderRadius: BorderRadius.circular(10),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.04),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -876,8 +934,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               'Today',
                                               style: TextStyle(
                                                 color: _showingToday
-                                                    ? AppColors.primary
-                                                    : Colors.white,
+                                                    ? accentColor
+                                                    : Colors.grey.shade500,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -894,8 +952,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               'This Month',
                                               style: TextStyle(
                                                 color: !_showingToday
-                                                    ? AppColors.primary
-                                                    : Colors.white,
+                                                    ? accentColor
+                                                    : Colors.grey.shade500,
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -926,8 +984,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           icon: Icon(
                             Icons.chevron_left_rounded,
                             color: (_isTransitioning || _isDragging)
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.white,
+                                ? Colors.grey.shade300
+                                : AppColors.textPrimary,
                             size: 32,
                           ),
                         ),
@@ -939,10 +997,10 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.15),
+                              color: Colors.grey.shade50,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.3),
+                                color: Colors.grey.shade200,
                                 width: 1,
                               ),
                             ),
@@ -954,16 +1012,16 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                       ? _fullDateLabel()
                                       : _monthYearLabel(),
                                   style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Icon(
+                                Icon(
                                   Icons.calendar_today_rounded,
-                                  color: Colors.white,
-                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                  size: 14,
                                 ),
                               ],
                             ),
@@ -978,23 +1036,27 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           icon: Icon(
                             Icons.chevron_right_rounded,
                             color: (_isTransitioning || _isDragging)
-                                ? Colors.white.withValues(alpha: 0.3)
-                                : Colors.white,
+                                ? Colors.grey.shade300
+                                : AppColors.textPrimary,
                             size: 32,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    // Total
+                    // Total Summary
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 12,
+                        vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
+                        color: cardBgColor,
                         borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: accentColor.withValues(alpha: 0.15),
+                          width: 1,
+                        ),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1002,18 +1064,20 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           const Text(
                             'Total',
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.2,
                             ),
                           ),
                           Flexible(
                             child: Text(
                               _formatCurrency(_total),
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: textTotalColor,
                                 fontSize: 24,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: -0.5,
                               ),
                               overflow: TextOverflow.ellipsis,
                               maxLines: 1,
@@ -1087,7 +1151,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
             ],
           ),
 
-          // Page indicator
+          // Page indicator overlay
           AnimatedBuilder(
             animation: _indicatorAnimation,
             builder: (context, child) {
@@ -1108,7 +1172,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.9),
+                        color: accentColor.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
