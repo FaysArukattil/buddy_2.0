@@ -8,7 +8,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/services/firestore_service.dart';
-import 'package:buddy/models/transaction.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:intl/intl.dart';
 

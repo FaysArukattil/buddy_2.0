@@ -1,9 +1,10 @@
-// lib/services/notification_helper.dart
-// ignore: depend_on_referenced_packages
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'db_helper.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'firestore_service.dart';
+import '../models/transaction.dart';
 
 class NotificationHelper {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -97,44 +98,66 @@ class NotificationHelper {
     debugPrint('🎯 Action ID: ${response.actionId ?? "NULL - Body Tapped"}');
 
     try {
-      // Get pending transaction
-      final pendingData = await DatabaseHelper.instance.getPendingTransaction(
-        hash,
-      );
+      // Get pending transaction from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('pending_$hash');
 
-      if (pendingData == null) {
+      if (jsonStr == null) {
         debugPrint('⚠️ No pending transaction found for hash: $hash');
         return;
       }
+
+      final pendingData = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       debugPrint(
         '📦 Found pending data: ${pendingData['amount']} ${pendingData['type']}',
       );
 
-      // FIX: Check both 'yes' and 'action_yes' (some Android versions use different format)
+      // FIX: Check both 'yes' and 'action_yes'
       if (response.actionId == 'action_yes' ||
           response.actionId == 'yes' ||
           (response.actionId == null && response.input == 'yes')) {
         // User confirmed
         debugPrint('✅ User clicked YES - Adding transaction');
 
-        final id = await DatabaseHelper.instance.insertAutoTransaction(
-          pendingData,
-        );
-
-        if (id > 0) {
-          debugPrint('✅ Transaction successfully added (id=$id)');
-
-          await showTransactionAdded(
-            amount: pendingData['amount'] as double,
-            type: pendingData['type'] as String,
-            category: pendingData['category'] as String,
+        DateTime transactionDate;
+        if (pendingData['date'] is String) {
+          transactionDate = DateTime.parse(pendingData['date'] as String);
+        } else if (pendingData['timestamp'] is num) {
+          transactionDate = DateTime.fromMillisecondsSinceEpoch(
+            (pendingData['timestamp'] as num).toInt(),
           );
         } else {
-          debugPrint('❌ Failed to add transaction (id=$id)');
+          transactionDate = DateTime.now();
         }
 
-        await DatabaseHelper.instance.removePendingTransaction(hash);
+        final txn = TransactionModel(
+          amount: (pendingData['amount'] as num).toDouble(),
+          type: pendingData['type'] as String? ?? 'expense',
+          date: transactionDate,
+          note: pendingData['note'] as String?,
+          category: pendingData['category'] as String? ?? 'Other',
+          icon: (pendingData['icon'] as num?)?.toInt() ?? 0xe8f4,
+          autoDetected: true,
+          notificationSource: pendingData['source'] as String?,
+          notificationHash: hash,
+        );
+
+        final docId = await FirestoreService.instance.addTransaction(txn);
+
+        if (docId.isNotEmpty) {
+          debugPrint('✅ Transaction successfully added to Firestore (id=$docId)');
+
+          await showTransactionAdded(
+            amount: txn.amount,
+            type: txn.type,
+            category: txn.category,
+          );
+        } else {
+          debugPrint('❌ Failed to add transaction to Firestore');
+        }
+
+        await prefs.remove('pending_$hash');
         await _notifications.cancel(hash.hashCode);
       } else if (response.actionId == 'action_no' ||
           response.actionId == 'no' ||
@@ -142,12 +165,12 @@ class NotificationHelper {
         // User rejected
         debugPrint('❌ User clicked NO - Ignoring transaction');
 
-        await DatabaseHelper.instance.removePendingTransaction(hash);
+        await prefs.remove('pending_$hash');
         await _notifications.cancel(hash.hashCode);
 
         debugPrint('✅ Transaction ignored and notification dismissed');
       } else {
-        // Body tapped - do nothing, keep notification
+        // Body tapped
         debugPrint(
           'ℹ️ Notification body tapped - Keeping notification for user choice',
         );

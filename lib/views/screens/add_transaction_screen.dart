@@ -21,7 +21,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final FocusNode _amountFocus = FocusNode();
-  String? _selectedCategoryId;
   String? _selectedCategoryName;
   IconData? _selectedCategoryIcon;
   DateTime _selectedDate = DateTime.now();
@@ -33,7 +32,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   String _categoryQuery = '';
 
   late final AnimationController _saveAnimController;
-  late final Animation<double> _saveAnim;
 
   List<cat.Category> get _currentCategories =>
       _typeIndex == 0 ? _expenseCategories : _incomeCategories;
@@ -46,10 +44,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     _saveAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    );
-    _saveAnim = CurvedAnimation(
-      parent: _saveAnimController,
-      curve: Curves.easeOutBack,
     );
 
     _loadCategories();
@@ -66,6 +60,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       _selectedCategoryName = tx['category'] as String?;
       final iconCode = tx['icon'] as int?;
       if (iconCode != null) {
+        // ignore: non_const_argument_for_const_parameter
         _selectedCategoryIcon = IconData(iconCode, fontFamily: 'MaterialIcons');
       }
     }
@@ -87,6 +82,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     super.dispose();
   }
 
+  void _setDefaultCategory() {
+    if (_isEditing) return; // Don't override existing transaction values
+    
+    final cats = _typeIndex == 0 ? _expenseCategories : _incomeCategories;
+    if (cats.isEmpty) return;
+
+    // Default to "Other" if available, otherwise first category in the list
+    final otherCat = cats.firstWhere(
+      (c) => c.name.toLowerCase() == 'other',
+      orElse: () => cats.first,
+    );
+
+    _selectedCategoryName = otherCat.name;
+    _selectedCategoryIcon = otherCat.icon;
+  }
+
   Future<void> _loadCategories() async {
     try {
       final firestore = FirestoreService.instance;
@@ -104,11 +115,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             final cats = _typeIndex == 0 ? expense : income;
             for (final c in cats) {
               if (c.name == _selectedCategoryName) {
-                _selectedCategoryId = c.id;
                 _selectedCategoryIcon = c.icon;
                 break;
               }
             }
+          } else {
+            _setDefaultCategory();
           }
         });
       }
@@ -310,10 +322,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             HapticFeedback.selectionClick();
             setState(() {
               _typeIndex = index;
-              _selectedCategoryId = null;
-              _selectedCategoryName = null;
-              _selectedCategoryIcon = null;
               _categoryQuery = '';
+              _setDefaultCategory();
             });
           }
         },
@@ -505,13 +515,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       );
     }
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        ...filtered.map((c) => _buildCategoryChip(c)),
-        _buildAddCategoryChip(),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 10.0;
+        const int crossAxisCount = 2;
+        const double totalSpacing = spacing * (crossAxisCount - 1);
+        final double itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            ...filtered.map((c) => SizedBox(
+                  width: itemWidth,
+                  child: _buildCategoryChip(c),
+                )),
+            SizedBox(
+              width: itemWidth,
+              child: _buildAddCategoryChip(),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -523,60 +548,72 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       onTap: () {
         HapticFeedback.selectionClick();
         setState(() {
-          _selectedCategoryId = category.id;
           _selectedCategoryName = category.name;
           _selectedCategoryIcon = category.icon;
         });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        height: 64,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isSelected
-              ? catColor.withValues(alpha: 0.15)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+              ? catColor
+              : catColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? catColor : Colors.grey.shade200,
+            color: isSelected ? catColor : catColor.withValues(alpha: 0.15),
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: catColor.withValues(alpha: 0.15),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    color: catColor.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   )
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.01),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ],
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: catColor.withValues(alpha: isSelected ? 0.2 : 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                category.icon,
-                size: 16,
-                color: catColor,
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 32.0),
+                child: Text(
+                  category.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 100),
-              child: Text(
-                category.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                  fontSize: 13,
-                  color: isSelected ? catColor : AppColors.textPrimary,
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.2)
+                      : catColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  category.icon,
+                  size: 16,
+                  color: isSelected ? Colors.white : catColor,
                 ),
               ),
             ),
@@ -590,38 +627,43 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return GestureDetector(
       onTap: () => _showCreateCategory(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        height: 64,
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(14),
+          color: AppColors.primary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.primary.withValues(alpha: 0.25),
+            color: AppColors.primary.withValues(alpha: 0.3),
             width: 1.5,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
           children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.add_rounded,
-                size: 16,
-                color: AppColors.primary,
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Add New',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppColors.primary,
+                ),
               ),
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'Add New',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: AppColors.primary,
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.add_rounded,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
               ),
             ),
           ],
@@ -631,20 +673,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   }
 
   Widget _buildCategoryShimmer() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: List.generate(
-        8,
-        (_) => Container(
-          width: 110,
-          height: 44,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(14),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const double spacing = 10.0;
+        const int crossAxisCount = 2;
+        const double totalSpacing = spacing * (crossAxisCount - 1);
+        final double itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: List.generate(
+            8,
+            (_) => Container(
+              width: itemWidth,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1086,7 +1137,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         } else {
           _incomeCategories.add(result);
         }
-        _selectedCategoryId = result.id;
         _selectedCategoryName = result.name;
         _selectedCategoryIcon = result.icon;
       });

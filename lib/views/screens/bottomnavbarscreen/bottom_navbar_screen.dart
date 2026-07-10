@@ -5,16 +5,26 @@ import 'package:buddy/views/screens/bottomnavbarscreen/home_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/statistics_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/profile_screen.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
+import 'package:buddy/services/app_init_helper.dart';
 
 class BottomNavbarScreen extends StatefulWidget {
   const BottomNavbarScreen({super.key});
 
   @override
-  State<BottomNavbarScreen> createState() => _BottomNavbarScreenState();
+  State<BottomNavbarScreen> createState() => BottomNavbarScreenState();
 }
 
-class _BottomNavbarScreenState extends State<BottomNavbarScreen>
+class BottomNavbarScreenState extends State<BottomNavbarScreen>
     with SingleTickerProviderStateMixin {
+  void switchTab(int index) {
+    if (_pageController.hasClients) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
   late final PageController _pageController;
   int _currentIndex = 0;
   double _page = 0;
@@ -33,6 +43,8 @@ class _BottomNavbarScreenState extends State<BottomNavbarScreen>
   @override
   void initState() {
     super.initState();
+    AppInitHelper.initialize();
+    AppInitHelper.seedCategoriesIfNeeded();
     _pageController = PageController(initialPage: _currentIndex);
     _pageController.addListener(() {
       final p = _pageController.page ?? _currentIndex.toDouble();

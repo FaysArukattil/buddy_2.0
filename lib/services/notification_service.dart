@@ -1,13 +1,15 @@
 // lib/services/notification_service.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction.dart';
-import 'db_helper.dart';
+import 'firestore_service.dart';
 import 'notification_helper.dart';
 
 typedef OnTransactionDetected =
@@ -63,7 +65,13 @@ class NotificationService {
     'com.truecaller',
   ];
 
+  static bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
+
   static Future<bool> requestNotificationAccess() async {
+    if (!isSupportedPlatform) {
+      debugPrint('⚠️ NOTIFICATION: Platform not supported for notification access');
+      return false;
+    }
     debugPrint('🔔 NOTIFICATION: Requesting notification access...');
     final isGranted = await NotificationListenerService.isPermissionGranted();
     if (isGranted) {
@@ -77,6 +85,7 @@ class NotificationService {
   }
 
   static Future<void> startBackgroundService() async {
+    if (!isSupportedPlatform) return;
     try {
       debugPrint('🚀 Starting background notification service...');
       await _nativeChannel.invokeMethod('startNotificationService');
@@ -87,6 +96,7 @@ class NotificationService {
   }
 
   static Future<void> stopBackgroundService() async {
+    if (!isSupportedPlatform) return;
     try {
       debugPrint('🛑 Stopping background notification service...');
       await _nativeChannel.invokeMethod('stopNotificationService');
@@ -97,6 +107,7 @@ class NotificationService {
   }
 
   static Future<void> requestQueuedNotifications() async {
+    if (!isSupportedPlatform) return;
     try {
       debugPrint('📬 Requesting queued notifications...');
       await _nativeChannel.invokeMethod('getQueuedNotifications');
@@ -107,6 +118,7 @@ class NotificationService {
 
   // NEW: Request sync of unsynced transactions from native code
   static Future<void> syncUnsyncedTransactions() async {
+    if (!isSupportedPlatform) return;
     try {
       debugPrint(
         '🔄 NOTIFICATION: Requesting sync of unsynced transactions...',
@@ -138,6 +150,10 @@ class NotificationService {
   static Future<void> startListening([
     OnTransactionDetected? onTransactionDetected,
   ]) async {
+    if (!isSupportedPlatform) {
+      debugPrint('⚠️ NOTIFICATION: Platform not supported for listener');
+      return;
+    }
     if (_isListening) {
       debugPrint('⚠️ NOTIFICATION: Already listening');
       return;
@@ -213,7 +229,7 @@ class NotificationService {
           try {
             final hash = args['hash'] as String;
 
-            final exists = await DatabaseHelper.instance.isDuplicateTransaction(
+            final exists = await FirestoreService.instance.isDuplicateTransaction(
               hash,
             );
             if (exists) {
@@ -255,13 +271,11 @@ class NotificationService {
             debugPrint('   Auto-detected: ${transaction.autoDetected}');
 
             final transactionMap = transaction.toMap();
-            final id = await DatabaseHelper.instance.insertAutoTransaction(
-              transactionMap,
-            );
+            final docId = await FirestoreService.instance.addTransaction(transaction);
 
-            if (id > 0) {
+            if (docId.isNotEmpty) {
               debugPrint(
-                '✅✅✅ FLUTTER: Transaction SUCCESSFULLY saved to database (id=$id)',
+                '✅✅✅ FLUTTER: Transaction SUCCESSFULLY saved to database (id=$docId)',
               );
 
               if (_onTransactionDetected != null) {
@@ -269,7 +283,7 @@ class NotificationService {
               }
             } else {
               debugPrint(
-                '❌ FLUTTER: Failed to save transaction (returned id=$id)',
+                '❌ FLUTTER: Failed to save transaction',
               );
             }
           } catch (e, stackTrace) {
@@ -311,17 +325,18 @@ class NotificationService {
           debugPrint('📨 Duplicate response: hash=$hash, shouldAdd=$shouldAdd');
 
           if (shouldAdd) {
-            final pendingData = await DatabaseHelper.instance
-                .getPendingTransaction(hash);
+            final prefs = await SharedPreferences.getInstance();
+            final jsonStr = prefs.getString('pending_$hash');
 
-            if (pendingData != null) {
+            if (jsonStr != null) {
+              final pendingData = jsonDecode(jsonStr) as Map<String, dynamic>;
               debugPrint('📦 Found pending transaction data: $pendingData');
 
-              final exists = await DatabaseHelper.instance
+              final exists = await FirestoreService.instance
                   .isDuplicateTransaction(hash);
               if (exists) {
                 debugPrint('⚠️ Transaction already exists, skipping');
-                await DatabaseHelper.instance.removePendingTransaction(hash);
+                await prefs.remove('pending_$hash');
                 return;
               }
 
@@ -356,13 +371,11 @@ class NotificationService {
               debugPrint('   Date: ${transaction.date}');
 
               final transactionMap = transaction.toMap();
-              final id = await DatabaseHelper.instance.insertAutoTransaction(
-                transactionMap,
-              );
+              final docId = await FirestoreService.instance.addTransaction(transaction);
 
-              if (id > 0) {
+              if (docId.isNotEmpty) {
                 debugPrint(
-                  '✅✅✅ DUPLICATE CONFIRMED: Transaction saved (id=$id)',
+                  '✅✅✅ DUPLICATE CONFIRMED: Transaction saved (id=$docId)',
                 );
 
                 await NotificationHelper.showTransactionAdded(
@@ -378,12 +391,13 @@ class NotificationService {
                 debugPrint('❌ Failed to save confirmed duplicate transaction');
               }
 
-              await DatabaseHelper.instance.removePendingTransaction(hash);
+              await prefs.remove('pending_$hash');
             } else {
               debugPrint('⚠️ No pending transaction found for hash: $hash');
             }
           } else {
-            await DatabaseHelper.instance.removePendingTransaction(hash);
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('pending_$hash');
             debugPrint(
               '❌ User declined duplicate - removed pending transaction',
             );
@@ -402,6 +416,7 @@ class NotificationService {
   }
 
   static Future<void> stopListening() async {
+    if (!isSupportedPlatform) return;
     if (!_isListening) return;
     try {
       await _notificationSubscription?.cancel();
@@ -497,7 +512,7 @@ class NotificationService {
 
       final hash = _generateHash(fullText, DateTime.now());
 
-      final isDuplicateHash = await DatabaseHelper.instance
+      final isDuplicateHash = await FirestoreService.instance
           .isDuplicateTransaction(hash);
       if (isDuplicateHash) {
         debugPrint(
@@ -506,9 +521,8 @@ class NotificationService {
         return null;
       }
 
-      final pendingExists = await DatabaseHelper.instance.getPendingTransaction(
-        hash,
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final pendingExists = prefs.getString('pending_$hash');
       if (pendingExists != null) {
         debugPrint('   ⚠️ Pending transaction already exists - skipping');
         return null;
@@ -530,22 +544,18 @@ class NotificationService {
 
       final transactionMap = transaction.toMap();
 
-      final similarTransactions = await DatabaseHelper.instance
-          .findSimilarTransactions(
-            amount: transaction.amount,
-            type: transaction.type,
-            hoursWindow: 24,
-          );
+      final allTxns = await FirestoreService.instance.getAllTransactions();
+      final similarTransactions = allTxns.where((t) =>
+          t.amount == transaction.amount &&
+          t.type.toLowerCase() == transaction.type.toLowerCase() &&
+          t.date.isAfter(DateTime.now().subtract(const Duration(hours: 24)))).toList();
 
       if (similarTransactions.isNotEmpty) {
         debugPrint(
           '   ⚠️ Found ${similarTransactions.length} similar transaction(s) in last 24h',
         );
 
-        await DatabaseHelper.instance.storePendingTransaction(
-          hash,
-          transactionMap,
-        );
+        await prefs.setString('pending_$hash', jsonEncode(transactionMap));
 
         await NotificationHelper.showDuplicateConfirmation(
           transactionHash: hash,
@@ -559,18 +569,16 @@ class NotificationService {
         return null;
       }
 
-      final alreadyExists = await DatabaseHelper.instance
+      final alreadyExists = await FirestoreService.instance
           .isDuplicateTransaction(hash);
       if (alreadyExists) {
         debugPrint('⚠️ Transaction already exists - skipping');
         return null;
       }
 
-      final id = await DatabaseHelper.instance.insertAutoTransaction(
-        transactionMap,
-      );
-      if (id > 0) {
-        debugPrint('✅ NOTIFICATION: Auto-transaction inserted (id=$id)');
+      final docId = await FirestoreService.instance.addTransaction(transaction);
+      if (docId.isNotEmpty) {
+        debugPrint('✅ NOTIFICATION: Auto-transaction inserted (id=$docId)');
         await NotificationHelper.showTransactionAdded(
           amount: transaction.amount,
           type: transaction.type,
@@ -578,7 +586,7 @@ class NotificationService {
         );
         return {'transactionMap': transactionMap, 'hash': hash};
       } else {
-        debugPrint('⚠️ NOTIFICATION: Insert returned id=$id');
+        debugPrint('⚠️ NOTIFICATION: Insert failed');
         return null;
       }
     } catch (e, st) {
@@ -707,67 +715,142 @@ class NotificationService {
       'icon': icon,
     };
   }
-
   static String _detectCategory(String text, String type) {
     final lowerText = text.toLowerCase();
     if (type == 'expense') {
-      if (lowerText.contains('food') ||
-          lowerText.contains('swiggy') ||
-          lowerText.contains('zomato')) {
-        return 'Food';
+      if (lowerText.contains('swiggy')) return 'Swiggy';
+      if (lowerText.contains('zomato')) return 'Zomato';
+      if (lowerText.contains('zepto')) return 'Zepto';
+      if (lowerText.contains('amazon')) return 'Amazon';
+      if (lowerText.contains('flipkart')) return 'Flipkart';
+      if (lowerText.contains('netflix')) return 'Netflix';
+      if (lowerText.contains('jio')) return 'Jio Internet';
+      if (lowerText.contains('wifi')) return 'WiFi';
+      if (lowerText.contains('grocery') || lowerText.contains('groceries') || lowerText.contains('instamart')) {
+        return 'Grocery';
       }
-      if (lowerText.contains('amazon') || lowerText.contains('flipkart')) {
-        return 'Shopping';
+      if (lowerText.contains('food') || lowerText.contains('dining') || lowerText.contains('restaurant') || lowerText.contains('lunch') || lowerText.contains('dinner')) {
+        return 'Local Food';
       }
       if (lowerText.contains('uber') ||
           lowerText.contains('ola') ||
+          lowerText.contains('rapido') ||
           lowerText.contains('fuel')) {
         return 'Transport';
       }
       if (lowerText.contains('bill') ||
           lowerText.contains('electricity') ||
-          lowerText.contains('water')) {
-        return 'Bills';
+          lowerText.contains('water') ||
+          lowerText.contains('utility')) {
+        return 'Bills & Utilities';
       }
-      if (lowerText.contains('movie') || lowerText.contains('netflix')) {
-        return 'Entertainment';
+      if (lowerText.contains('movie') || lowerText.contains('youtube') || lowerText.contains('spotify') || lowerText.contains('hotstar')) {
+        return 'Subscriptions';
       }
-      if (lowerText.contains('pharmacy') || lowerText.contains('hospital')) {
-        return 'Health';
+      if (lowerText.contains('pharmacy') || lowerText.contains('hospital') || lowerText.contains('medical')) {
+        return 'Medical';
       }
       return 'Other';
     } else {
       if (lowerText.contains('salary')) return 'Salary';
       if (lowerText.contains('refund') || lowerText.contains('cashback')) {
-        return 'Refund';
+        return 'Cashback';
       }
       if (lowerText.contains('interest')) return 'Interest';
+      if (lowerText.contains('investment') || lowerText.contains('stock') || lowerText.contains('mutual fund')) {
+        return 'Investment';
+      }
       return 'Other';
     }
   }
 
   static int _getIconForCategory(String category) {
     switch (category) {
-      case 'Food':
-        return 0xe56c;
-      case 'Shopping':
-        return 0xe8cc;
+      case 'Food & Dining':
+        return Icons.restaurant_rounded.codePoint;
+      case 'Groceries':
+        return Icons.shopping_cart_rounded.codePoint;
+      case 'Grocery':
+        return Icons.shopping_basket_rounded.codePoint;
+      case 'Swiggy':
+        return Icons.delivery_dining_rounded.codePoint;
+      case 'Zomato':
+        return Icons.fastfood_rounded.codePoint;
+      case 'Zepto':
+        return Icons.bolt_rounded.codePoint;
+      case 'Instamart':
+        return Icons.storefront_rounded.codePoint;
+      case 'Amazon':
+        return Icons.inventory_2_rounded.codePoint;
+      case 'Flipkart':
+        return Icons.shopping_bag_rounded.codePoint;
+      case 'Myntra':
+        return Icons.checkroom_rounded.codePoint;
       case 'Transport':
-        return 0xe531;
-      case 'Bills':
-        return 0xe8b0;
-      case 'Entertainment':
-        return 0xe404;
-      case 'Health':
-        return 0xe3f3;
+        return Icons.directions_car_rounded.codePoint;
+      case 'Uber':
+      case 'Ola':
+        return Icons.local_taxi_rounded.codePoint;
+      case 'Rapido':
+        return Icons.two_wheeler_rounded.codePoint;
+      case 'Fuel':
+        return Icons.local_gas_station_rounded.codePoint;
+      case 'Netflix':
+        return Icons.tv_rounded.codePoint;
+      case 'YouTube':
+        return Icons.ondemand_video_rounded.codePoint;
+      case 'Spotify':
+        return Icons.music_note_rounded.codePoint;
+      case 'Hotstar':
+        return Icons.live_tv_rounded.codePoint;
+      case 'Gym & Fitness':
+        return Icons.fitness_center_rounded.codePoint;
+      case 'Medical':
+        return Icons.medical_services_rounded.codePoint;
+      case 'Education':
+        return Icons.school_rounded.codePoint;
+      case 'Rent':
+        return Icons.home_rounded.codePoint;
+      case 'Bills & Utilities':
+        return Icons.receipt_long_rounded.codePoint;
+      case 'Recharge':
+        return Icons.phone_android_rounded.codePoint;
+      case 'Coffee':
+        return Icons.coffee_rounded.codePoint;
+      case 'Travel':
+        return Icons.flight_rounded.codePoint;
+      case 'Party':
+        return Icons.celebration_rounded.codePoint;
+      case 'Gifts & Charity':
+        return Icons.volunteer_activism_rounded.codePoint;
+      case 'Subscriptions':
+        return Icons.autorenew_rounded.codePoint;
+      case 'Local Food':
+        return Icons.local_pizza_rounded.codePoint;
+      case 'Jio Internet':
+        return Icons.router_rounded.codePoint;
+      case 'WiFi':
+        return Icons.wifi_rounded.codePoint;
       case 'Salary':
-        return 0xe263;
-      case 'Refund':
-        return 0xe5d5;
+        return Icons.payments_rounded.codePoint;
+      case 'Freelance':
+        return Icons.work_outline_rounded.codePoint;
+      case 'Business':
+        return Icons.business_center_rounded.codePoint;
+      case 'Investment':
+        return Icons.trending_up_rounded.codePoint;
       case 'Interest':
-        return 0xe227;
+        return Icons.savings_rounded.codePoint;
+      case 'Refund':
+        return Icons.reply_rounded.codePoint;
+      case 'Gift':
+        return Icons.card_giftcard_rounded.codePoint;
+      case 'Cashback':
+        return Icons.currency_exchange_rounded.codePoint;
+      case 'Rental Income':
+        return Icons.house_rounded.codePoint;
       default:
-        return 0xe8f4;
+        return Icons.note_rounded.codePoint;
     }
   }
 

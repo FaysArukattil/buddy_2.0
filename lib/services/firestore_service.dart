@@ -220,43 +220,52 @@ class FirestoreService {
 
   /// Seed default categories (batch write for efficiency)
   Future<void> seedDefaultCategories() async {
-    final hasExisting = await hasCategories();
-    if (hasExisting) {
-      debugPrint('ℹ️ FIRESTORE: Categories already exist, skipping seed');
-      return;
-    }
+    final snapshot = await _catCol.get();
+    final existingNames = snapshot.docs
+        .map((doc) => doc.data()['name'] as String)
+        .toSet();
 
     debugPrint('🌱 FIRESTORE: Seeding default categories...');
     final batch = _db.batch();
-    int order = 0;
+    int order = existingNames.length;
+    bool hasAddedAny = false;
 
     for (final entry in _defaultExpenseCategories) {
-      final ref = _catCol.doc();
-      batch.set(ref, {
-        'name': entry['name'],
-        'icon': entry['icon'],
-        'color': AppColors.getCategoryColor(entry['name'] as String).value,
-        'type': 'expense',
-        'isDefault': true,
-        'order': order++,
-      });
+      if (!existingNames.contains(entry['name'])) {
+        final ref = _catCol.doc();
+        batch.set(ref, {
+          'name': entry['name'],
+          'icon': entry['icon'],
+          'color': AppColors.getCategoryColor(entry['name'] as String).value,
+          'type': 'expense',
+          'isDefault': true,
+          'order': order++,
+        });
+        hasAddedAny = true;
+      }
     }
 
-    order = 0;
     for (final entry in _defaultIncomeCategories) {
-      final ref = _catCol.doc();
-      batch.set(ref, {
-        'name': entry['name'],
-        'icon': entry['icon'],
-        'color': AppColors.getCategoryColor(entry['name'] as String).value,
-        'type': 'income',
-        'isDefault': true,
-        'order': order++,
-      });
+      if (!existingNames.contains(entry['name'])) {
+        final ref = _catCol.doc();
+        batch.set(ref, {
+          'name': entry['name'],
+          'icon': entry['icon'],
+          'color': AppColors.getCategoryColor(entry['name'] as String).value,
+          'type': 'income',
+          'isDefault': true,
+          'order': order++,
+        });
+        hasAddedAny = true;
+      }
     }
 
-    await batch.commit();
-    debugPrint('✅ FIRESTORE: Default categories seeded');
+    if (hasAddedAny) {
+      await batch.commit();
+      debugPrint('✅ FIRESTORE: Default categories seeded');
+    } else {
+      debugPrint('ℹ️ FIRESTORE: All default categories already present');
+    }
   }
 
   /// Delete all categories
@@ -282,6 +291,7 @@ class FirestoreService {
   static final List<Map<String, dynamic>> _defaultExpenseCategories = [
     {'name': 'Food & Dining', 'icon': Icons.restaurant_rounded.codePoint},
     {'name': 'Groceries', 'icon': Icons.shopping_cart_rounded.codePoint},
+    {'name': 'Grocery', 'icon': Icons.shopping_basket_rounded.codePoint},
     {'name': 'Swiggy', 'icon': Icons.delivery_dining_rounded.codePoint},
     {'name': 'Zomato', 'icon': Icons.fastfood_rounded.codePoint},
     {'name': 'Zepto', 'icon': Icons.bolt_rounded.codePoint},
@@ -309,6 +319,9 @@ class FirestoreService {
     {'name': 'Party', 'icon': Icons.celebration_rounded.codePoint},
     {'name': 'Gifts & Charity', 'icon': Icons.volunteer_activism_rounded.codePoint},
     {'name': 'Subscriptions', 'icon': Icons.autorenew_rounded.codePoint},
+    {'name': 'Local Food', 'icon': Icons.local_pizza_rounded.codePoint},
+    {'name': 'Jio Internet', 'icon': Icons.router_rounded.codePoint},
+    {'name': 'WiFi', 'icon': Icons.wifi_rounded.codePoint},
     {'name': 'Other', 'icon': Icons.note_rounded.codePoint},
   ];
 

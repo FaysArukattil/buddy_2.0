@@ -37,6 +37,7 @@ class Category {
       id: doc.id,
       name: data['name'] as String? ?? '',
       icon: IconData(
+        // ignore: non_const_argument_for_const_parameter
         (data['icon'] as num?)?.toInt() ?? Icons.category_rounded.codePoint,
         fontFamily: 'MaterialIcons',
       ),
@@ -54,6 +55,7 @@ class Category {
       id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? '',
       icon: IconData(
+        // ignore: non_const_argument_for_const_parameter
         (map['icon'] as num?)?.toInt() ?? Icons.category_rounded.codePoint,
         fontFamily: 'MaterialIcons',
       ),

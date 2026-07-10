@@ -39,6 +39,7 @@ class AppColors {
     // Expense categories
     'Food & Dining': Color(0xFFFF8A65),
     'Groceries': Color(0xFF66BB6A),
+    'Grocery': Color(0xFF4CAF50),
     'Swiggy': Color(0xFFFF6D00),
     'Zomato': Color(0xFFE23744),
     'Zepto': Color(0xFF7C4DFF),
@@ -68,6 +69,9 @@ class AppColors {
     'Subscriptions': Color(0xFF78909C),
     'Clothing': Color(0xFFE91E63),
     'Pets': Color(0xFFFF7043),
+    'Local Food': Color(0xFFFF9E80),
+    'Jio Internet': Color(0xFF005AE0),
+    'WiFi': Color(0xFF00ACC1),
     'Other': Color(0xFF90A4AE),
     // Income categories
     'Salary': Color(0xFF4CAF50),

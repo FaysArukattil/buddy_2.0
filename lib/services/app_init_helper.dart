@@ -7,16 +7,27 @@ import 'firestore_service.dart';
 
 class AppInitHelper {
   static bool _isInitialized = false;
+  static String? _lastUid;
 
   // Callback to notify UI when transactions are synced
   static Function()? onTransactionsSynced;
 
   /// Initialize app - call this in main.dart or app startup
   static Future<void> initialize() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final uid = currentUser?.uid;
+
     if (_isInitialized) {
-      debugPrint('⚠️ App already initialized');
-      return;
+      if (_lastUid == uid) {
+        debugPrint('⚠️ App already initialized for user: $uid');
+        return;
+      } else {
+        debugPrint('🔄 Auth UID changed from $_lastUid to $uid. Re-initializing...');
+        await dispose();
+      }
     }
+
+    _lastUid = uid;
 
     debugPrint('🚀 ============ APP INITIALIZATION ============');
 
@@ -95,6 +106,5 @@ class AppInitHelper {
   static Future<void> dispose() async {
     await NotificationService.stopListening();
     _isInitialized = false;
-    onTransactionsSynced = null;
   }
 }

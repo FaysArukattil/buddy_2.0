@@ -77,6 +77,36 @@ class TransactionModel {
     };
   }
 
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'type': type,
+      'date': date.toIso8601String(),
+      'note': note,
+      'category': category,
+      'icon': icon,
+      'autoDetected': autoDetected,
+      'notificationSource': notificationSource,
+      'notificationHash': notificationHash,
+    };
+  }
+
+  factory TransactionModel.fromMap(Map<String, dynamic> map) {
+    return TransactionModel(
+      id: map['id'] as String?,
+      amount: (map['amount'] as num).toDouble(),
+      type: map['type'] as String,
+      date: DateTime.parse(map['date'] as String),
+      note: map['note'] as String?,
+      category: map['category'] as String,
+      icon: (map['icon'] as num).toInt(),
+      autoDetected: map['autoDetected'] as bool? ?? false,
+      notificationSource: map['notificationSource'] as String?,
+      notificationHash: map['notificationHash'] as String?,
+    );
+  }
+
   TransactionModel copyWith({
     String? id,
     double? amount,

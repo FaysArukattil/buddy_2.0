@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/db_helper.dart';
+import '../services/firestore_service.dart';
+import '../models/transaction.dart';
 
 /// Test helper widget to simulate notifications and test parsing
 /// Add this to your Profile screen temporarily for testing
@@ -127,7 +128,7 @@ class NotificationTestHelper extends StatelessWidget {
       debugPrint('   Package: $packageName');
       debugPrint('   Text: $text');
 
-      // Parse the transaction (same logic as NotificationService)
+      // Parse the transaction
       final transactionData = _parseTransaction(text, packageName);
 
       if (transactionData == null) {
@@ -135,21 +136,21 @@ class NotificationTestHelper extends StatelessWidget {
         return;
       }
 
-      // Insert into database
-      final db = await DatabaseHelper.instance.database;
-      final id = await db.insert('transactions', {
-        'amount': transactionData['amount'],
-        'type': transactionData['type'],
-        'date': DateTime.now().toIso8601String(),
-        'note': transactionData['note'],
-        'category': transactionData['category'],
-        'icon': transactionData['icon'],
-        'auto_detected': 1,
-        'notification_source': packageName,
-        'notification_hash': 'test_${DateTime.now().millisecondsSinceEpoch}',
-      });
+      final txn = TransactionModel(
+        amount: transactionData['amount'] as double,
+        type: transactionData['type'] as String,
+        date: DateTime.now(),
+        note: transactionData['note'] as String?,
+        category: transactionData['category'] as String,
+        icon: transactionData['icon'] as int,
+        autoDetected: true,
+        notificationSource: packageName,
+        notificationHash: 'test_${DateTime.now().millisecondsSinceEpoch}',
+      );
 
-      debugPrint('✅ TEST: Transaction added with ID: $id');
+      final id = await FirestoreService.instance.addTransaction(txn);
+
+      debugPrint('... TEST: Transaction added with ID: $id');
       
       if (context.mounted) {
         _showMessage(
