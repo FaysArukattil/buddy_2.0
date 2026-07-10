@@ -298,6 +298,22 @@ class StatisticsScreenState extends State<StatisticsScreen>
   String _formatCurrency(double v) =>
       FormatUtils.formatCurrency(v, compact: true);
 
+  String _getDateRangeLabel() {
+    final now = _selectedDate;
+    switch (_selectedTab) {
+      case 0:
+        return DateFormat('MMM dd, yyyy').format(now);
+      case 1:
+        final startOfWeek = now.subtract(Duration(days: (now.weekday - 1) % 7));
+        final endOfWeek = startOfWeek.add(const Duration(days: 6));
+        return '${DateFormat('MMM dd').format(startOfWeek)} – ${DateFormat('MMM dd').format(endOfWeek)}';
+      case 2:
+        return DateFormat('MMMM yyyy').format(now);
+      default:
+        return DateFormat('yyyy').format(now);
+    }
+  }
+
   Future<void> _downloadCurrentView() async {
     setState(() => _isDownloading = true);
 
@@ -712,7 +728,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.white,
         body: SafeArea(
           child: Column(
             children: [
@@ -739,7 +755,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final hasData = points.any((p) => p > 0);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
@@ -800,15 +816,29 @@ class StatisticsScreenState extends State<StatisticsScreen>
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
-            child: Text(
-              'Statistics',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+          Expanded(
+            child: Column(
+              children: [
+                const Text(
+                  'Statistics',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _getDateRangeLabel(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -1112,7 +1142,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
               color: selected
                   ? (text == 'Income' ? AppColors.income : AppColors.expense)
                   : AppColors.textSecondary,
-              size: 40,
+              size: 20,
             ),
             const SizedBox(width: 6),
             Text(
@@ -1514,11 +1544,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color:
-                          (_type == 'Income'
-                                  ? AppColors.income
-                                  : AppColors.expense)
-                              .withValues(alpha: 0.1),
+                      color: AppColors.getCategoryBgColor(cat['category'] as String),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -1528,9 +1554,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                               fontFamily: 'MaterialIcons',
                             )
                           : Icons.category_rounded,
-                      color: _type == 'Income'
-                          ? AppColors.income
-                          : AppColors.expense,
+                      color: AppColors.getCategoryColor(cat['category'] as String),
                       size: 24,
                     ),
                   ),
@@ -1554,9 +1578,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                             value: percentage / 100,
                             backgroundColor: Colors.grey.shade200,
                             valueColor: AlwaysStoppedAnimation(
-                              _type == 'Income'
-                                  ? AppColors.income
-                                  : AppColors.expense,
+                              AppColors.getCategoryColor(cat['category'] as String),
                             ),
                             minHeight: 6,
                           ),

@@ -26,20 +26,92 @@ class NotificationService {
 
   static final Set<String> _recentlyProcessed = {};
 
-  static final RegExp _debitRegex = RegExp(
-    r'\b(debited|spent|purchase|paid|withdrawn|debit|payment|sent|transferred|transfer to|paid to)\b',
+  // ── Strict bank SMS patterns ──
+  // These only match structured banking transaction messages.
+  // Pattern: "Debited Rs XXX from a/c XXXX ..."
+  static final RegExp _bankDebitPattern = RegExp(
+    r'debited\s+rs\.?\s*[0-9,]+\.?[0-9]*\s+from\s+(?:a/c|a\.c|acct?|account)\s*[xX*]*\d+',
     caseSensitive: false,
   );
 
-  static final RegExp _creditRegex = RegExp(
-    r'\b(credited|received|deposit|income|credit|refund|cashback|received from|got)\b',
+  // Pattern: "Rs.XXX credited to your A/c XXXX ..."
+  static final RegExp _bankCreditPattern = RegExp(
+    r'rs\.?\s*[0-9,]+\.?[0-9]*\s+credited\s+(?:to\s+your\s+)?(?:a/c|a\.c|acct?|account)\s*[xX*]*\d+',
     caseSensitive: false,
   );
 
+  // Pattern: "credited as interest to your A/c"
+  static final RegExp _interestCreditPattern = RegExp(
+    r'rs\.?\s*[0-9,]+\.?[0-9]*\s+credited\s+as\s+interest\s+to\s+your\s+(?:a/c|a\.c|acct?|account)',
+    caseSensitive: false,
+  );
+
+  // Pattern: "debited from your account" / "withdrawn from your account"
+  static final RegExp _debitFromAccountPattern = RegExp(
+    r'(?:debited|deducted|withdrawn)\s+(?:from\s+your\s+)?(?:a/c|a\.c|acct?|account|bank)',
+    caseSensitive: false,
+  );
+
+  // Pattern: "credited to your account" / "deposited to your account"
+  static final RegExp _creditToAccountPattern = RegExp(
+    r'(?:credited|deposited|added)\s+(?:to\s+your\s+)?(?:a/c|a\.c|acct?|account|bank)',
+    caseSensitive: false,
+  );
+
+  // UPI-specific patterns
+  static final RegExp _upiDebitPattern = RegExp(
+    r'(?:paid|sent|transferred)\s+rs\.?\s*[0-9,]+\.?[0-9]*\s+(?:to|via\s+upi)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _upiCreditPattern = RegExp(
+    r'(?:received|got)\s+rs\.?\s*[0-9,]+\.?[0-9]*\s+(?:from|via\s+upi)',
+    caseSensitive: false,
+  );
+
+  // Amount extraction
   static final RegExp _amountRegex = RegExp(
     r'(?:Rs\.?\s?|INR\s?|₹\s?)([0-9,]+\.?[0-9]*)|([0-9,]+\.?[0-9]*)\s?(?:Rs\.?|INR|₹)|(?:amount|amt|sum)[\s:]*(?:Rs\.?\s?|INR\s?|₹\s?)?([0-9,]+\.?[0-9]*)',
     caseSensitive: false,
   );
+
+  // Account number pattern — must appear for a message to be a bank txn
+  static final RegExp _accountPattern = RegExp(
+    r'(?:a/c|a\.c|acct?|account)\s*[xX*]*\d{2,}',
+    caseSensitive: false,
+  );
+
+  // UPI Ref pattern — strong signal of a real bank SMS
+  static final RegExp _upiRefPattern = RegExp(
+    r'ref\.?\s*\d{6,}',
+    caseSensitive: false,
+  );
+
+  // Balance pattern — strong signal
+  static final RegExp _balancePattern = RegExp(
+    r'(?:bal|balance)[\s:.-]*rs\.?\s*[0-9,]+',
+    caseSensitive: false,
+  );
+
+  // Extract merchant name from "to MERCHANT" in UPI messages
+  static final RegExp _upiMerchantPattern = RegExp(
+    r'(?:via\s+upi\s+to|to)\s+([A-Za-z][A-Za-z0-9\s&.]+?)(?:\.|\s*Ref|\s*ref|\s*UPI|$)',
+    caseSensitive: false,
+  );
+
+  // ── Spam / promo blacklist ──
+  static final List<String> _spamKeywords = [
+    'offer', 'cashback offer', 'apply now', 'click here', 'win ',
+    'congratulations', 'limited time', 'download', 'install',
+    'subscribe', 'free ', 'earn up to', 'get upto', 'activate',
+    'avail ', 'otp', 'verification code', 'one time password',
+    'promo', 'discount', 'coupon', 'deal ', 'sale ',
+    'upgrade', 'premium plan', 'recharge offer', 'data pack',
+    'missed call', 'loan approved', 'pre-approved', 'eligib',
+    'insurance', 'mutual fund', 'apply for', 'link your',
+    'kyc', 'pan card', 'aadhaar', 'aadhar', 'verify your',
+    'expire', 'renew', 'register', 'enroll',
+  ];
 
   static final List<String> _financialApps = [
     'com.google.android.apps.messaging',
@@ -60,9 +132,6 @@ class NotificationService {
     'com.axisbank.mobile',
     'com.kotakbank.mobile',
     'com.indusind.mobile',
-    'com.whatsapp',
-    'com.whatsapp.w4b',
-    'com.truecaller',
   ];
 
   static bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
@@ -605,6 +674,7 @@ class NotificationService {
 
     if (_financialApps.contains(packageName)) return true;
 
+    // Only match banking / UPI / payment apps, not general messaging
     final bankPatterns = [
       'bank',
       'upi',
@@ -617,70 +687,112 @@ class NotificationService {
       'message',
     ];
     final lower = packageName.toLowerCase();
+    // Exclude known non-financial apps that match broad patterns
+    if (lower.contains('whatsapp') || lower.contains('truecaller') ||
+        lower.contains('telegram') || lower.contains('instagram') ||
+        lower.contains('facebook') || lower.contains('twitter') ||
+        lower.contains('snapchat')) {
+      return false;
+    }
     for (final p in bankPatterns) {
       if (lower.contains(p)) return true;
     }
     return false;
   }
 
+  /// Checks if a message is spam/promotional and should be rejected
+  static bool _isSpamMessage(String text) {
+    final lower = text.toLowerCase();
+    for (final keyword in _spamKeywords) {
+      if (lower.contains(keyword)) {
+        debugPrint('   🚫 Spam keyword detected: "$keyword"');
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Validates that the message contains banking account identifiers
+  static bool _hasBankingSignals(String text) {
+    // Must have at least one strong banking signal
+    final hasAccount = _accountPattern.hasMatch(text);
+    final hasUpiRef = _upiRefPattern.hasMatch(text);
+    final hasBalance = _balancePattern.hasMatch(text);
+    return hasAccount || (hasUpiRef && hasBalance);
+  }
+
   static Map<String, dynamic>? _parseTransaction(String text, String source) {
     debugPrint('🔍 PARSING: "$text"');
 
-    final lowerText = text.toLowerCase();
+    // ── Step 1: Reject spam/promotional messages early ──
+    if (_isSpamMessage(text)) {
+      debugPrint('   ❌ Rejected: spam/promotional message');
+      return null;
+    }
+
+    // ── Step 2: Require banking signals (account number, UPI ref, balance) ──
+    if (!_hasBankingSignals(text)) {
+      debugPrint('   ❌ Rejected: no banking signals (a/c, Ref, Bal) found');
+      return null;
+    }
+
+    // ── Step 3: Match against strict bank SMS patterns ──
     bool isDebit = false;
     bool isCredit = false;
 
-    if (lowerText.contains('paid you') ||
-        lowerText.contains('sent you') ||
-        lowerText.contains('transferred you') ||
-        lowerText.contains('received from')) {
-      isCredit = true;
-      debugPrint('   💰 Pattern: Someone paid YOU → CREDIT');
-    } else if (lowerText.contains('you paid') ||
-        lowerText.contains('you sent') ||
-        lowerText.contains('you transferred') ||
-        lowerText.contains('paid to') ||
-        lowerText.contains('payment to')) {
+    // Priority 1: Strict structured bank SMS patterns
+    if (_bankDebitPattern.hasMatch(text)) {
       isDebit = true;
-      debugPrint('   💸 Pattern: YOU paid someone → DEBIT');
-    } else if (lowerText.contains('debited from your') ||
-        lowerText.contains('withdrawn from your') ||
-        lowerText.contains('deducted from your')) {
+      debugPrint('   💸 Matched: Bank debit pattern (Debited Rs X from a/c)');
+    } else if (_bankCreditPattern.hasMatch(text) || _interestCreditPattern.hasMatch(text)) {
+      isCredit = true;
+      debugPrint('   💰 Matched: Bank credit pattern (Rs X credited to A/c)');
+    }
+    // Priority 2: Account-contextualized debit/credit
+    else if (_debitFromAccountPattern.hasMatch(text)) {
       isDebit = true;
-      debugPrint('   💸 Pattern: Debited FROM your account → DEBIT');
-    } else if (lowerText.contains('credited to your') ||
-        lowerText.contains('deposited to your') ||
-        lowerText.contains('added to your')) {
+      debugPrint('   💸 Matched: Debit from account pattern');
+    } else if (_creditToAccountPattern.hasMatch(text)) {
       isCredit = true;
-      debugPrint('   💰 Pattern: Credited TO your account → CREDIT');
-    } else if (lowerText.contains('refund') ||
-        lowerText.contains('cashback') ||
-        lowerText.contains('reward')) {
+      debugPrint('   💰 Matched: Credit to account pattern');
+    }
+    // Priority 3: UPI payment patterns (must have UPI ref or balance too)
+    else if (_upiDebitPattern.hasMatch(text) && (_upiRefPattern.hasMatch(text) || _balancePattern.hasMatch(text))) {
+      isDebit = true;
+      debugPrint('   💸 Matched: UPI debit pattern with ref/bal confirmation');
+    } else if (_upiCreditPattern.hasMatch(text) && (_upiRefPattern.hasMatch(text) || _balancePattern.hasMatch(text))) {
       isCredit = true;
-      debugPrint('   💰 Pattern: Refund/Cashback → CREDIT');
-    } else {
-      final hasDebitKeyword = _debitRegex.hasMatch(text);
-      final hasCreditKeyword = _creditRegex.hasMatch(text);
+      debugPrint('   💰 Matched: UPI credit pattern with ref/bal confirmation');
+    }
+    // Priority 4: Contextual keywords only if account pattern is present
+    else {
+      final lowerText = text.toLowerCase();
+      final hasAccount = _accountPattern.hasMatch(text);
 
-      if (hasDebitKeyword && !hasCreditKeyword) {
-        isDebit = true;
-        debugPrint('   💸 Fallback: Debit keyword found → DEBIT');
-      } else if (hasCreditKeyword && !hasDebitKeyword) {
-        isCredit = true;
-        debugPrint('   💰 Fallback: Credit keyword found → CREDIT');
-      } else if (hasDebitKeyword && hasCreditKeyword) {
-        isDebit = true;
-        debugPrint('   ⚠️ Both keywords found, defaulting to DEBIT');
+      if (hasAccount) {
+        if (lowerText.contains('debited') || lowerText.contains('deducted') ||
+            lowerText.contains('withdrawn')) {
+          isDebit = true;
+          debugPrint('   💸 Contextual: Debit keyword + account number');
+        } else if (lowerText.contains('credited') || lowerText.contains('deposited') ||
+            lowerText.contains('received')) {
+          isCredit = true;
+          debugPrint('   💰 Contextual: Credit keyword + account number');
+        } else if (lowerText.contains('refund') || lowerText.contains('cashback')) {
+          isCredit = true;
+          debugPrint('   💰 Contextual: Refund/cashback + account number');
+        }
       }
     }
 
     debugPrint('   Final decision - Debit: $isDebit, Credit: $isCredit');
 
     if (!isDebit && !isCredit) {
-      debugPrint('   ❌ No transaction type detected');
+      debugPrint('   ❌ No valid bank transaction pattern matched');
       return null;
     }
 
+    // ── Step 4: Extract amount ──
     final amountMatch = _amountRegex.firstMatch(text);
     if (amountMatch == null) {
       debugPrint('   ❌ No amount found');
@@ -701,65 +813,112 @@ class NotificationService {
     }
 
     final type = isDebit ? 'expense' : 'income';
+
+    // ── Step 5: Smart category detection with merchant extraction ──
     final category = _detectCategory(text, type);
     final icon = _getIconForCategory(category);
 
-    debugPrint('   ✅ Parsed: ₹$amount as $type ($category)');
+    // Build a cleaner note with merchant name if available
+    final merchantName = _extractMerchantName(text);
+    final notePrefix = merchantName != null ? 'Paid to $merchantName' : 'Auto-detected';
+    final noteText = type == 'income' ? 'Auto-detected credit' : notePrefix;
+
+    debugPrint('   ✅ Parsed: ₹$amount as $type ($category) merchant=$merchantName');
 
     return {
       'amount': amount,
       'type': type,
       'note':
-          'Auto-detected from notification: ${text.length > 100 ? '${text.substring(0, 100)}...' : text}',
+          '$noteText: ${text.length > 80 ? '${text.substring(0, 80)}...' : text}',
       'category': category,
       'icon': icon,
     };
   }
+
+  /// Extracts the merchant/recipient name from a UPI transaction message
+  static String? _extractMerchantName(String text) {
+    final match = _upiMerchantPattern.firstMatch(text);
+    if (match != null) {
+      final name = match.group(1)?.trim();
+      if (name != null && name.length > 1 && name.length < 40) {
+        return name;
+      }
+    }
+    return null;
+  }
   static String _detectCategory(String text, String type) {
     final lowerText = text.toLowerCase();
+
     if (type == 'expense') {
+      // ── Known brand / merchant matches ──
       if (lowerText.contains('swiggy')) return 'Swiggy';
       if (lowerText.contains('zomato')) return 'Zomato';
       if (lowerText.contains('zepto')) return 'Zepto';
+      if (lowerText.contains('blinkit')) return 'Grocery';
+      if (lowerText.contains('bigbasket') || lowerText.contains('big basket')) return 'Grocery';
+      if (lowerText.contains('dmart') || lowerText.contains('d-mart') || lowerText.contains('hyper budget')) return 'Grocery';
+      if (lowerText.contains('reliance') && (lowerText.contains('mart') || lowerText.contains('fresh'))) return 'Grocery';
+      if (lowerText.contains('instamart')) return 'Grocery';
       if (lowerText.contains('amazon')) return 'Amazon';
       if (lowerText.contains('flipkart')) return 'Flipkart';
+      if (lowerText.contains('myntra')) return 'Clothing';
+      if (lowerText.contains('ajio')) return 'Clothing';
       if (lowerText.contains('netflix')) return 'Netflix';
+      if (lowerText.contains('hotstar') || lowerText.contains('disney')) return 'Subscriptions';
+      if (lowerText.contains('spotify')) return 'Subscriptions';
+      if (lowerText.contains('youtube')) return 'Subscriptions';
       if (lowerText.contains('jio')) return 'Jio Internet';
-      if (lowerText.contains('wifi')) return 'WiFi';
-      if (lowerText.contains('grocery') || lowerText.contains('groceries') || lowerText.contains('instamart')) {
+      if (lowerText.contains('airtel')) return 'Recharge';
+      if (lowerText.contains('wifi') || lowerText.contains('broadband')) return 'WiFi';
+      if (lowerText.contains('starbucks') || lowerText.contains('ccd') || lowerText.contains('coffee')) return 'Coffee';
+      if (lowerText.contains('mcdonald') || lowerText.contains('kfc') || lowerText.contains('burger king') || lowerText.contains('domino')) return 'Local Food';
+      if (lowerText.contains('uber') || lowerText.contains('ola') || lowerText.contains('rapido')) return 'Transport';
+      if (lowerText.contains('fuel') || lowerText.contains('petrol') || lowerText.contains('diesel') || lowerText.contains('iocl') || lowerText.contains('bpcl') || lowerText.contains('hpcl')) return 'Transport';
+      if (lowerText.contains('irctc') || lowerText.contains('makemytrip') || lowerText.contains('redbus') || lowerText.contains('cleartrip') || lowerText.contains('goibibo')) return 'Travel';
+      if (lowerText.contains('pharmacy') || lowerText.contains('hospital') || lowerText.contains('medical') || lowerText.contains('medplus') || lowerText.contains('apollo') || lowerText.contains('practo')) return 'Medical';
+      if (lowerText.contains('gym') || lowerText.contains('fitness') || lowerText.contains('cult.fit') || lowerText.contains('cultfit')) return 'Gym & Fitness';
+
+      // ── Generic keyword matches ──
+      if (lowerText.contains('grocery') || lowerText.contains('groceries') || lowerText.contains('supermarket')) {
         return 'Grocery';
       }
-      if (lowerText.contains('food') || lowerText.contains('dining') || lowerText.contains('restaurant') || lowerText.contains('lunch') || lowerText.contains('dinner')) {
+      if (lowerText.contains('food') || lowerText.contains('dining') || lowerText.contains('restaurant') || lowerText.contains('lunch') || lowerText.contains('dinner') || lowerText.contains('biryani')) {
         return 'Local Food';
       }
-      if (lowerText.contains('uber') ||
-          lowerText.contains('ola') ||
-          lowerText.contains('rapido') ||
-          lowerText.contains('fuel')) {
-        return 'Transport';
-      }
-      if (lowerText.contains('bill') ||
-          lowerText.contains('electricity') ||
-          lowerText.contains('water') ||
-          lowerText.contains('utility')) {
+      if (lowerText.contains('bill') || lowerText.contains('electricity') || lowerText.contains('water') || lowerText.contains('utility') || lowerText.contains('bescom') || lowerText.contains('kseb')) {
         return 'Bills & Utilities';
       }
-      if (lowerText.contains('movie') || lowerText.contains('youtube') || lowerText.contains('spotify') || lowerText.contains('hotstar')) {
+      if (lowerText.contains('rent')) return 'Rent';
+      if (lowerText.contains('movie') || lowerText.contains('pvr') || lowerText.contains('inox') || lowerText.contains('bookmyshow')) {
         return 'Subscriptions';
       }
-      if (lowerText.contains('pharmacy') || lowerText.contains('hospital') || lowerText.contains('medical')) {
-        return 'Medical';
+      if (lowerText.contains('education') || lowerText.contains('school') || lowerText.contains('college') || lowerText.contains('tuition') || lowerText.contains('course')) {
+        return 'Education';
       }
+
+      // ── Fallback: try to extract merchant name and check known patterns ──
+      final merchant = _extractMerchantName(text);
+      if (merchant != null) {
+        final lowerMerchant = merchant.toLowerCase();
+        // Person-to-person transfer (short lowercase name, no brand keywords)
+        if (lowerMerchant.length < 20 && !lowerMerchant.contains(' ')) {
+          return 'Other'; // Likely a person name (UPI ID)
+        }
+      }
+
       return 'Other';
     } else {
-      if (lowerText.contains('salary')) return 'Salary';
-      if (lowerText.contains('refund') || lowerText.contains('cashback')) {
-        return 'Cashback';
-      }
+      // Income categories
+      if (lowerText.contains('salary') || lowerText.contains('payroll')) return 'Salary';
+      if (lowerText.contains('refund')) return 'Refund';
+      if (lowerText.contains('cashback')) return 'Cashback';
       if (lowerText.contains('interest')) return 'Interest';
+      if (lowerText.contains('dividend')) return 'Investment';
       if (lowerText.contains('investment') || lowerText.contains('stock') || lowerText.contains('mutual fund')) {
         return 'Investment';
       }
+      if (lowerText.contains('freelance') || lowerText.contains('consulting')) return 'Freelance';
+      if (lowerText.contains('rent')) return 'Rental Income';
       return 'Other';
     }
   }

@@ -963,12 +963,34 @@ class HomeScreenState extends State<HomeScreen>
                                       ),
                                       if (isAutoDetected) ...[
                                         const SizedBox(width: 6),
-                                        Text(
-                                          'Auto',
-                                          style: TextStyle(
-                                            color: Colors.blue.shade600,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                                              width: 0.5,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.auto_awesome,
+                                                size: 9,
+                                                color: Colors.blue.shade600,
+                                              ),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Auto',
+                                                style: TextStyle(
+                                                  color: Colors.blue.shade600,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],

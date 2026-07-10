@@ -77,7 +77,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
         children: [
           PageView(
             controller: _pageController,
-            physics: const BouncingScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             onPageChanged: (i) {
               setState(() => _currentIndex = i);
               // Refresh statistics screen when navigating to it

@@ -276,6 +276,62 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   ? widget.data['note'] as String
                                   : '-',
                             ),
+                            // Auto-Detected transaction indicator
+                            if (widget.data['auto_detected'] == true || widget.data['autoDetected'] == true) ...[
+                              const Divider(height: 20, color: Color(0xFFF1F1F1)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2196F3).withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF2196F3).withValues(alpha: 0.12),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.auto_awesome,
+                                        size: 14,
+                                        color: Colors.blue.shade600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Auto-Detected Transaction',
+                                            style: TextStyle(
+                                              color: Colors.blue.shade700,
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Detected from bank notification',
+                                            style: TextStyle(
+                                              color: Colors.blue.shade400,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 24),
                             Center(
                               child: Column(
