@@ -611,12 +611,8 @@ class HomeScreenState extends State<HomeScreen>
                             label: 'Analytics',
                             color: const Color(0xFFAB47BC),
                             onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const FilteredTransactionsScreen(type: 'Expense'),
-                                ),
-                              ).then((_) => refreshData());
+                              // Switch to Statistics tab in bottom navbar
+                              context.findAncestorStateOfType<BottomNavbarScreenState>()?.switchTab(1);
                             },
                           ),
                           _buildQuickActionButton(

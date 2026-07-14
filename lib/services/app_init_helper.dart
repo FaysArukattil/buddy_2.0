@@ -90,14 +90,17 @@ class AppInitHelper {
     return count;
   }
 
-  /// Seed categories for current user
+  /// Seed categories for current user and clean up duplicates
   static Future<void> seedCategoriesIfNeeded() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
+        // First clean up any existing duplicates
+        await FirestoreService.instance.removeDuplicateCategories();
+        // Then seed any missing defaults
         await FirestoreService.instance.seedDefaultCategories();
       } catch (e) {
-        debugPrint('⚠️ Failed to seed categories: $e');
+        debugPrint('⚠️ Failed to seed/clean categories: $e');
       }
     }
   }

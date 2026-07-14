@@ -1,10 +1,10 @@
-// ProfileScreen - Initially shows Google photo, then allows custom upload to local storage
+// ProfileScreen — Shows Google photo if available, or styled first letter avatar.
+// No image upload. Premium glassmorphism design.
 
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/utils/colors.dart';
@@ -29,13 +29,13 @@ class ProfileScreenState extends State<ProfileScreen>
   final _nameController = TextEditingController();
   final FocusNode _nameFocus = FocusNode();
   String _email = '';
-  String? _customImagePath; // Local file path for custom image
-  String? _googlePhotoUrl; // Google account photo URL
+  String? _googlePhotoUrl;
   bool _editing = false;
-  // ignore: unused_field
-  final bool _uploadingImage = false;
   double _totalIncome = 0;
   double _totalExpense = 0;
+  int _totalTransactions = 0;
+  String _topCategory = '-';
+  DateTime? _memberSince;
   double _moneyLottieDy = 0;
   int _lottieTapEpoch = 0;
   double _moneyLottieScale = 1.0;
@@ -50,7 +50,7 @@ class ProfileScreenState extends State<ProfileScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     );
-    _headerBob = Tween<double>(begin: -6.0, end: 6.0).animate(
+    _headerBob = Tween<double>(begin: -4.0, end: 4.0).animate(
       CurvedAnimation(parent: _headerController, curve: Curves.easeInOut),
     );
     _headerController.repeat(reverse: true);
@@ -69,33 +69,13 @@ class ProfileScreenState extends State<ProfileScreen>
       final prefs = await SharedPreferences.getInstance();
       final user = FirebaseAuth.instance.currentUser;
 
-      debugPrint('=== Loading Profile ===');
-      debugPrint('User: ${user?.email}');
-      debugPrint('Google Photo: ${user?.photoURL}');
-
       // Load saved data
       final savedName = prefs.getString('name');
-      final customImagePath = prefs.getString('profile_image_path');
-
-      debugPrint('Saved Name: $savedName');
-      debugPrint('Custom Image Path: $customImagePath');
-
-      // Validate custom image path if it exists
-      String? validCustomPath;
-      if (customImagePath != null && customImagePath.isNotEmpty) {
-        final file = File(customImagePath);
-        if (await file.exists()) {
-          validCustomPath = customImagePath;
-          debugPrint('Custom image file exists');
-        } else {
-          await prefs.remove('profile_image_path');
-          debugPrint('Custom image file not found, removed from preferences');
-        }
-      }
 
       // Get user data from Firebase Auth
       final email = user?.email ?? prefs.getString('email') ?? '';
       final googlePhotoUrl = user?.photoURL;
+      final memberSince = user?.metadata.creationTime;
 
       // Generate display name
       String displayName = savedName ?? user?.displayName ?? '';
@@ -109,6 +89,8 @@ class ProfileScreenState extends State<ProfileScreen>
       // Load transaction data from Firestore
       final now = DateTime.now();
       double income = 0, expense = 0;
+      int txnCount = 0;
+      String topCat = '-';
       try {
         final totals = await FirestoreService.instance.getMonthlyTotals(
           now.year,
@@ -116,6 +98,21 @@ class ProfileScreenState extends State<ProfileScreen>
         );
         income = totals['income'] ?? 0;
         expense = totals['expense'] ?? 0;
+
+        // Get all transactions for stats
+        final allTxns = await FirestoreService.instance.getAllTransactions();
+        txnCount = allTxns.length;
+
+        // Find top category
+        final catCounts = <String, int>{};
+        for (final t in allTxns) {
+          catCounts[t.category] = (catCounts[t.category] ?? 0) + 1;
+        }
+        if (catCounts.isNotEmpty) {
+          final sorted = catCounts.entries.toList()
+            ..sort((a, b) => b.value.compareTo(a.value));
+          topCat = sorted.first.key;
+        }
       } catch (e) {
         debugPrint('⚠️ Error loading totals: $e');
       }
@@ -128,14 +125,13 @@ class ProfileScreenState extends State<ProfileScreen>
         setState(() {
           _email = email;
           _nameController.text = displayName;
-          _customImagePath = validCustomPath;
           _googlePhotoUrl = googlePhotoUrl;
           _totalIncome = income;
           _totalExpense = expense;
+          _totalTransactions = txnCount;
+          _topCategory = topCat;
+          _memberSince = memberSince;
         });
-        debugPrint(
-          'Profile loaded - Custom: $_customImagePath, Google: $_googlePhotoUrl',
-        );
       }
     } catch (e) {
       debugPrint('Error loading profile: $e');
@@ -151,102 +147,97 @@ class ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final picker = ImagePicker();
-      final picked = await picker.pickImage(
-        source: source,
-        imageQuality: 85,
-        maxWidth: 800,
-        maxHeight: 800,
-      );
-
-      if (picked == null) return;
-
-      debugPrint('=== Image Picked ===');
-      debugPrint('Path: ${picked.path}');
-
-      // Verify file exists
-      final file = File(picked.path);
-      final exists = await file.exists();
-      debugPrint('File exists: $exists');
-
-      if (exists) {
-        // Save to SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('profile_image_path', picked.path);
-
-        // Verify it was saved
-        final savedPath = prefs.getString('profile_image_path');
-        debugPrint('Verified saved path: $savedPath');
-
-        if (mounted) {
-          setState(() => _customImagePath = picked.path);
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Profile picture updated successfully!'),
-              backgroundColor: AppColors.secondary,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        throw Exception('Picked file does not exist');
-      }
-    } catch (e) {
-      debugPrint('Error picking image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update profile picture: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+  // Gradient color based on first letter for non-Google users
+  List<Color> _getAvatarGradient() {
+    final name = _nameController.text;
+    if (name.isEmpty) {
+      return [const Color(0xFF667eea), const Color(0xFF764ba2)];
     }
+    final charCode = name.codeUnitAt(0);
+    final gradients = [
+      [const Color(0xFF667eea), const Color(0xFF764ba2)],
+      [const Color(0xFFf093fb), const Color(0xFFf5576c)],
+      [const Color(0xFF4facfe), const Color(0xFF00f2fe)],
+      [const Color(0xFF43e97b), const Color(0xFF38f9d7)],
+      [const Color(0xFFfa709a), const Color(0xFFfee140)],
+      [const Color(0xFF6a11cb), const Color(0xFF2575fc)],
+      [const Color(0xFFff9a9e), const Color(0xFFfecfef)],
+      [const Color(0xFFa18cd1), const Color(0xFFfbc2eb)],
+    ];
+    return gradients[charCode % gradients.length];
   }
 
   Widget _buildProfileImage() {
-    // Priority: Custom local image > Google photo > Default icon
-
-    // 1. Show custom local image if available
-    if (_customImagePath != null && _customImagePath!.isNotEmpty) {
-      return CircleAvatar(
-        radius: 41,
-        backgroundColor: Colors.grey[100],
-        backgroundImage: FileImage(File(_customImagePath!)),
-        onBackgroundImageError: (exception, stackTrace) {
-          debugPrint('Error loading custom image: $exception');
-        },
-      );
-    }
-
-    // 2. Show Google photo if available
+    // 1. Show Google photo if available
     if (_googlePhotoUrl != null && _googlePhotoUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: 41,
-        backgroundColor: Colors.grey[100],
-        backgroundImage: NetworkImage(_googlePhotoUrl!),
-        onBackgroundImageError: (exception, stackTrace) {
-          debugPrint('Error loading Google photo: $exception');
-        },
+      return Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.primary.withValues(alpha: 0.3),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: CircleAvatar(
+          radius: 44,
+          backgroundColor: Colors.white,
+          child: CircleAvatar(
+            radius: 41,
+            backgroundColor: Colors.grey[100],
+            backgroundImage: NetworkImage(_googlePhotoUrl!),
+            onBackgroundImageError: (exception, stackTrace) {
+              debugPrint('Error loading Google photo: $exception');
+            },
+          ),
+        ),
       );
     }
 
-    // 3. Fallback to default icon
-    return CircleAvatar(
-      radius: 41,
-      backgroundColor: Colors.grey[100],
-      child: Icon(
-        Icons.person_rounded,
-        size: 42,
-        color: AppColors.primary.withValues(alpha: 0.5),
+    // 2. Styled first letter avatar
+    final name = _nameController.text;
+    final letter = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    final gradient = _getAvatarGradient();
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: gradient[0].withValues(alpha: 0.4),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: CircleAvatar(
+        radius: 44,
+        backgroundColor: Colors.white,
+        child: Container(
+          width: 82,
+          height: 82,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: gradient,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              letter,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 34,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -277,20 +268,19 @@ class ProfileScreenState extends State<ProfileScreen>
   String _todayLabel() {
     final now = DateTime.now();
     final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
     return '${months[now.month - 1]} ${now.day}, ${now.year}';
+  }
+
+  String _memberSinceLabel() {
+    if (_memberSince == null) return '';
+    final months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[_memberSince!.month - 1]} ${_memberSince!.year}';
   }
 
   @override
@@ -298,7 +288,7 @@ class ProfileScreenState extends State<ProfileScreen>
     final balance = _totalIncome - _totalExpense;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8F9FD),
       body: Stack(
         children: [
           // Background image
@@ -314,11 +304,11 @@ class ProfileScreenState extends State<ProfileScreen>
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Profile Header Card
+                    // ── Profile Header Card ──
                     AnimatedBuilder(
                       animation: _headerBob,
                       builder: (context, child) {
@@ -341,8 +331,8 @@ class ProfileScreenState extends State<ProfileScreen>
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                     colors: [
-                                      AppColors.primary.withValues(alpha: 0.85),
-                                      AppColors.primary.withValues(alpha: 0.75),
+                                      AppColors.primary.withValues(alpha: 0.9),
+                                      AppColors.secondary.withValues(alpha: 0.85),
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(24),
@@ -352,112 +342,37 @@ class ProfileScreenState extends State<ProfileScreen>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.3,
-                                      ),
-                                      blurRadius: 20,
-                                      offset: const Offset(0, 10),
+                                      color: AppColors.primary.withValues(alpha: 0.35),
+                                      blurRadius: 24,
+                                      offset: const Offset(0, 12),
                                       spreadRadius: 1,
                                     ),
                                   ],
                                 ),
-                                padding: const EdgeInsets.fromLTRB(
-                                  20,
-                                  20,
-                                  20,
-                                  16,
-                                ),
+                                padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Profile Image with camera button
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.3,
-                                                ),
-                                                blurRadius: 16,
-                                                spreadRadius: 4,
-                                              ),
-                                            ],
-                                          ),
-                                          child: CircleAvatar(
-                                            radius: 44,
-                                            backgroundColor: Colors.white,
-                                            child: _buildProfileImage(),
-                                          ),
-                                        ),
-                                        Positioned(
-                                          bottom: 0,
-                                          right: 0,
-                                          child: GestureDetector(
-                                            onTap: () =>
-                                                _showImageSourceSheet(context),
-                                            child: Container(
-                                              padding: const EdgeInsets.all(8),
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    AppColors.secondary,
-                                                    AppColors.secondary
-                                                        .withValues(alpha: 0.8),
-                                                  ],
-                                                ),
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color: Colors.white,
-                                                  width: 2.5,
-                                                ),
-                                                boxShadow: [
-                                                  BoxShadow(
-                                                    color: AppColors.secondary
-                                                        .withValues(alpha: 0.4),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(0, 3),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: const Icon(
-                                                Icons.camera_alt_rounded,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    // Profile Image (no camera button)
+                                    _buildProfileImage(),
 
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 14),
 
                                     // Name field
                                     AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
+                                      duration: const Duration(milliseconds: 300),
                                       child: _editing
                                           ? Container(
                                               key: const ValueKey('editing'),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 14,
-                                                    vertical: 4,
-                                                  ),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 14,
+                                                vertical: 4,
+                                              ),
                                               decoration: BoxDecoration(
-                                                color: Colors.white.withValues(
-                                                  alpha: 0.15,
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(10),
+                                                color: Colors.white.withValues(alpha: 0.15),
+                                                borderRadius: BorderRadius.circular(12),
                                                 border: Border.all(
-                                                  color: Colors.white
-                                                      .withValues(alpha: 0.3),
+                                                  color: Colors.white.withValues(alpha: 0.3),
                                                   width: 1.5,
                                                 ),
                                               ),
@@ -465,25 +380,21 @@ class ProfileScreenState extends State<ProfileScreen>
                                                 controller: _nameController,
                                                 focusNode: _nameFocus,
                                                 textAlign: TextAlign.center,
-                                                decoration:
-                                                    const InputDecoration(
-                                                      border: InputBorder.none,
-                                                      hintText:
-                                                          'Enter your name',
-                                                      hintStyle: TextStyle(
-                                                        color: Colors.white60,
-                                                        fontSize: 20,
-                                                      ),
-                                                    ),
-                                                textInputAction:
-                                                    TextInputAction.done,
-                                                onSubmitted: (_) =>
-                                                    _saveProfile(),
+                                                decoration: const InputDecoration(
+                                                  border: InputBorder.none,
+                                                  hintText: 'Enter your name',
+                                                  hintStyle: TextStyle(
+                                                    color: Colors.white60,
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                                textInputAction: TextInputAction.done,
+                                                onSubmitted: (_) => _saveProfile(),
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontSize: 20,
-                                                  fontWeight: FontWeight.bold,
-                                                  letterSpacing: 0.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 0.3,
                                                 ),
                                               ),
                                             )
@@ -493,36 +404,26 @@ class ProfileScreenState extends State<ProfileScreen>
                                                   ? 'Tap edit to add name'
                                                   : _nameController.text,
                                               textAlign: TextAlign.center,
-                                              style: TextStyle(
+                                              style: const TextStyle(
                                                 color: Colors.white,
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                letterSpacing: 0.5,
-                                                shadows: [
-                                                  Shadow(
-                                                    color: Colors.black
-                                                        .withValues(alpha: 0.2),
-                                                    blurRadius: 8,
-                                                    offset: const Offset(0, 2),
-                                                  ),
-                                                ],
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 0.2,
                                               ),
                                             ),
                                     ),
 
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 8),
 
-                                    // Email
+                                    // Email badge
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
+                                        horizontal: 12,
                                         vertical: 5,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
+                                        color: Colors.white.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
@@ -530,15 +431,15 @@ class ProfileScreenState extends State<ProfileScreen>
                                           const Icon(
                                             Icons.email_rounded,
                                             color: Colors.white70,
-                                            size: 14,
+                                            size: 13,
                                           ),
-                                          const SizedBox(width: 5),
+                                          const SizedBox(width: 6),
                                           Flexible(
                                             child: Text(
                                               _email,
                                               style: const TextStyle(
                                                 color: Colors.white70,
-                                                fontSize: 13,
+                                                fontSize: 12,
                                                 fontWeight: FontWeight.w500,
                                               ),
                                               overflow: TextOverflow.ellipsis,
@@ -547,6 +448,19 @@ class ProfileScreenState extends State<ProfileScreen>
                                         ],
                                       ),
                                     ),
+
+                                    // Member since
+                                    if (_memberSince != null) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        'Member since ${_memberSinceLabel()}',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.5),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -555,12 +469,13 @@ class ProfileScreenState extends State<ProfileScreen>
 
                           // Edit button
                           Positioned(
-                            top: 10,
-                            right: 10,
+                            top: 12,
+                            right: 12,
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
                                 onTap: () {
+                                  HapticFeedback.lightImpact();
                                   if (_editing) {
                                     FocusScope.of(context).unfocus();
                                     _saveProfile();
@@ -581,9 +496,7 @@ class ProfileScreenState extends State<ProfileScreen>
                                     color: Colors.white.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.3,
-                                      ),
+                                      color: Colors.white.withValues(alpha: 0.3),
                                       width: 1,
                                     ),
                                   ),
@@ -592,7 +505,7 @@ class ProfileScreenState extends State<ProfileScreen>
                                         ? Icons.check_rounded
                                         : Icons.edit_rounded,
                                     color: Colors.white,
-                                    size: 20,
+                                    size: 18,
                                   ),
                                 ),
                               ),
@@ -604,7 +517,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
                     const SizedBox(height: 20),
 
-                    // Balance card
+                    // ── Balance Card ──
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -612,53 +525,75 @@ class ProfileScreenState extends State<ProfileScreen>
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            AppColors.primary,
-                            AppColors.primary.withValues(alpha: 0.8),
+                            const Color(0xFF1E5D57),
+                            const Color(0xFF3B8E85),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 14,
-                            offset: const Offset(0, 6),
+                            color: const Color(0xFF1E5D57).withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       padding: const EdgeInsets.symmetric(
-                        vertical: 16,
-                        horizontal: 20,
+                        vertical: 20,
+                        horizontal: 24,
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            'Current Balance',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'CURRENT BALANCE',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.6),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'This Month',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Text(
                             _formatCurrency(balance),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1,
+                            style: TextStyle(
+                              color: balance >= 0 ? Colors.white : Colors.red.shade300,
+                              fontSize: 36,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.5,
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
+                    // ── Income / Expense Cards ──
                     Row(
                       children: [
                         Expanded(
-                          child: _modernTotalCard(
+                          child: _buildStatCard(
                             label: 'Income',
                             value: _formatCurrency(_totalIncome),
                             color: AppColors.income,
@@ -667,7 +602,7 @@ class ProfileScreenState extends State<ProfileScreen>
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: _modernTotalCard(
+                          child: _buildStatCard(
                             label: 'Expense',
                             value: _formatCurrency(_totalExpense),
                             color: AppColors.expense,
@@ -677,12 +612,89 @@ class ProfileScreenState extends State<ProfileScreen>
                       ],
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
 
-                    // Compact Lottie
+                    // ── Quick Stats ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [AppColors.primary, AppColors.secondary],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Quick Stats',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildQuickStatItem(
+                                  icon: Icons.category_rounded,
+                                  label: 'Top Category',
+                                  value: _topCategory,
+                                  color: const Color(0xFFFF7043),
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 40,
+                                color: Colors.grey.shade200,
+                              ),
+                              Expanded(
+                                child: _buildQuickStatItem(
+                                  icon: Icons.savings_rounded,
+                                  label: 'Savings',
+                                  value: balance >= 0 ? _formatCurrency(balance) : '-${_formatCurrency(balance.abs())}',
+                                  color: balance >= 0 ? AppColors.income : AppColors.expense,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ── Lottie Animation ──
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: () {
+                        HapticFeedback.lightImpact();
                         setState(() {
                           _lottieTapEpoch += 1;
                           _moneyLottieDy = (_moneyLottieDy + 15).clamp(0, 120);
@@ -715,7 +727,7 @@ class ProfileScreenState extends State<ProfileScreen>
                           duration: const Duration(milliseconds: 500),
                           curve: Curves.easeOutCubic,
                           child: SizedBox(
-                            height: 100,
+                            height: 90,
                             child: Lottie.asset(
                               'assets/lottie/jsonlottie/Moneylottie.json',
                               fit: BoxFit.contain,
@@ -727,35 +739,39 @@ class ProfileScreenState extends State<ProfileScreen>
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
 
+                    // ── Date pill ──
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.calendar_today_rounded,
-                            size: 14,
+                            size: 13,
                             color: AppColors.primary,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             _todayLabel(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -774,7 +790,8 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  Widget _modernTotalCard({
+  // ── Stat Card (Income/Expense) ──
+  Widget _buildStatCard({
     required String label,
     required String value,
     required Color color,
@@ -783,43 +800,56 @@ class ProfileScreenState extends State<ProfileScreen>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            color: color.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: color, size: 20),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 18),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 12),
           Text(
             value,
             style: TextStyle(
               color: color,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              letterSpacing: -0.3,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -829,110 +859,40 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  void _showImageSourceSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Choose Image Source',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _pickSourceButton(
-                        icon: Icons.photo_camera_rounded,
-                        label: 'Camera',
-                        color: AppColors.secondary,
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _pickImage(ImageSource.camera);
-                        },
-                      ),
-                      _pickSourceButton(
-                        icon: Icons.photo_library_rounded,
-                        label: 'Gallery',
-                        color: AppColors.primary,
-                        onTap: () {
-                          Navigator.pop(ctx);
-                          _pickImage(ImageSource.gallery);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _pickSourceButton({
+  // ── Quick Stat Item ──
+  Widget _buildQuickStatItem({
     required IconData icon,
     required String label,
+    required String value,
     required Color color,
-    required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        width: 140,
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+    return Column(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: color,
+            letterSpacing: -0.3,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              child: Icon(icon, color: Colors.white, size: 28),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
-              ),
-            ),
-          ],
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade500,
+          ),
+          textAlign: TextAlign.center,
         ),
-      ),
+      ],
     );
   }
 }

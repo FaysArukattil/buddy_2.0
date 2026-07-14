@@ -176,16 +176,24 @@ class FirestoreService {
 
   // ── Categories ──
 
-  /// Get all categories for a type (expense/income)
+  /// Get all categories for a type (expense/income), deduplicated by name
   Future<List<cat.Category>> getCategories(String type) async {
     final snapshot = await _catCol
         .where('type', isEqualTo: type.toLowerCase())
         .orderBy('order')
         .get();
 
-    return snapshot.docs
-        .map((doc) => cat.Category.fromFirestore(doc))
-        .toList();
+    // Deduplicate by name — keep the first occurrence
+    final seen = <String>{};
+    final categories = <cat.Category>[];
+    for (final doc in snapshot.docs) {
+      final category = cat.Category.fromFirestore(doc);
+      if (!seen.contains(category.name)) {
+        seen.add(category.name);
+        categories.add(category);
+      }
+    }
+    return categories;
   }
 
   /// Get categories as a stream
@@ -268,6 +276,36 @@ class FirestoreService {
     }
   }
 
+  /// Remove duplicate categories from Firestore (keeps first by order)
+  Future<void> removeDuplicateCategories() async {
+    try {
+      final snapshot = await _catCol.orderBy('order').get();
+      final seen = <String>{};
+      final batch = _db.batch();
+      bool hasDeleted = false;
+
+      for (final doc in snapshot.docs) {
+        final name = doc.data()['name'] as String;
+        if (seen.contains(name)) {
+          batch.delete(doc.reference);
+          hasDeleted = true;
+          debugPrint('🗑️ FIRESTORE: Removing duplicate category: $name');
+        } else {
+          seen.add(name);
+        }
+      }
+
+      if (hasDeleted) {
+        await batch.commit();
+        debugPrint('✅ FIRESTORE: Duplicate categories cleaned up');
+      } else {
+        debugPrint('ℹ️ FIRESTORE: No duplicate categories found');
+      }
+    } catch (e) {
+      debugPrint('⚠️ FIRESTORE: Error cleaning duplicates: $e');
+    }
+  }
+
   /// Delete all categories
   Future<void> deleteAllCategories() async {
     final snapshot = await _catCol.get();
@@ -291,7 +329,6 @@ class FirestoreService {
   static final List<Map<String, dynamic>> _defaultExpenseCategories = [
     {'name': 'Food & Dining', 'icon': Icons.restaurant_rounded.codePoint},
     {'name': 'Groceries', 'icon': Icons.shopping_cart_rounded.codePoint},
-    {'name': 'Grocery', 'icon': Icons.shopping_basket_rounded.codePoint},
     {'name': 'Swiggy', 'icon': Icons.delivery_dining_rounded.codePoint},
     {'name': 'Zomato', 'icon': Icons.fastfood_rounded.codePoint},
     {'name': 'Zepto', 'icon': Icons.bolt_rounded.codePoint},
