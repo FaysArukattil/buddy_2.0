@@ -66,84 +66,85 @@ class ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _loadProfile() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final user = FirebaseAuth.instance.currentUser;
 
-      // Load saved data
-      final savedName = prefs.getString('name');
-
-      // Get user data from Firebase Auth
-      final email = user?.email ?? prefs.getString('email') ?? '';
+      // 1. Load basic info instantly from Auth / fast sources
+      final email = user?.email ?? '';
       final googlePhotoUrl = user?.photoURL;
       final memberSince = user?.metadata.creationTime;
 
-      // Generate display name
+      // Check SharedPreferences for local name override
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('name');
+      final savedEmail = prefs.getString('email') ?? '';
+
       String displayName = savedName ?? user?.displayName ?? '';
-      if (displayName.isEmpty && email.isNotEmpty) {
-        displayName = email.contains('@') ? email.split('@').first : email;
+      final finalEmail = email.isNotEmpty ? email : savedEmail;
+      if (displayName.isEmpty && finalEmail.isNotEmpty) {
+        displayName = finalEmail.contains('@') ? finalEmail.split('@').first : finalEmail;
         if (displayName.isNotEmpty) {
           displayName = displayName[0].toUpperCase() + displayName.substring(1);
         }
       }
 
-      // Load transaction data from Firestore
+      if (mounted) {
+        setState(() {
+          _email = finalEmail;
+          _nameController.text = displayName;
+          _googlePhotoUrl = googlePhotoUrl;
+          _memberSince = memberSince;
+        });
+      }
+
+      // 2. Load heavy Firestore statistics in the background asynchronously
+      _loadFirestoreStats();
+    } catch (e) {
+      debugPrint('Error loading profile: $e');
+    }
+  }
+
+  Future<void> _loadFirestoreStats() async {
+    try {
       final now = DateTime.now();
       double income = 0, expense = 0;
       int txnCount = 0;
       String topCat = '-';
-      try {
-        final totals = await FirestoreService.instance.getMonthlyTotals(
-          now.year,
-          now.month,
-        );
-        income = totals['income'] ?? 0;
-        expense = totals['expense'] ?? 0;
 
-        // Get all transactions for stats
-        final allTxns = await FirestoreService.instance.getAllTransactions();
-        txnCount = allTxns.length;
+      final totals = await FirestoreService.instance.getMonthlyTotals(
+        now.year,
+        now.month,
+      );
+      income = totals['income'] ?? 0;
+      expense = totals['expense'] ?? 0;
 
-        // Find top category
-        final catCounts = <String, int>{};
-        for (final t in allTxns) {
-          catCounts[t.category] = (catCounts[t.category] ?? 0) + 1;
-        }
-        if (catCounts.isNotEmpty) {
-          final sorted = catCounts.entries.toList()
-            ..sort((a, b) => b.value.compareTo(a.value));
-          topCat = sorted.first.key;
-        }
-      } catch (e) {
-        debugPrint('⚠️ Error loading totals: $e');
+      // Get all transactions for stats
+      final allTxns = await FirestoreService.instance.getAllTransactions();
+      txnCount = allTxns.length;
+
+      // Find top category
+      final catCounts = <String, int>{};
+      for (final t in allTxns) {
+        catCounts[t.category] = (catCounts[t.category] ?? 0) + 1;
+      }
+      if (catCounts.isNotEmpty) {
+        final sorted = catCounts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+        topCat = sorted.first.key;
       }
 
-      // Load auto-detection settings
+      // Load auto-detection settings in background too
       await NotificationService.isAutoDetectionEnabled();
 
-      // Update UI
       if (mounted) {
         setState(() {
-          _email = email;
-          _nameController.text = displayName;
-          _googlePhotoUrl = googlePhotoUrl;
           _totalIncome = income;
           _totalExpense = expense;
           _totalTransactions = txnCount;
           _topCategory = topCat;
-          _memberSince = memberSince;
         });
       }
     } catch (e) {
-      debugPrint('Error loading profile: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load profile: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      debugPrint('⚠️ Error loading Firestore stats on profile: $e');
     }
   }
 
