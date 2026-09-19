@@ -8,11 +8,13 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# Firebase
+# Firebase & Play Services
 -keep class com.google.firebase.** { *; }
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
+-dontwarn com.google.android.play.core.**
+
 
 # Google Sign-In
 -keep class com.google.android.gms.auth.** { *; }
@@ -20,10 +22,11 @@
 # Firestore
 -keep class com.google.firebase.firestore.** { *; }
 
-# Keep notification listener
--keep class com.example.buddy.NotificationListener { *; }
--keep class com.example.buddy.NotificationActionReceiver { *; }
--keep class com.example.buddy.BootReceiver { *; }
+# Keep notification listener and native components
+-keep class com.faysarukattil.buddy.NotificationListener { *; }
+-keep class com.faysarukattil.buddy.NotificationActionReceiver { *; }
+-keep class com.faysarukattil.buddy.BootReceiver { *; }
+-keep class com.faysarukattil.buddy.MainActivity { *; }
 
 # Keep annotations
 -keepattributes *Annotation*

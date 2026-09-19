@@ -1,4 +1,4 @@
-package com.example.buddy
+package com.faysarukattil.buddy
 
 import android.content.BroadcastReceiver
 import android.content.Context

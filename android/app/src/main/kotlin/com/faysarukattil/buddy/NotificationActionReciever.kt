@@ -1,4 +1,4 @@
-package com.example.buddy
+package com.faysarukattil.buddy
 
 import android.app.NotificationManager
 import android.content.BroadcastReceiver

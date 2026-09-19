@@ -56,6 +56,42 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902883106258:android:56b81e890ec1bbc888bc0b",
+        "android_client_info": {
+          "package_name": "com.faysarukattil.buddy"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9VLwSaPxJgl3iyykjsSQHUkXYFACbLRg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "902883106258-vudsfimu2lajrguge1g9nn9kfba2cqei.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.buddy"
+              }
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"
