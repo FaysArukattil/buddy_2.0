@@ -1308,38 +1308,195 @@ class ProfileScreenState extends State<ProfileScreen>
 
   // ── Logout ──
   Future<void> _handleLogout() async {
-    final confirmed = await _showConfirmDialog(
-      title: 'Log Out?',
-      message: 'You will need to sign in again to access your data.',
+    final isGuest = await _authService.isGuestUser();
+
+    if (isGuest) {
+      // Guest mode: warn about permanent data loss
+      final confirmed = await _showGuestLogoutWarning();
+      if (!confirmed || !mounted) return;
+
+      setState(() => _isAccountActionLoading = true);
+
+      try {
+        // Wipe all guest data before signing out
+        await _authService.deleteAccount();
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        // Fallback: try regular sign out if delete fails
+        try {
+          await _authService.signOut();
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } catch (_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          );
+        }
+      }
+    } else {
+      // Regular user: simple logout
+      final confirmed = await _showConfirmDialog(
+        title: 'Log Out?',
+        message: 'You will need to sign in again to access your data.',
+      );
+
+      if (!confirmed || !mounted) return;
+
+      setState(() => _isAccountActionLoading = true);
+
+      try {
+        await _authService.signOut();
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Guest-specific logout warning dialog with data loss notice
+  Future<bool> _showGuestLogoutWarning() async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.cardOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.orange,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Guest Data Warning',
+                style: TextStyle(
+                  color: AppColors.textPrimaryOf(context),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are signed in as a Guest.',
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.red.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.delete_forever_rounded,
+                      color: Colors.red, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'All your transactions, categories, and settings will be permanently deleted.',
+                      style: TextStyle(
+                        color: AppColors.textPrimaryOf(context),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This action cannot be undone. Consider creating an account first to save your data.',
+              style: TextStyle(
+                color: AppColors.textSecondaryOf(context),
+                fontSize: 12.5,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondaryOf(context)),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              backgroundColor: Colors.red.withValues(alpha: 0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Log Out & Delete Data'),
+          ),
+        ],
+      ),
     );
 
-    if (!confirmed || !mounted) return;
-
-    setState(() => _isAccountActionLoading = true);
-
-    try {
-      await _authService.signOut();
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isAccountActionLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
-    }
+    return result ?? false;
   }
 
   // ── Delete Account ──

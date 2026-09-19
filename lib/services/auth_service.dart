@@ -8,6 +8,7 @@ import 'app_init_helper.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email'],
     serverClientId:
         '902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com',
   );
@@ -139,8 +140,25 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
+      // Clear any stale Google sign-in session to prevent "sign_in_canceled" errors
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {
+        // Ignore - user may not have been signed in
+      }
+
       // Trigger the authentication flow
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn.signIn();
+      } catch (signInError) {
+        debugPrint('⚠️ Google Sign-In initial attempt failed: $signInError');
+        // Try disconnecting completely and retrying
+        try {
+          await _googleSignIn.disconnect();
+        } catch (_) {}
+        googleUser = await _googleSignIn.signIn();
+      }
 
       if (googleUser == null) {
         // User cancelled the sign-in
@@ -150,6 +168,10 @@ class AuthService {
       // Obtain the auth details from the request
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
+
+      if (googleAuth.accessToken == null && googleAuth.idToken == null) {
+        throw 'Failed to obtain Google authentication tokens. Please try again.';
+      }
 
       // Create a new credential
       final credential = GoogleAuthProvider.credential(
@@ -214,7 +236,15 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       debugPrint('❌ Google Sign-In Error: $e');
-      throw 'Failed to sign in with Google: $e';
+      final errorStr = e.toString().toLowerCase();
+      if (errorStr.contains('network') || errorStr.contains('connection')) {
+        throw 'Network error. Please check your internet connection and try again.';
+      } else if (errorStr.contains('canceled') || errorStr.contains('cancelled')) {
+        throw 'Sign-in was cancelled. Please try again.';
+      } else if (errorStr.contains('credential') || errorStr.contains('token')) {
+        throw 'Authentication failed. Please try signing in again.';
+      }
+      throw 'Failed to sign in with Google. Please try again.';
     }
   }
 
