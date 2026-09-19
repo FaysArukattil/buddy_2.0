@@ -25,7 +25,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "NotificationAction"
-        private const val PREFS_NAME = "buddy_prefs"
+        private const val PREFS_NAME = "FlutterSharedPreferences"
+        private const val KEY_PREFIX = "flutter."
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -48,7 +49,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         Log.d(TAG, "✅ User clicked YES — Adding transaction")
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val pendingJson = prefs.getString("pending_$hash", null)
+        val pendingJson = prefs.getString("${KEY_PREFIX}pending_$hash", null)
 
         if (pendingJson != null) {
             try {
@@ -66,8 +67,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                 // Move from pending to confirmed
                 val success = prefs.edit()
-                    .putString("txn_$hash", json.toString())
-                    .remove("pending_$hash")
+                    .putString("${KEY_PREFIX}txn_$hash", json.toString())
+                    .remove("${KEY_PREFIX}pending_$hash")
                     .commit()
 
                 if (success) {
@@ -89,7 +90,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         Log.d(TAG, "❌ User clicked NO — Ignoring transaction")
 
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().remove("pending_$hash").commit()
+        prefs.edit().remove("${KEY_PREFIX}pending_$hash").commit()
 
         Log.d(TAG, "✅ Pending transaction removed")
     }

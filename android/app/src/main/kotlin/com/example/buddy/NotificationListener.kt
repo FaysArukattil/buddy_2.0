@@ -24,7 +24,8 @@ class NotificationListener : NotificationListenerService() {
 
     companion object {
         private const val TAG = "NotificationListener"
-        private const val PREFS_NAME = "buddy_prefs"
+        private const val PREFS_NAME = "FlutterSharedPreferences"
+        private const val KEY_PREFIX = "flutter."
 
         // Only SMS/Messaging apps — banks always send SMS for actual transactions
         private val FINANCIAL_APPS = setOf(
@@ -99,6 +100,43 @@ class NotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         Log.d(TAG, "✅ Listener connected — monitoring SMS notifications")
+        migrateOldPrefs()
+    }
+
+    /**
+     * One-time migration: copy txn_/pending_ entries from the old "buddy_prefs"
+     * file to "FlutterSharedPreferences" with the "flutter." prefix so Flutter
+     * can read them. This handles any transactions that were saved before the fix.
+     */
+    private fun migrateOldPrefs() {
+        try {
+            val oldPrefs = getSharedPreferences("buddy_prefs", Context.MODE_PRIVATE)
+            val oldAll = oldPrefs.all
+            if (oldAll.isEmpty()) return
+
+            val newPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val editor = newPrefs.edit()
+            var migrated = 0
+
+            for ((key, value) in oldAll) {
+                if ((key.startsWith("txn_") || key.startsWith("pending_")) && value is String) {
+                    val newKey = "${KEY_PREFIX}$key"
+                    if (!newPrefs.contains(newKey)) {
+                        editor.putString(newKey, value)
+                        migrated++
+                    }
+                }
+            }
+
+            if (migrated > 0) {
+                editor.apply()
+                // Clear old prefs after migration
+                oldPrefs.edit().clear().apply()
+                Log.d(TAG, "✅ Migrated $migrated transaction(s) from old prefs to FlutterSharedPreferences")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "⚠️ Migration error (non-critical): ${e.message}")
+        }
     }
 
     override fun onListenerDisconnected() {
@@ -160,7 +198,7 @@ class NotificationListener : NotificationListenerService() {
             val hash = generateHash("$fullText|${System.currentTimeMillis()}")
 
             val buddyPrefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            if (buddyPrefs.contains("txn_$hash")) {
+            if (buddyPrefs.contains("${KEY_PREFIX}txn_$hash")) {
                 Log.d(TAG, "⚠️ Duplicate hash — skipping")
                 return
             }
@@ -311,7 +349,7 @@ class NotificationListener : NotificationListenerService() {
         var count = 0
 
         for ((key, value) in prefs.all) {
-            if (key.startsWith("txn_") || key.startsWith("pending_")) {
+            if (key.startsWith("${KEY_PREFIX}txn_") || key.startsWith("${KEY_PREFIX}pending_")) {
                 try {
                     val json = JSONObject(value as String)
                     val txnAmount = json.getDouble("amount")
@@ -346,7 +384,7 @@ class NotificationListener : NotificationListenerService() {
             put("date", isoDate)
         }
 
-        prefs.edit().putString("txn_$hash", json.toString()).apply()
+        prefs.edit().putString("${KEY_PREFIX}txn_$hash", json.toString()).apply()
     }
 
     private fun storePendingTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {
@@ -365,7 +403,7 @@ class NotificationListener : NotificationListenerService() {
             put("date", isoDate)
         }
 
-        prefs.edit().putString("pending_$hash", json.toString()).apply()
+        prefs.edit().putString("${KEY_PREFIX}pending_$hash", json.toString()).apply()
     }
 
     // ── Notifications ──
