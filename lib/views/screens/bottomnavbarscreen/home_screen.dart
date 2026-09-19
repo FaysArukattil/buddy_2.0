@@ -41,7 +41,6 @@ class HomeScreenState extends State<HomeScreen>
     super.initState();
     debugPrint('🏠 HOME SCREEN INITIALIZED');
     NotificationService.requestNotificationAccess();
-    NotificationService.startListening();
 
     WidgetsBinding.instance.addObserver(this);
 

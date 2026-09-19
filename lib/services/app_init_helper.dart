@@ -2,9 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
-import 'transaction_sync_helper.dart';
 import 'firestore_service.dart';
 
+/// Handles app initialization and transaction syncing.
+///
+/// Architecture:
+/// - On app startup, syncs transactions from SharedPreferences to Firestore.
+/// - The native NotificationListenerService saves transactions to SharedPreferences
+///   independently (even when the app is closed).
+/// - This helper reads those saved transactions and syncs them on app open/resume.
 class AppInitHelper {
   static bool _isInitialized = false;
   static String? _lastUid;
@@ -12,7 +18,7 @@ class AppInitHelper {
   // Callback to notify UI when transactions are synced
   static Function()? onTransactionsSynced;
 
-  /// Initialize app - call this in main.dart or app startup
+  /// Initialize app — call this in main.dart or app startup
   static Future<void> initialize() async {
     final currentUser = FirebaseAuth.instance.currentUser;
     final uid = currentUser?.uid;
@@ -23,7 +29,7 @@ class AppInitHelper {
         return;
       } else {
         debugPrint('🔄 Auth UID changed from $_lastUid to $uid. Re-initializing...');
-        await dispose();
+        _isInitialized = false;
       }
     }
 
@@ -48,33 +54,26 @@ class AppInitHelper {
         }
       }
 
-      // 3. Sync transactions from native storage
-      debugPrint('🔄 Syncing transactions from native storage...');
-      final syncedCount = await TransactionSyncHelper.syncNativeTransactions();
+      // 3. Sync transactions from SharedPreferences to Firestore
+      //    These were saved by the native NotificationListenerService
+      //    while the app was closed.
+      debugPrint('🔄 Syncing saved transactions to Firestore...');
+      final syncedCount = await NotificationService.syncSavedTransactions(
+        onTransactionDetected: (transactionMap, hash) async {
+          debugPrint('🆕 Transaction synced: $hash');
+          if (onTransactionsSynced != null) {
+            onTransactionsSynced!();
+          }
+        },
+      );
 
       if (syncedCount > 0) {
-        debugPrint('🎉 Synced $syncedCount transactions!');
+        debugPrint('🎉 Synced $syncedCount transaction(s)!');
         if (onTransactionsSynced != null) {
           onTransactionsSynced!();
         }
       } else {
         debugPrint('✅ No transactions to sync');
-      }
-
-      // 4. Start notification listener ONLY if auto-detection is enabled
-      //    and permission is already granted (don't request permission here
-      //    to avoid ANR — user enables it explicitly via Settings)
-      final isAutoDetectEnabled = await NotificationService.isAutoDetectionEnabled();
-      if (isAutoDetectEnabled) {
-        debugPrint('🎧 Starting notification listener...');
-        await NotificationService.startListening((transactionMap, hash) async {
-          debugPrint('🆕 New transaction detected in app: $hash');
-          if (onTransactionsSynced != null) {
-            onTransactionsSynced!();
-          }
-        });
-      } else {
-        debugPrint('ℹ️ Auto-detection disabled, skipping notification listener');
       }
 
       _isInitialized = true;
@@ -94,10 +93,19 @@ class AppInitHelper {
     await initialize();
   }
 
-  /// Manually trigger sync (useful for pull-to-refresh)
+  /// Manually trigger sync (useful for pull-to-refresh or on app resume)
   static Future<int> syncNow() async {
     debugPrint('🔄 Manual sync triggered...');
-    final count = await TransactionSyncHelper.performFullSync();
+
+    // Sync from SharedPreferences to Firestore
+    final count = await NotificationService.syncSavedTransactions(
+      onTransactionDetected: (transactionMap, hash) async {
+        debugPrint('🆕 Transaction synced: $hash');
+      },
+    );
+
+    // Clean up already-synced entries
+    await NotificationService.cleanupSyncedTransactions();
 
     if (count > 0 && onTransactionsSynced != null) {
       onTransactionsSynced!();
@@ -121,9 +129,8 @@ class AppInitHelper {
     }
   }
 
-  /// Dispose resources
+  /// Dispose resources — lightweight since there's no background service to stop
   static Future<void> dispose() async {
-    await NotificationService.stopListening();
     _isInitialized = false;
   }
 }

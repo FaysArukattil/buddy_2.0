@@ -36,10 +36,12 @@ class ExportManager {
       final file = File('${directory.path}/$fileName');
       await file.writeAsString(csv.toString());
       
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Buddy Expense Tracker Export',
-        text: 'Exported ${transactions.length} transactions',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Buddy Expense Tracker Export',
+          text: 'Exported ${transactions.length} transactions',
+        ),
       );
     } catch (e) {
       throw Exception('Failed to export data: $e');
@@ -77,10 +79,12 @@ class ExportManager {
       final file = File('${directory.path}/$fileName');
       await file.writeAsString(jsonString);
       
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Buddy Expense Tracker Export',
-        text: 'Exported ${transactions.length} transactions',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Buddy Expense Tracker Export',
+          text: 'Exported ${transactions.length} transactions',
+        ),
       );
     } catch (e) {
       throw Exception('Failed to export data: $e');

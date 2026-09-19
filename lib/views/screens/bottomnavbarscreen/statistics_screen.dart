@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
-import 'dart:ui';
 import 'dart:async';
 import 'dart:math' as math;
 // ignore: depend_on_referenced_packages
@@ -1911,6 +1910,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                       child: Icon(
                         cat['icon'] != null
                             ? IconData(
+                                // ignore: non_const_argument_for_const_parameter
                                 cat['icon'] as int,
                                 fontFamily: 'MaterialIcons',
                               )

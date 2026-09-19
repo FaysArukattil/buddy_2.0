@@ -86,10 +86,6 @@ class _SettingsModalState extends State<SettingsModal> {
         // Enable auto-detection
         await NotificationService.setAutoDetectionEnabled(true);
 
-        // Force start listener
-        await NotificationService.stopListening();
-        await NotificationService.startListening();
-
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -104,7 +100,6 @@ class _SettingsModalState extends State<SettingsModal> {
       } else {
         // Disable auto-detection
         await NotificationService.setAutoDetectionEnabled(false);
-        await NotificationService.stopListening();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(

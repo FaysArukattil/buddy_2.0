@@ -33,7 +33,6 @@ class ProfileScreenState extends State<ProfileScreen>
   bool _editing = false;
   double _totalIncome = 0;
   double _totalExpense = 0;
-  int _totalTransactions = 0;
   String _topCategory = '-';
   DateTime? _memberSince;
   double _moneyLottieDy = 0;
@@ -107,7 +106,6 @@ class ProfileScreenState extends State<ProfileScreen>
     try {
       final now = DateTime.now();
       double income = 0, expense = 0;
-      int txnCount = 0;
       String topCat = '-';
 
       final totals = await FirestoreService.instance.getMonthlyTotals(
@@ -119,7 +117,6 @@ class ProfileScreenState extends State<ProfileScreen>
 
       // Get all transactions for stats
       final allTxns = await FirestoreService.instance.getAllTransactions();
-      txnCount = allTxns.length;
 
       // Find top category
       final catCounts = <String, int>{};
@@ -139,7 +136,6 @@ class ProfileScreenState extends State<ProfileScreen>
         setState(() {
           _totalIncome = income;
           _totalExpense = expense;
-          _totalTransactions = txnCount;
           _topCategory = topCat;
         });
       }

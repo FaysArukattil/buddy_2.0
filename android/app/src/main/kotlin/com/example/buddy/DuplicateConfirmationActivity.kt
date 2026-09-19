@@ -1,6 +1,7 @@
 package com.example.buddy
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -10,8 +11,11 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 
 /**
- * Popup activity that shows immediately when duplicate transaction is detected
- * Works even when app is closed by appearing as overlay
+ * Popup activity for duplicate transaction confirmation.
+ *
+ * NOTE: This activity is no longer registered in the manifest.
+ * Duplicate confirmation is now handled via notification action buttons.
+ * This file is kept for reference but is effectively dead code.
  */
 class DuplicateConfirmationActivity : Activity() {
 
@@ -29,10 +33,9 @@ class DuplicateConfirmationActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
-        Log.d(TAG, "🎯 ============ DUPLICATE POPUP ACTIVITY STARTED ============")
 
-        // Make this activity show over lockscreen and turn screen on
+        Log.d(TAG, "🎯 DuplicateConfirmationActivity started")
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -44,7 +47,6 @@ class DuplicateConfirmationActivity : Activity() {
             )
         }
 
-        // Get transaction details from intent
         transactionHash = intent.getStringExtra(EXTRA_HASH)
         val amount = intent.getDoubleExtra(EXTRA_AMOUNT, 0.0)
         val type = intent.getStringExtra(EXTRA_TYPE) ?: "expense"
@@ -52,17 +54,12 @@ class DuplicateConfirmationActivity : Activity() {
         val similarCount = intent.getIntExtra(EXTRA_SIMILAR_COUNT, 0)
         val note = intent.getStringExtra(EXTRA_NOTE) ?: ""
 
-        Log.d(TAG, "Transaction: ₹$amount | $type | $category")
-        Log.d(TAG, "Similar count: $similarCount")
-        Log.d(TAG, "Hash: $transactionHash")
-
         if (transactionHash == null) {
             Log.e(TAG, "❌ No transaction hash provided!")
             finish()
             return
         }
 
-        // Show dialog immediately
         showConfirmationDialog(amount, type, category, similarCount, note)
     }
 
@@ -93,46 +90,42 @@ class DuplicateConfirmationActivity : Activity() {
             .setMessage(message)
             .setCancelable(false)
             .setPositiveButton("✅ Yes, Add It") { _, _ ->
-                Log.d(TAG, "✅ User clicked YES - Adding transaction")
                 handleUserResponse(true)
             }
             .setNegativeButton("❌ No, Ignore") { _, _ ->
-                Log.d(TAG, "❌ User clicked NO - Ignoring transaction")
                 handleUserResponse(false)
             }
             .create()
 
-        // Make dialog appear over other apps
-        dialog.window?.setType(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY)
-        
-        // Style the dialog
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        
         dialog.show()
-
-        Log.d(TAG, "✅ Confirmation dialog shown")
     }
 
     private fun handleUserResponse(shouldAdd: Boolean) {
         val hash = transactionHash ?: return
 
-        // Send response back to Flutter via MainActivity
-        val responseIntent = Intent("com.example.buddy.DUPLICATE_RESPONSE").apply {
-            putExtra("hash", hash)
-            putExtra("shouldAdd", shouldAdd)
+        if (shouldAdd) {
+            // Move pending to confirmed in SharedPreferences
+            val prefs = getSharedPreferences("buddy_prefs", Context.MODE_PRIVATE)
+            val pendingJson = prefs.getString("pending_$hash", null)
+            if (pendingJson != null) {
+                prefs.edit()
+                    .putString("txn_$hash", pendingJson)
+                    .remove("pending_$hash")
+                    .apply()
+                Log.d(TAG, "✅ Transaction confirmed: $hash")
+            }
+        } else {
+            // Remove pending
+            val prefs = getSharedPreferences("buddy_prefs", Context.MODE_PRIVATE)
+            prefs.edit().remove("pending_$hash").apply()
+            Log.d(TAG, "❌ Transaction rejected: $hash")
         }
-        sendBroadcast(responseIntent)
-
-        Log.d(TAG, "📡 Response broadcast sent: shouldAdd=$shouldAdd")
-
-        // Also send to MainActivity if active
-        MainActivity.instance?.handleDuplicateResponse(hash, shouldAdd)
 
         finish()
     }
 
+    @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        // Prevent back button from dismissing without choice
-        Log.d(TAG, "⚠️ Back button pressed - ignoring (user must choose)")
+        Log.d(TAG, "⚠️ Back button pressed — ignoring")
     }
 }

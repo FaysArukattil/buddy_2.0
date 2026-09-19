@@ -93,7 +93,7 @@ class AppColors {
   /// Get a lighter tint of the category color for backgrounds
   static Color getCategoryBgColor(String categoryName) {
     final color = getCategoryColor(categoryName);
-    return Color.fromARGB(30, color.red, color.green, color.blue);
+    return color.withAlpha(30);
   }
 
   // Shadow presets

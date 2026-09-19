@@ -3,8 +3,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:buddy/views/screens/onboarding/splashscreen/splash_screen.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/services/notification_helper.dart';
-import 'package:buddy/services/firestore_service.dart';
-import 'package:buddy/services/transaction_sync_helper.dart';
 import 'package:buddy/services/app_init_helper.dart';
 import 'firebase_options.dart';
 
@@ -23,15 +21,7 @@ void main() async {
     debugPrint('❌ APP: Firebase initialization failed: $e');
   }
 
-  // 1. Enable Firestore offline persistence
-  try {
-    await FirestoreService.enableOfflinePersistence();
-    debugPrint('✅ APP: Firestore persistence enabled');
-  } catch (e) {
-    debugPrint('⚠️ APP: Firestore persistence setup failed: $e');
-  }
-
-  // 2. Initialize the app sync helper (auto-sync & callbacks)
+  // 1. Initialize the app (Firestore persistence, categories, sync transactions)
   try {
     await AppInitHelper.initialize();
     debugPrint('✅ APP: AppInitHelper initialized');
@@ -39,15 +29,7 @@ void main() async {
     debugPrint('⚠️ APP: AppInitHelper initialization failed: $e');
   }
 
-  // 3. Sync native transactions to Firestore
-  try {
-    await TransactionSyncHelper.syncNativeTransactions();
-    debugPrint('✅ APP: Transaction sync complete');
-  } catch (e) {
-    debugPrint('⚠️ APP: Transaction sync failed: $e');
-  }
-
-  // 4. Initialize Notification Helper (for showing notifications)
+  // 2. Initialize Notification Helper (for showing in-app notifications)
   try {
     await NotificationHelper.initialize();
     debugPrint('✅ APP: Notification helper initialized');
@@ -55,20 +37,13 @@ void main() async {
     debugPrint('❌ APP: Notification helper initialization failed: $e');
   }
 
-  // 5. Request notification permissions (for showing notifications, not listener access)
-  // This is safe — it just shows the Android 13+ notification permission dialog,
-  // NOT the notification listener settings page.
+  // 3. Request notification permission (Android 13+ dialog, NOT listener access)
   try {
     await NotificationHelper.requestNotificationPermission();
     debugPrint('✅ APP: Notification permissions requested');
   } catch (e) {
     debugPrint('⚠️ APP: Notification permission request failed: $e');
   }
-
-  // NOTE: Auto-detection notification listener access is handled by
-  // AppInitHelper.initialize() above. We do NOT call
-  // requestNotificationAccess() here because it opens system settings
-  // and causes an ANR (Application Not Responding) dialog.
 
   debugPrint('🎉 APP: Initialization complete\n');
 

@@ -262,7 +262,7 @@ class FirestoreService {
         batch.set(ref, {
           'name': entry['name'],
           'icon': entry['icon'],
-          'color': AppColors.getCategoryColor(entry['name'] as String).value,
+          'color': AppColors.getCategoryColor(entry['name'] as String).toARGB32(),
           'type': 'expense',
           'isDefault': true,
           'order': order++,
@@ -277,7 +277,7 @@ class FirestoreService {
         batch.set(ref, {
           'name': entry['name'],
           'icon': entry['icon'],
-          'color': AppColors.getCategoryColor(entry['name'] as String).value,
+          'color': AppColors.getCategoryColor(entry['name'] as String).toARGB32(),
           'type': 'income',
           'isDefault': true,
           'order': order++,

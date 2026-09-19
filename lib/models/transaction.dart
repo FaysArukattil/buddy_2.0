@@ -62,7 +62,7 @@ class TransactionModel {
     );
   }
 
-  /// For backward compat with screens that use Map<String, dynamic>
+  /// For backward compat with screens that use `Map<String, dynamic>`
   Map<String, dynamic> toDisplayMap() {
     return {
       'id': id,
