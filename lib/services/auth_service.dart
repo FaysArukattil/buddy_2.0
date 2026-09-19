@@ -7,7 +7,10 @@ import 'app_init_helper.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    serverClientId:
+        '902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com',
+  );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // Get current user
@@ -211,7 +214,7 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       debugPrint('❌ Google Sign-In Error: $e');
-      throw 'Failed to sign in with Google. Please try again.';
+      throw 'Failed to sign in with Google: $e';
     }
   }
 

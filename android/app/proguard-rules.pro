@@ -8,19 +8,11 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# Firebase & Play Services
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
+# Firebase & Play Services (let AAR consumer rules handle specifics, suppress warnings)
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
 -dontwarn com.google.android.play.core.**
 
-
-# Google Sign-In
--keep class com.google.android.gms.auth.** { *; }
-
-# Firestore
--keep class com.google.firebase.firestore.** { *; }
 
 # Keep notification listener and native components
 -keep class com.faysarukattil.buddy.NotificationListener { *; }

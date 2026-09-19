@@ -7,64 +7,28 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:902883106258:android:f36c2e53e066d5ed88bc0b",
-        "android_client_info": {
-          "package_name": "com.example.buddy"
-        }
-      },
-      "oauth_client": [
-        {
-          "client_id": "902883106258-c7st20ij0vg8mh09v49qb5re2mj3dnhc.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.buddy",
-            "certificate_hash": "672085af5a9e7a5bf91811b801b9ddffc12437e7"
-          }
-        },
-        {
-          "client_id": "902883106258-gdk9v8rreqd2t7i5gfpn3fnht79h610r.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.example.buddy",
-            "certificate_hash": "0273aee0664692990a741ee6351ebf82b80be6b1"
-          }
-        },
-        {
-          "client_id": "902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA9VLwSaPxJgl3iyykjsSQHUkXYFACbLRg"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "902883106258-vudsfimu2lajrguge1g9nn9kfba2cqei.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.buddy"
-              }
-            }
-          ]
-        }
-      }
-    },
-    {
-      "client_info": {
         "mobilesdk_app_id": "1:902883106258:android:56b81e890ec1bbc888bc0b",
         "android_client_info": {
           "package_name": "com.faysarukattil.buddy"
         }
       },
       "oauth_client": [
+        {
+          "client_id": "902883106258-cf8k0nbb00vt60l8p20emqat86krk6bf.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.faysarukattil.buddy",
+            "certificate_hash": "c52f040a12d006bc3961a8d5175f3d2512fa079b"
+          }
+        },
+        {
+          "client_id": "902883106258-j3eehjru0gfiai3uirsb3q1q06vv33rq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.faysarukattil.buddy",
+            "certificate_hash": "0273aee0664692990a741ee6351ebf82b80be6b1"
+          }
+        },
         {
           "client_id": "902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com",
           "client_type": 3
