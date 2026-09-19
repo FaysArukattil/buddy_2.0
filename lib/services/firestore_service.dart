@@ -134,6 +134,24 @@ class FirestoreService {
     return snapshot.docs.isNotEmpty;
   }
 
+  /// Find transactions with the same amount and type from the last N hours
+  /// Uses a targeted Firestore query instead of loading all transactions
+  Future<List<TransactionModel>> findSimilarTransactions({
+    required double amount,
+    required String type,
+    int withinHours = 24,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(hours: withinHours));
+    final snapshot = await _txnCol
+        .where('amount', isEqualTo: amount)
+        .where('type', isEqualTo: type.toLowerCase())
+        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
+        .get();
+    return snapshot.docs
+        .map((doc) => TransactionModel.fromFirestore(doc))
+        .toList();
+  }
+
   /// Add auto-detected transaction
   Future<String> addAutoDetectedTransaction(TransactionModel txn) async {
     if (txn.notificationHash != null) {

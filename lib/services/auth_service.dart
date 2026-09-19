@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'app_init_helper.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -116,6 +117,13 @@ class AuthService {
       await prefs.setBool('isGuest', false);
       await prefs.setString('userId', userCredential.user!.uid);
 
+      // Re-initialize app data for this user (ensures data loads after reinstall)
+      try {
+        await AppInitHelper.reinitializeForUser();
+      } catch (e) {
+        debugPrint('⚠️ Re-initialization after login failed (non-critical): $e');
+      }
+
       return userCredential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
@@ -189,6 +197,13 @@ class AuthService {
       await prefs.setString('userId', userCredential.user!.uid);
       if (userCredential.user!.photoURL != null) {
         await prefs.setString('photoURL', userCredential.user!.photoURL!);
+      }
+
+      // Re-initialize app data for this user (ensures data loads after reinstall)
+      try {
+        await AppInitHelper.reinitializeForUser();
+      } catch (e) {
+        debugPrint('⚠️ Re-initialization after Google sign-in failed (non-critical): $e');
       }
 
       return userCredential;

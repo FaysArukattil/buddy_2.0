@@ -99,7 +99,7 @@ class NotificationService {
     caseSensitive: false,
   );
 
-  // ── Spam / promo blacklist ──
+  // ── Spam / promo / bill reminder blacklist ──
   static final List<String> _spamKeywords = [
     'offer', 'cashback offer', 'apply now', 'click here', 'win ',
     'congratulations', 'limited time', 'download', 'install',
@@ -111,27 +111,34 @@ class NotificationService {
     'insurance', 'mutual fund', 'apply for', 'link your',
     'kyc', 'pan card', 'aadhaar', 'aadhar', 'verify your',
     'expire', 'renew', 'register', 'enroll',
+    // Bill reminder keywords — these are reminders, not actual transactions
+    'due', 'upcoming', 'pay by', 'bill reminder', 'recharge now',
+    'plan expiry', 'your plan', 'validity', 'pay your bill',
+    'auto-pay', 'payment due', 'overdue', 'outstanding', 'reminder',
   ];
 
+  // Only SMS/messaging apps — banks always send SMS for actual transactions
   static final List<String> _financialApps = [
     'com.google.android.apps.messaging',
     'com.android.messaging',
     'com.samsung.android.messaging',
     'com.android.mms',
-    'com.phonepe.app',
-    'com.google.android.apps.nbu.paisa.user',
-    'in.org.npci.upiapp',
-    'net.one97.paytm',
-    'com.amazon.mShop.android.shopping',
-    'in.amazon.mShop.android.shopping',
-    'com.mobikwik_new',
-    'com.freecharge.android',
-    'com.sbi.SBIFreedomPlus',
-    'com.icicibank.mobile.iciciappathon',
-    'com.hdfcbank.payzapp',
-    'com.axisbank.mobile',
-    'com.kotakbank.mobile',
-    'com.indusind.mobile',
+  ];
+
+  // Apps to never process notifications from
+  static final List<String> _blacklistedApps = [
+    'com.whatsapp',
+    'com.whatsapp.w4b',
+    'org.telegram.messenger',
+    'com.instagram.android',
+    'com.facebook.orca',
+    'com.twitter.android',
+    'com.snapchat.android',
+    'com.truecaller',
+    'com.jio.myjio',
+    'com.myairtelapp',
+    'com.bsnl.selfcare',
+    'com.vi.care',
   ];
 
   static bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
@@ -250,39 +257,12 @@ class NotificationService {
     await startBackgroundService();
     await requestQueuedNotifications();
 
-    // NEW: Request sync of any unsynced transactions
+    // Request sync of any unsynced transactions
     await syncUnsyncedTransactions();
 
-    try {
-      _notificationSubscription = NotificationListenerService
-          .notificationsStream
-          .listen(
-            (event) async {
-              try {
-                final result = await _handleNotification(event);
-                if (result != null && _onTransactionDetected != null) {
-                  final transactionMap =
-                      result['transactionMap'] as Map<String, Object?>;
-                  final hash = result['hash'] as String;
-                  await _onTransactionDetected!(transactionMap, hash);
-                }
-              } catch (e) {
-                debugPrint('❌ NOTIFICATION: Error processing stream event: $e');
-              }
-            },
-            onError: (error) {
-              debugPrint('❌ NOTIFICATION: Stream error: $error');
-            },
-            onDone: () {
-              debugPrint('⚠️ NOTIFICATION: Stream closed');
-              _isListening = false;
-            },
-          );
-    } catch (e) {
-      debugPrint(
-        '⚠️ NOTIFICATION: Could not attach to notificationsStream: $e',
-      );
-    }
+    // Don't subscribe to notificationsStream — the native NotificationListenerService
+    // already handles processing. The dual listener was causing double processing
+    // and unnecessary battery drain.
 
     _nativeChannel.setMethodCallHandler((call) async {
       try {
@@ -613,11 +593,10 @@ class NotificationService {
 
       final transactionMap = transaction.toMap();
 
-      final allTxns = await FirestoreService.instance.getAllTransactions();
-      final similarTransactions = allTxns.where((t) =>
-          t.amount == transaction.amount &&
-          t.type.toLowerCase() == transaction.type.toLowerCase() &&
-          t.date.isAfter(DateTime.now().subtract(const Duration(hours: 24)))).toList();
+      final similarTransactions = await FirestoreService.instance.findSimilarTransactions(
+        amount: transaction.amount,
+        type: transaction.type,
+      );
 
       if (similarTransactions.isNotEmpty) {
         debugPrint(
@@ -635,13 +614,6 @@ class NotificationService {
         );
 
         debugPrint('   📬 Waiting for user confirmation...');
-        return null;
-      }
-
-      final alreadyExists = await FirestoreService.instance
-          .isDuplicateTransaction(hash);
-      if (alreadyExists) {
-        debugPrint('⚠️ Transaction already exists - skipping');
         return null;
       }
 
@@ -672,29 +644,15 @@ class NotificationService {
       return false;
     }
 
+    // Check blacklist first
+    if (_blacklistedApps.contains(packageName)) return false;
+
     if (_financialApps.contains(packageName)) return true;
 
-    // Only match banking / UPI / payment apps, not general messaging
-    final bankPatterns = [
-      'bank',
-      'upi',
-      'payment',
-      'wallet',
-      'paisa',
-      'money',
-      'sms',
-      'messaging',
-      'message',
-    ];
+    // Only match SMS/messaging apps — banks send SMS for real transactions
     final lower = packageName.toLowerCase();
-    // Exclude known non-financial apps that match broad patterns
-    if (lower.contains('whatsapp') || lower.contains('truecaller') ||
-        lower.contains('telegram') || lower.contains('instagram') ||
-        lower.contains('facebook') || lower.contains('twitter') ||
-        lower.contains('snapchat')) {
-      return false;
-    }
-    for (final p in bankPatterns) {
+    final smsPatterns = ['sms', 'messaging', 'message', 'mms'];
+    for (final p in smsPatterns) {
       if (lower.contains(p)) return true;
     }
     return false;

@@ -61,14 +61,21 @@ class AppInitHelper {
         debugPrint('✅ No transactions to sync');
       }
 
-      // 4. Start notification listener
-      debugPrint('🎧 Starting notification listener...');
-      await NotificationService.startListening((transactionMap, hash) async {
-        debugPrint('🆕 New transaction detected in app: $hash');
-        if (onTransactionsSynced != null) {
-          onTransactionsSynced!();
-        }
-      });
+      // 4. Start notification listener ONLY if auto-detection is enabled
+      //    and permission is already granted (don't request permission here
+      //    to avoid ANR — user enables it explicitly via Settings)
+      final isAutoDetectEnabled = await NotificationService.isAutoDetectionEnabled();
+      if (isAutoDetectEnabled) {
+        debugPrint('🎧 Starting notification listener...');
+        await NotificationService.startListening((transactionMap, hash) async {
+          debugPrint('🆕 New transaction detected in app: $hash');
+          if (onTransactionsSynced != null) {
+            onTransactionsSynced!();
+          }
+        });
+      } else {
+        debugPrint('ℹ️ Auto-detection disabled, skipping notification listener');
+      }
 
       _isInitialized = true;
       debugPrint('✅ ============ APP INITIALIZED SUCCESSFULLY ============');
@@ -76,6 +83,15 @@ class AppInitHelper {
       debugPrint('❌ Error during app initialization: $e');
       debugPrint('Stack trace: $stackTrace');
     }
+  }
+
+  /// Re-initialize for a new/returning user (e.g., after login on a reinstalled app)
+  /// This ensures the correct UID is used and data is properly loaded.
+  static Future<void> reinitializeForUser() async {
+    debugPrint('🔄 Re-initializing for current user...');
+    _isInitialized = false;
+    _lastUid = null;
+    await initialize();
   }
 
   /// Manually trigger sync (useful for pull-to-refresh)

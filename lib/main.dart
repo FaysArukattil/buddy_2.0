@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:buddy/views/screens/onboarding/splashscreen/splash_screen.dart';
 import 'package:buddy/utils/colors.dart';
-import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/transaction_sync_helper.dart';
@@ -56,7 +55,9 @@ void main() async {
     debugPrint('❌ APP: Notification helper initialization failed: $e');
   }
 
-  // 5. Request notification permissions
+  // 5. Request notification permissions (for showing notifications, not listener access)
+  // This is safe — it just shows the Android 13+ notification permission dialog,
+  // NOT the notification listener settings page.
   try {
     await NotificationHelper.requestNotificationPermission();
     debugPrint('✅ APP: Notification permissions requested');
@@ -64,27 +65,10 @@ void main() async {
     debugPrint('⚠️ APP: Notification permission request failed: $e');
   }
 
-  // 6. Check if auto-detection is enabled
-  try {
-    final isAutoDetectionEnabled =
-        await NotificationService.isAutoDetectionEnabled();
-    debugPrint('ℹ️ APP: Auto-detection enabled: $isAutoDetectionEnabled');
-
-    if (isAutoDetectionEnabled) {
-      final hasAccess = await NotificationService.requestNotificationAccess();
-
-      if (hasAccess) {
-        await NotificationService.startListening();
-        debugPrint('✅ APP: Notification listener started');
-      } else {
-        debugPrint('⚠️ APP: Notification listener access not granted');
-      }
-    } else {
-      debugPrint('ℹ️ APP: Auto-detection disabled, not starting listener');
-    }
-  } catch (e) {
-    debugPrint('⚠️ APP: Failed to start notification listener: $e');
-  }
+  // NOTE: Auto-detection notification listener access is handled by
+  // AppInitHelper.initialize() above. We do NOT call
+  // requestNotificationAccess() here because it opens system settings
+  // and causes an ANR (Application Not Responding) dialog.
 
   debugPrint('🎉 APP: Initialization complete\n');
 

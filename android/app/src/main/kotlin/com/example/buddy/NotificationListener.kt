@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.os.PowerManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -27,27 +26,59 @@ class NotificationListener : NotificationListenerService() {
         private const val PREFS_NAME = "buddy_prefs"
         private const val UNSYNCED_TRANSACTIONS_FILE = "unsynced_transactions.json"
         
+        // Only SMS/Messaging apps — banks always send SMS for actual transactions
         private val FINANCIAL_APPS = setOf(
             "com.google.android.apps.messaging",
             "com.android.messaging",
             "com.samsung.android.messaging",
             "com.android.mms",
-            "com.phonepe.app",
-            "com.google.android.apps.nbu.paisa.user",
-            "in.org.npci.upiapp",
-            "net.one97.paytm",
-            "com.amazon.mShop.android.shopping",
-            "in.amazon.mShop.android.shopping",
-            "com.mobikwik_new",
-            "com.freecharge.android",
-            "com.sbi.SBIFreedomPlus",
-            "com.icicibank.mobile.iciciappathon",
-            "com.hdfcbank.payzapp",
-            "com.axisbank.mobile",
-            "com.kotakbank.mobile",
-            "com.indusind.mobile",
+            "com.samsung.android.vvm",
+            "com.android.providers.telephony"
+        )
+
+        // Apps whose notifications should NEVER be treated as transactions
+        private val BLACKLISTED_APPS = setOf(
             "com.whatsapp",
-            "com.whatsapp.w4b"
+            "com.whatsapp.w4b",
+            "org.telegram.messenger",
+            "com.instagram.android",
+            "com.facebook.orca",
+            "com.twitter.android",
+            "com.snapchat.android",
+            "com.truecaller",
+            "com.jio.myjio",
+            "com.myairtelapp",
+            "com.bsnl.selfcare",
+            "com.vi.care"
+        )
+
+        // Bill reminder / promotional keywords — reject notifications containing these
+        private val BILL_REMINDER_KEYWORDS = listOf(
+            "due", "upcoming", "pay by", "bill reminder", "recharge now",
+            "plan expiry", "renew", "activate", "your plan", "validity",
+            "offer", "cashback offer", "apply now", "click here", "win ",
+            "limited time", "download", "subscribe", "free ", "avail ",
+            "otp", "verification code", "one time password", "promo",
+            "discount", "coupon", "upgrade", "premium plan", "recharge offer",
+            "data pack", "missed call", "loan approved", "pre-approved",
+            "insurance", "mutual fund", "apply for", "link your",
+            "kyc", "pan card", "aadhaar", "verify your", "expire",
+            "register", "enroll", "pay your bill", "auto-pay",
+            "payment due", "overdue", "outstanding", "reminder"
+        )
+
+        // Bank account patterns — strong signal that it's a real bank SMS
+        private val ACCOUNT_PATTERN = Regex(
+            """(?:a/c|a\.c|acct?|account)\s*[xX*]*\d{2,}""",
+            RegexOption.IGNORE_CASE
+        )
+        private val UPI_REF_PATTERN = Regex(
+            """ref\.?\s*\d{6,}""",
+            RegexOption.IGNORE_CASE
+        )
+        private val BALANCE_PATTERN = Regex(
+            """(?:bal|balance)[\s:.-]*rs\.?\s*[0-9,]+""",
+            RegexOption.IGNORE_CASE
         )
         
         @Volatile
@@ -55,7 +86,6 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private var notificationQueue: MutableList<NotificationData> = mutableListOf()
-    private var wakeLock: PowerManager.WakeLock? = null
     private val recentlyProcessed = mutableSetOf<String>()
     private var syncReceiver: BroadcastReceiver? = null
 
@@ -64,7 +94,7 @@ class NotificationListener : NotificationListenerService() {
         Log.d(TAG, "🚀 ============ SERVICE CREATED ============")
         
         isServiceRunning = true
-        acquireWakeLock()
+        // No WakeLock — NotificationListenerService is kept alive by the OS binding
         loadQueueFromDisk()
         startForegroundService()
         
@@ -131,10 +161,21 @@ class NotificationListener : NotificationListenerService() {
         if (sbn == null) return
         
         try {
+            // Check if auto-detection is enabled FIRST — skip everything if disabled
+            val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            val autoDetectEnabled = prefs.getBoolean("flutter.auto_detect_transactions", true)
+            if (!autoDetectEnabled) {
+                return  // Silently skip — user has disabled auto-detection
+            }
+
             val pkg = sbn.packageName
             
             if (pkg == applicationContext.packageName) {
-                Log.d(TAG, "🚫 Skipping own app notification")
+                return
+            }
+
+            // Check blacklist before doing any work
+            if (BLACKLISTED_APPS.contains(pkg)) {
                 return
             }
             
@@ -377,7 +418,25 @@ class NotificationListener : NotificationListenerService() {
     private fun parseTransactionNative(text: String): Transaction? {
         try {
             val lowerText = text.lowercase()
-            
+
+            // ── Step 1: Reject bill reminders / spam / promotional messages ──
+            for (keyword in BILL_REMINDER_KEYWORDS) {
+                if (lowerText.contains(keyword)) {
+                    Log.d(TAG, "   🚫 Rejected: bill reminder/spam keyword '$keyword'")
+                    return null
+                }
+            }
+
+            // ── Step 2: Require banking signals (account number, UPI ref, or balance) ──
+            val hasAccount = ACCOUNT_PATTERN.containsMatchIn(text)
+            val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(text)
+            val hasBalance = BALANCE_PATTERN.containsMatchIn(text)
+            if (!hasAccount && !(hasUpiRef && hasBalance)) {
+                Log.d(TAG, "   ❌ Rejected: no banking signals (a/c, Ref, Bal) found")
+                return null
+            }
+
+            // ── Step 3: Determine debit vs credit ──
             val isDebit = when {
                 lowerText.contains("paid you") || 
                 lowerText.contains("sent you") || 
@@ -394,15 +453,16 @@ class NotificationListener : NotificationListenerService() {
                 lowerText.contains("cashback") -> false
                 
                 lowerText.contains("debited") || 
-                lowerText.contains("spent") || 
-                lowerText.contains("payment") -> true
+                lowerText.contains("deducted") -> true
                 
                 lowerText.contains("credited") || 
+                lowerText.contains("deposited") ||
                 lowerText.contains("received") -> false
                 
                 else -> return null
             }
             
+            // ── Step 4: Extract amount ──
             val amountPattern = Regex("""(?:Rs\.?\s?|INR\s?|₹\s?)([0-9,]+\.?[0-9]*)|([0-9,]+\.?[0-9]*)\s?(?:Rs\.?|INR|₹)""", RegexOption.IGNORE_CASE)
             val amountMatch = amountPattern.find(text) ?: return null
             
@@ -650,12 +710,14 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun isFromFinancialApp(packageName: String): Boolean {
+        if (BLACKLISTED_APPS.contains(packageName)) return false
         if (FINANCIAL_APPS.contains(packageName)) return true
         
         val lower = packageName.lowercase()
-        val keywords = listOf("bank", "upi", "payment", "wallet", "paisa", "money", "sms", "message", "messaging")
+        // Only match SMS/messaging apps — banks send SMS for real transactions
+        val smsKeywords = listOf("sms", "message", "messaging", "mms")
         
-        return keywords.any { lower.contains(it) }
+        return smsKeywords.any { lower.contains(it) }
     }
 
     private fun queueNotification(data: NotificationData) {
@@ -736,24 +798,8 @@ class NotificationListener : NotificationListenerService() {
         }
     }
 
-    private fun acquireWakeLock() {
-        try {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-            wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "NotificationListener::WakeLock")
-            wakeLock?.acquire(10 * 60 * 1000L)
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error acquiring wake lock: ${e.message}")
-        }
-    }
-
-    private fun releaseWakeLock() {
-        try {
-            wakeLock?.release()
-            wakeLock = null
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error releasing wake lock: ${e.message}")
-        }
-    }
+    // WakeLock removed — NotificationListenerService is kept alive by the OS
+    // binding. The WakeLock was causing unnecessary battery drain.
 
     private fun startForegroundService() {
         createNotificationChannel(CHANNEL_ID, "Transaction Monitor", NotificationManager.IMPORTANCE_LOW)
@@ -800,7 +846,6 @@ class NotificationListener : NotificationListenerService() {
     override fun onDestroy() {
         Log.d(TAG, "🛑 SERVICE DESTROYED")
         isServiceRunning = false
-        releaseWakeLock()
         saveQueueToDisk()
         
         // Unregister sync receiver
@@ -812,14 +857,8 @@ class NotificationListener : NotificationListenerService() {
         }
         
         super.onDestroy()
-        
-        // Restart service
-        val restartIntent = Intent(applicationContext, NotificationListener::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            applicationContext.startForegroundService(restartIntent)
-        } else {
-            applicationContext.startService(restartIntent)
-        }
+        // No self-restart — START_STICKY + OS notification listener rebinding handles this.
+        // The manual restart was causing a restart storm and draining battery.
     }
 
     data class NotificationData(

@@ -23,6 +23,16 @@ class BootReceiver : BroadcastReceiver() {
             Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 
                 Log.d(TAG, "📱 Device event: ${intent.action}")
+
+                // Check if auto-detection is enabled before starting service
+                val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+                val autoDetectEnabled = prefs.getBoolean("flutter.auto_detect_transactions", true)
+                
+                if (!autoDetectEnabled) {
+                    Log.d(TAG, "ℹ️ Auto-detection disabled — not starting service")
+                    return
+                }
+
                 Log.d(TAG, "📱 Starting NotificationListener service...")
                 
                 try {
