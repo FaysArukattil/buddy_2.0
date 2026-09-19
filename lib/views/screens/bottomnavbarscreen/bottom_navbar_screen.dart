@@ -72,7 +72,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: AppColors.backgroundOf(context),
       body: Stack(
         children: [
           PageView(

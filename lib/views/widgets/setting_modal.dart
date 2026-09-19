@@ -1,11 +1,14 @@
 // lib/views/widgets/settings_modal.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/feedback_service.dart';
+import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/utils/colors.dart';
+import 'package:buddy/views/screens/onboarding/login_screen.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -19,6 +22,8 @@ class SettingsModal extends StatefulWidget {
 class _SettingsModalState extends State<SettingsModal> {
   bool _autoDetectionEnabled = false;
   bool _isLoading = true;
+  bool _isAccountActionLoading = false;
+  final AuthService _authService = AuthService();
 
   @override
   void initState() {
@@ -260,6 +265,219 @@ class _SettingsModalState extends State<SettingsModal> {
     }
   }
 
+  // ── Logout ──
+
+  Future<void> _handleLogout() async {
+    final confirmed = await _showConfirmDialog(
+      title: 'Log Out?',
+      message: 'You will need to sign in again to access your data.',
+    );
+
+    if (!confirmed) return;
+
+    setState(() => _isAccountActionLoading = true);
+
+    try {
+      await _authService.signOut();
+
+      if (!mounted) return;
+
+      // Navigate to login and clear all routes
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isAccountActionLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    }
+  }
+
+  // ── Delete Account (2-step) ──
+
+  Future<void> _handleDeleteAccount() async {
+    // Step 1: First confirmation
+    final firstConfirm = await _showConfirmDialog(
+      title: 'Delete Account?',
+      message:
+          'This will permanently delete your account and ALL your data '
+          '(transactions, categories, settings). This action CANNOT be undone.',
+      isDangerous: true,
+    );
+
+    if (!firstConfirm || !mounted) return;
+
+    // Step 2: Type "DELETE" confirmation
+    final secondConfirm = await _showTypeToConfirmDialog();
+
+    if (!secondConfirm || !mounted) return;
+
+    setState(() => _isAccountActionLoading = true);
+
+    try {
+      await _authService.deleteAccount();
+
+      if (!mounted) return;
+
+      // Navigate to login and clear all routes
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Account deleted successfully'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isAccountActionLoading = false);
+
+      if (e.toString() == 'requires-recent-login') {
+        // Handle re-authentication requirement
+        await _handleReauthAndDelete();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleReauthAndDelete() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final providers = user.providerData.map((p) => p.providerId).toList();
+
+    if (providers.contains('google.com')) {
+      // Google re-auth: just trigger Google sign-in again
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please sign in with Google again to confirm deletion'),
+          backgroundColor: Colors.orange,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+
+      final success = await _authService.reauthenticate();
+      if (success && mounted) {
+        setState(() => _isAccountActionLoading = true);
+        try {
+          await _authService.deleteAccount();
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } catch (e) {
+          if (mounted) {
+            setState(() => _isAccountActionLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      }
+    } else if (providers.contains('password')) {
+      // Email/password re-auth: show password dialog
+      if (!mounted) return;
+      final password = await _showPasswordDialog();
+      if (password == null || !mounted) return;
+
+      final success = await _authService.reauthenticate(
+        email: user.email,
+        password: password,
+      );
+      if (success && mounted) {
+        setState(() => _isAccountActionLoading = true);
+        try {
+          await _authService.deleteAccount();
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            (route) => false,
+          );
+        } catch (e) {
+          if (mounted) {
+            setState(() => _isAccountActionLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error: $e'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Incorrect password. Account not deleted.'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } else if (user.isAnonymous) {
+      // Guest accounts can be deleted directly
+      try {
+        await _authService.deleteAccount();
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  // ── Dialogs ──
+
   Future<bool> _showConfirmDialog({
     required String title,
     required String message,
@@ -301,6 +519,199 @@ class _SettingsModalState extends State<SettingsModal> {
     );
 
     return result ?? false;
+  }
+
+  Future<bool> _showTypeToConfirmDialog() async {
+    final controller = TextEditingController();
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isValid = controller.text.trim().toUpperCase() == 'DELETE';
+            return AlertDialog(
+              backgroundColor: AppColors.cardOf(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Final Confirmation',
+                      style: TextStyle(
+                        color: AppColors.textPrimaryOf(context),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Type DELETE to permanently remove your account and all data.',
+                    style: TextStyle(
+                      color: AppColors.textSecondaryOf(context),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.characters,
+                    onChanged: (_) => setDialogState(() {}),
+                    style: TextStyle(
+                      color: AppColors.textPrimaryOf(context),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'DELETE',
+                      hintStyle: TextStyle(
+                        color: AppColors.textLightOf(context),
+                        letterSpacing: 2,
+                      ),
+                      filled: true,
+                      fillColor: AppColors.surfaceOf(context),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isValid ? Colors.red : AppColors.borderOf(context),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: controller.text.isNotEmpty && !isValid
+                              ? Colors.orange
+                              : AppColors.borderOf(context),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isValid ? Colors.red : AppColors.primary,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textSecondaryOf(context)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: isValid ? () => Navigator.pop(context, true) : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    disabledForegroundColor: Colors.red.withValues(alpha: 0.3),
+                  ),
+                  child: const Text('Delete Forever'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result ?? false;
+  }
+
+  Future<String?> _showPasswordDialog() async {
+    final controller = TextEditingController();
+    bool obscure = true;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: AppColors.cardOf(context),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'Re-enter Password',
+                style: TextStyle(
+                  color: AppColors.textPrimaryOf(context),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'For security, please re-enter your password to confirm account deletion.',
+                    style: TextStyle(
+                      color: AppColors.textSecondaryOf(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    obscureText: obscure,
+                    autofocus: true,
+                    style: TextStyle(color: AppColors.textPrimaryOf(context)),
+                    decoration: InputDecoration(
+                      hintText: 'Password',
+                      hintStyle: TextStyle(color: AppColors.textLightOf(context)),
+                      filled: true,
+                      fillColor: AppColors.surfaceOf(context),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: AppColors.borderOf(context)),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure ? Icons.visibility_off : Icons.visibility,
+                          color: AppColors.textSecondaryOf(context),
+                        ),
+                        onPressed: () => setDialogState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, null),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: AppColors.textSecondaryOf(context)),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, controller.text),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('Confirm'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return result;
   }
 
   @override
@@ -561,6 +972,93 @@ class _SettingsModalState extends State<SettingsModal> {
                   color: Colors.redAccent,
                   onTap: _clearAllData,
                   isDangerous: true,
+                ),
+
+                const SizedBox(height: 28),
+
+                // ── Account Section ──
+                Text(
+                  'Account',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Logout
+                _buildActionTile(
+                  icon: Icons.logout_rounded,
+                  title: 'Log Out',
+                  subtitle: 'Sign out of your account',
+                  color: const Color(0xFF546E7A),
+                  onTap: _isAccountActionLoading ? () {} : _handleLogout,
+                ),
+                const SizedBox(height: 12),
+
+                // Delete Account
+                _buildActionTile(
+                  icon: Icons.person_remove_rounded,
+                  title: 'Delete Account',
+                  subtitle: 'Permanently delete account & all data',
+                  color: const Color(0xFFD32F2F),
+                  onTap: _isAccountActionLoading ? () {} : _handleDeleteAccount,
+                  isDangerous: true,
+                ),
+
+                // Loading overlay for account actions
+                if (_isAccountActionLoading) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? const Color(0xFF1E2631)
+                          : Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Text(
+                            'Processing... Please wait.',
+                            style: TextStyle(
+                              color: textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 24),
+
+                // ── App Version ──
+                Center(
+                  child: Text(
+                    'Buddy v1.0.0',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary.withValues(alpha: 0.6),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ),
 
                 const SizedBox(height: 16),

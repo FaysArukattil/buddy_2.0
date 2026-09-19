@@ -266,7 +266,11 @@ class AuthService {
       // Clear SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+
+      // Reset app initialization state
+      await AppInitHelper.dispose();
     } catch (e) {
+      debugPrint('❌ SignOut Error: $e');
       throw 'Failed to sign out. Please try again.';
     }
   }
@@ -282,28 +286,118 @@ class AuthService {
     }
   }
 
-  // Delete account
+  // Delete account and ALL associated data
   Future<void> deleteAccount() async {
     try {
       final user = _auth.currentUser;
-      if (user != null) {
-        // Delete user data from Firestore
-        await _firestore.collection('users').doc(user.uid).delete();
+      if (user == null) throw 'No user is currently signed in.';
 
-        // Delete user from Firebase Auth
-        await user.delete();
+      final uid = user.uid;
 
-        // Clear SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.clear();
+      // 1. Delete all transactions (subcollection)
+      debugPrint('🗑️ DELETE: Deleting all transactions...');
+      final txnSnapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('transactions')
+          .get();
+      if (txnSnapshot.docs.isNotEmpty) {
+        final batch = _firestore.batch();
+        for (final doc in txnSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+        debugPrint('✅ DELETE: ${txnSnapshot.docs.length} transactions deleted');
       }
+
+      // 2. Delete all categories (subcollection)
+      debugPrint('🗑️ DELETE: Deleting all categories...');
+      final catSnapshot = await _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('categories')
+          .get();
+      if (catSnapshot.docs.isNotEmpty) {
+        final batch = _firestore.batch();
+        for (final doc in catSnapshot.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
+        debugPrint('✅ DELETE: ${catSnapshot.docs.length} categories deleted');
+      }
+
+      // 3. Delete user document
+      debugPrint('🗑️ DELETE: Deleting user document...');
+      await _firestore.collection('users').doc(uid).delete();
+      debugPrint('✅ DELETE: User document deleted');
+
+      // 4. Clear SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+      debugPrint('✅ DELETE: SharedPreferences cleared');
+
+      // 5. Reset app state
+      await AppInitHelper.dispose();
+
+      // 6. Sign out from Google if applicable
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+
+      // 7. Delete Firebase Auth account (must be last)
+      await user.delete();
+      debugPrint('✅ DELETE: Firebase Auth account deleted');
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
-        throw 'Please log in again to delete your account.';
+        throw 'requires-recent-login';
       }
       throw _handleAuthException(e);
     } catch (e) {
+      if (e == 'requires-recent-login') rethrow;
+      debugPrint('❌ DELETE Error: $e');
       throw 'Failed to delete account. Please try again.';
+    }
+  }
+
+  /// Re-authenticate user before sensitive operations like account deletion.
+  /// Returns true if re-authentication succeeded.
+  Future<bool> reauthenticate({String? email, String? password}) async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+
+      // Check if user signed in with Google
+      final providers = user.providerData.map((p) => p.providerId).toList();
+
+      if (providers.contains('google.com')) {
+        // Re-auth with Google
+        final googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) return false;
+
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+        return true;
+      } else if (providers.contains('password') && email != null && password != null) {
+        // Re-auth with email/password
+        final credential = EmailAuthProvider.credential(
+          email: email,
+          password: password,
+        );
+        await user.reauthenticateWithCredential(credential);
+        return true;
+      } else if (user.isAnonymous) {
+        // Anonymous users don't need re-auth
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      debugPrint('❌ Re-auth Error: $e');
+      return false;
     }
   }
 
