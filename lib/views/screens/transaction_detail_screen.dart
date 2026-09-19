@@ -26,7 +26,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     final Color catColor = AppColors.getCategoryColor(category);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundOf(context),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -72,7 +72,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Premium Header (Dark text on white background)
+            // Premium Header
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               child: Row(
@@ -82,28 +82,28 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
+                        color: AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.grey.shade100,
+                          color: AppColors.borderOf(context),
                           width: 1.5,
                         ),
                       ),
                       padding: const EdgeInsets.all(10),
-                      child: const Icon(
+                      child: Icon(
                         Icons.arrow_back_rounded,
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                         size: 20,
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Transaction Details',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: AppColors.textPrimary,
+                        color: AppColors.textPrimaryOf(context),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -114,7 +114,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                     children: [
                       IconButton(
                         onPressed: _openEdit,
-                        icon: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
+                        icon: Icon(Icons.edit_outlined, color: AppColors.textSecondaryOf(context)),
                       ),
                       IconButton(
                         onPressed: _confirmDelete,
@@ -138,16 +138,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       // Custom Card containing Title/Category and dynamic colored icon
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.cardOf(context),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.shade100, width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+                          border: Border.all(color: AppColors.borderOf(context), width: 1.5),
+                          boxShadow: AppColors.cardShadowOf(context),
                         ),
                         padding: const EdgeInsets.all(20),
                         child: Row(
@@ -157,7 +151,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               width: 56,
                               height: 56,
                               decoration: BoxDecoration(
-                                color: catColor.withValues(alpha: 0.1),
+                                color: catColor.withValues(alpha: 0.12),
                                 shape: BoxShape.circle,
                               ),
                               child: widget.data['icon'] != null
@@ -184,10 +178,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                           vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
-                                          color: accent.withValues(alpha: 0.08),
+                                          color: accent.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(8),
                                           border: Border.all(
-                                            color: accent.withValues(alpha: 0.15),
+                                            color: accent.withValues(alpha: 0.25),
                                             width: 1,
                                           ),
                                         ),
@@ -207,10 +201,10 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     (widget.data['title'] as String?) ?? 'Transaction',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 16,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryOf(context),
                                     ),
                                   ),
                                 ],
@@ -225,27 +219,21 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                       // Details list card
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.cardOf(context),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.grey.shade100, width: 1.5),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 16,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+                          border: Border.all(color: AppColors.borderOf(context), width: 1.5),
+                          boxShadow: AppColors.cardShadowOf(context),
                         ),
                         padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'TRANSACTION DETAIL',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textSecondary,
+                                color: AppColors.textSecondaryOf(context),
                                 letterSpacing: 1.0,
                               ),
                             ),
@@ -254,38 +242,42 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               'Category',
                               category,
                               isBold: true,
+                              context: context,
                             ),
-                            const Divider(height: 20, color: Color(0xFFF1F1F1)),
+                            Divider(height: 20, color: AppColors.borderOf(context)),
                             _detailRow(
                               'Time',
                               widget.data['date'] is DateTime
                                   ? _formatTime(widget.data['date'] as DateTime)
                                   : '-',
+                              context: context,
                             ),
-                            const Divider(height: 20, color: Color(0xFFF1F1F1)),
+                            Divider(height: 20, color: AppColors.borderOf(context)),
                             _detailRow(
                               'Date',
                               _formatDate(
                                 (widget.data['date'] as DateTime?) ?? DateTime.now(),
                               ),
+                              context: context,
                             ),
-                            const Divider(height: 20, color: Color(0xFFF1F1F1)),
+                            Divider(height: 20, color: AppColors.borderOf(context)),
                             _detailRow(
                               'Note',
                               (widget.data['note'] as String?)?.trim().isNotEmpty == true
                                   ? widget.data['note'] as String
                                   : '-',
+                              context: context,
                             ),
                             // Auto-Detected transaction indicator
                             if (widget.data['auto_detected'] == true || widget.data['autoDetected'] == true) ...[
-                              const Divider(height: 20, color: Color(0xFFF1F1F1)),
+                              Divider(height: 20, color: AppColors.borderOf(context)),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2196F3).withValues(alpha: 0.06),
+                                  color: const Color(0xFF2196F3).withValues(alpha: 0.08),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: const Color(0xFF2196F3).withValues(alpha: 0.15),
+                                    color: const Color(0xFF2196F3).withValues(alpha: 0.25),
                                     width: 1,
                                   ),
                                 ),
@@ -294,13 +286,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(6),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3).withValues(alpha: 0.12),
+                                        color: const Color(0xFF2196F3).withValues(alpha: 0.15),
                                         shape: BoxShape.circle,
                                       ),
                                       child: Icon(
                                         Icons.auto_awesome,
                                         size: 14,
-                                        color: Colors.blue.shade600,
+                                        color: Colors.blue.shade400,
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -311,7 +303,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                           Text(
                                             'Auto-Detected Transaction',
                                             style: TextStyle(
-                                              color: Colors.blue.shade700,
+                                              color: Colors.blue.shade400,
                                               fontWeight: FontWeight.w700,
                                               fontSize: 12,
                                             ),
@@ -320,7 +312,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                           Text(
                                             'Detected from bank notification',
                                             style: TextStyle(
-                                              color: Colors.blue.shade400,
+                                              color: AppColors.textSecondaryOf(context),
                                               fontSize: 10,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -341,7 +333,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade400,
+                                      color: AppColors.textLightOf(context),
                                       letterSpacing: 0.5,
                                     ),
                                   ),
@@ -352,7 +344,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     style: TextStyle(
                                       fontSize: 32,
                                       fontWeight: FontWeight.w900,
-                                      color: _isIncome ? AppColors.income : AppColors.textPrimary,
+                                      color: _isIncome ? AppColors.income : AppColors.textPrimaryOf(context),
                                       letterSpacing: -0.5,
                                     ),
                                   ),
@@ -399,20 +391,21 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     String value, {
     Color? valueColor,
     bool isBold = false,
+    required BuildContext context,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
+          Text(label, style: TextStyle(color: AppColors.textSecondaryOf(context))),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: valueColor ?? AppColors.textPrimary,
+                color: valueColor ?? AppColors.textPrimaryOf(context),
                 fontWeight: isBold ? FontWeight.w700 : FontWeight.w600,
               ),
             ),
@@ -453,44 +446,63 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       showModalBottomSheet(
         context: context,
         backgroundColor: Colors.transparent,
-        builder: (context) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        builder: (ctx) => Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(ctx),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'PDF Generated Successfully!',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimaryOf(ctx),
                 ),
               ),
               const SizedBox(height: 20),
               ListTile(
                 leading: const Icon(Icons.open_in_new, color: AppColors.primary),
-                title: const Text('Open PDF'),
+                title: Text(
+                  'Open PDF',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
+                ),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   PdfService.openPdf(file);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.share, color: AppColors.secondary),
-                title: const Text('Share PDF'),
+                title: Text(
+                  'Share PDF',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
+                ),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   PdfService.sharePdf(file);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.print, color: AppColors.income),
-                title: const Text('Print PDF'),
+                title: Text(
+                  'Print PDF',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
+                ),
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(ctx);
                   PdfService.printPdf(file);
                 },
               ),

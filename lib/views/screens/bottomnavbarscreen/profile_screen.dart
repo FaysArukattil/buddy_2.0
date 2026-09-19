@@ -12,6 +12,8 @@ import 'package:buddy/utils/images.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/notification_service.dart';
+import 'package:buddy/services/theme_service.dart';
+import 'package:buddy/services/feedback_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -282,18 +284,22 @@ class ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
     final balance = _totalIncome - _totalExpense;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: AppColors.backgroundOf(context),
       body: Stack(
         children: [
-          // Background image
+          // Background image with dark mode dimming
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: Image.asset(AppImages.curvedBackground, fit: BoxFit.cover),
+            child: Opacity(
+              opacity: isDark ? 0.25 : 1.0,
+              child: Image.asset(AppImages.curvedBackground, fit: BoxFit.cover),
+            ),
           ),
 
           // Content
@@ -350,7 +356,7 @@ class ProfileScreenState extends State<ProfileScreen>
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Profile Image (no camera button)
+                                    // Profile Image
                                     _buildProfileImage(),
 
                                     const SizedBox(height: 14),
@@ -518,12 +524,12 @@ class ProfileScreenState extends State<ProfileScreen>
                     Container(
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            const Color(0xFF1E5D57),
-                            const Color(0xFF3B8E85),
+                            Color(0xFF1E5D57),
+                            Color(0xFF3B8E85),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(20),
@@ -616,15 +622,12 @@ class ProfileScreenState extends State<ProfileScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(18),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                        ),
+                        boxShadow: AppColors.cardShadowOf(context),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -635,7 +638,7 @@ class ProfileScreenState extends State<ProfileScreen>
                                 width: 4,
                                 height: 18,
                                 decoration: BoxDecoration(
-                                  gradient: LinearGradient(
+                                  gradient: const LinearGradient(
                                     colors: [AppColors.primary, AppColors.secondary],
                                     begin: Alignment.topCenter,
                                     end: Alignment.bottomCenter,
@@ -644,12 +647,12 @@ class ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Text(
+                              Text(
                                 'Quick Stats',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimary,
+                                  color: AppColors.textPrimaryOf(context),
                                   letterSpacing: -0.2,
                                 ),
                               ),
@@ -669,7 +672,7 @@ class ProfileScreenState extends State<ProfileScreen>
                               Container(
                                 width: 1,
                                 height: 40,
-                                color: Colors.grey.shade200,
+                                color: AppColors.borderOf(context),
                               ),
                               Expanded(
                                 child: _buildQuickStatItem(
@@ -680,6 +683,187 @@ class ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ),
                             ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ── Appearance / Theme Card ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardOf(context),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                        ),
+                        boxShadow: AppColors.cardShadowOf(context),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Appearance',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimaryOf(context),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Dark Mode Switch Row
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: (isDark ? Colors.amber : AppColors.primary).withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                                  color: isDark ? Colors.amber : AppColors.primary,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Dark Mode',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isDark ? 'Dark theme active' : 'Light theme active',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondaryOf(context),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Switch(
+                                value: isDark,
+                                onChanged: (val) => ThemeService.toggleTheme(context),
+                                activeThumbColor: AppColors.primary,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          // 3-way Mode Selector
+                          ValueListenableBuilder<ThemeMode>(
+                            valueListenable: ThemeService.themeModeNotifier,
+                            builder: (context, currentMode, _) {
+                              return Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF161C23) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.borderOf(context)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildThemeChip('System', Icons.brightness_auto_rounded, currentMode == ThemeMode.system, () => ThemeService.setThemeMode(ThemeMode.system)),
+                                    _buildThemeChip('Light', Icons.light_mode_rounded, currentMode == ThemeMode.light, () => ThemeService.setThemeMode(ThemeMode.light)),
+                                    _buildThemeChip('Dark', Icons.dark_mode_rounded, currentMode == ThemeMode.dark, () => ThemeService.setThemeMode(ThemeMode.dark)),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // ── Support & Developer Feedback Card ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardOf(context),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                        ),
+                        boxShadow: AppColors.cardShadowOf(context),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0xFFFF9966), Color(0xFFFF5E62)],
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  ),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Support & Feedback',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimaryOf(context),
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          // Report a Bug Tile
+                          _buildProfileFeedbackTile(
+                            icon: Icons.bug_report_rounded,
+                            title: 'Report a Bug',
+                            subtitle: 'Found an issue? Mail dev with details',
+                            color: const Color(0xFFFF7043),
+                            onTap: () => FeedbackService.reportBug(context),
+                          ),
+                          const SizedBox(height: 10),
+                          // Request a Feature Tile
+                          _buildProfileFeedbackTile(
+                            icon: Icons.lightbulb_rounded,
+                            title: 'Request a Feature',
+                            subtitle: 'Suggest features to faysarukattil@gmail.com',
+                            color: const Color(0xFF7C4DFF),
+                            onTap: () => FeedbackService.requestFeature(context),
                           ),
                         ],
                       ),
@@ -745,20 +929,17 @@ class ProfileScreenState extends State<ProfileScreen>
                         vertical: 7,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                        ),
+                        boxShadow: AppColors.cardShadowOf(context),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.calendar_today_rounded,
                             size: 13,
                             color: AppColors.primary,
@@ -766,7 +947,7 @@ class ProfileScreenState extends State<ProfileScreen>
                           const SizedBox(width: 6),
                           Text(
                             _todayLabel(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppColors.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -787,6 +968,125 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildThemeChip(
+    String title,
+    IconData icon,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    final isDark = AppColors.isDark(context);
+    final activeBg = isDark ? const Color(0xFF263342) : Colors.white;
+    final activeText = isDark ? Colors.white : AppColors.textPrimary;
+    final inactiveText = isDark ? Colors.white60 : Colors.grey.shade600;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? activeBg : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: isSelected ? AppColors.primary : inactiveText,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeText : inactiveText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfileFeedbackTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondaryOf(context),
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ── Stat Card (Income/Expense) ──
   Widget _buildStatCard({
     required String label,
@@ -796,8 +1096,11 @@ class ProfileScreenState extends State<ProfileScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+        ),
         boxShadow: [
           BoxShadow(
             color: color.withValues(alpha: 0.12),
@@ -885,7 +1188,7 @@ class ProfileScreenState extends State<ProfileScreen>
           style: TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w500,
-            color: Colors.grey.shade500,
+            color: AppColors.textSecondaryOf(context),
           ),
           textAlign: TextAlign.center,
         ),

@@ -799,7 +799,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF8F9FD),
+        backgroundColor: AppColors.backgroundOf(context),
         body: SafeArea(
           child: Column(
             children: [
@@ -825,7 +825,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final hasData = points.any((p) => p > 0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
+      backgroundColor: AppColors.backgroundOf(context),
       body: SafeArea(
         child: Column(
           children: [
@@ -876,19 +876,16 @@ class StatisticsScreenState extends State<StatisticsScreen>
             child: Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardOf(context),
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                ),
+                boxShadow: AppColors.cardShadowOf(context),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.calendar_today_rounded,
-                color: AppColors.textPrimary,
+                color: AppColors.textPrimaryOf(context),
                 size: 18,
               ),
             ),
@@ -898,11 +895,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
           Expanded(
             child: Column(
               children: [
-                const Text(
+                Text(
                   'Statistics',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: AppColors.textPrimaryOf(context),
                     fontWeight: FontWeight.w800,
                     fontSize: 20,
                     letterSpacing: -0.3,
@@ -1015,15 +1012,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
           height: 50,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(
+              color: AppColors.borderOf(context).withValues(alpha: 0.5),
+            ),
+            boxShadow: AppColors.cardShadowOf(context),
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -1119,15 +1113,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
         height: 50,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(alpha: 0.5),
+          ),
+          boxShadow: AppColors.cardShadowOf(context),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -1257,14 +1248,14 @@ class StatisticsScreenState extends State<StatisticsScreen>
           children: [
             Icon(
               icon,
-              color: selected ? Colors.white : AppColors.textSecondary,
+              color: selected ? Colors.white : AppColors.textSecondaryOf(context),
               size: 18,
             ),
             const SizedBox(width: 6),
             Text(
               text,
               style: TextStyle(
-                color: selected ? Colors.white : AppColors.textSecondary,
+                color: selected ? Colors.white : AppColors.textSecondaryOf(context),
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 fontSize: 13,
                 letterSpacing: 0.2,
@@ -1379,6 +1370,34 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
+  double _computeNiceMax(double val) {
+    if (val <= 0) return 100;
+    double factor = 1.0;
+    while (val > 100) {
+      val /= 10;
+      factor *= 10;
+    }
+    while (val < 10 && factor > 1) {
+      val *= 10;
+      factor /= 10;
+    }
+    double rounded;
+    if (val <= 10) {
+      rounded = 10;
+    } else if (val <= 20) {
+      rounded = 20;
+    } else if (val <= 25) {
+      rounded = 25;
+    } else if (val <= 50) {
+      rounded = 50;
+    } else if (val <= 75) {
+      rounded = 75;
+    } else {
+      rounded = 100;
+    }
+    return rounded * factor;
+  }
+
   // ─── CHART ───
 
   Widget _buildChartCard(
@@ -1392,15 +1411,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
         child: Container(
           height: 260,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
+            border: Border.all(
+              color: AppColors.borderOf(context).withValues(alpha: 0.5),
+            ),
+            boxShadow: AppColors.cardShadowOf(context),
           ),
           child: Center(
             child: Column(
@@ -1409,13 +1425,13 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
+                    color: AppColors.surfaceOf(context),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.bar_chart_rounded,
                     size: 40,
-                    color: Colors.grey.shade300,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1423,7 +1439,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   'No data for this period',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.textSecondaryOf(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1432,7 +1448,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   'Add some transactions to see your chart',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey.shade400,
+                    color: AppColors.textSecondaryOf(context),
                   ),
                 ),
               ],
@@ -1443,20 +1459,13 @@ class StatisticsScreenState extends State<StatisticsScreen>
     }
 
     // Smart scaling
-    double maxValue = points.reduce(math.max);
-    if (maxValue == 0) maxValue = 100;
-
-    double roundedMax;
-    if (maxValue < 100) {
-      roundedMax = ((maxValue / 10).ceil() * 10).toDouble();
-    } else if (maxValue < 1000) {
-      roundedMax = ((maxValue / 100).ceil() * 100).toDouble();
-    } else if (maxValue < 10000) {
-      roundedMax = ((maxValue / 1000).ceil() * 1000).toDouble();
-    } else if (maxValue < 100000) {
-      roundedMax = ((maxValue / 10000).ceil() * 10000).toDouble();
-    } else {
-      roundedMax = ((maxValue / 100000).ceil() * 100000).toDouble();
+    double maxVal = 0.0;
+    if (points.isNotEmpty) {
+      maxVal = points.reduce((a, b) => a > b ? a : b);
+    }
+    double roundedMax = _computeNiceMax(maxVal);
+    if (roundedMax == 0) {
+      roundedMax = 100;
     }
 
     double interval = roundedMax / 4;
@@ -1466,15 +1475,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(alpha: 0.5),
+          ),
+          boxShadow: AppColors.cardShadowOf(context),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1495,10 +1501,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   const SizedBox(width: 10),
                   Text(
                     '${_type == 'Expense' ? 'Spending' : 'Earnings'} Trend',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: AppColors.textPrimaryOf(context),
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -1639,7 +1645,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         horizontalInterval: interval,
                         getDrawingHorizontalLine: (value) {
                           return FlLine(
-                            color: Colors.grey.shade200,
+                            color: AppColors.borderOf(context).withValues(alpha: 0.5),
                             strokeWidth: 1,
                             dashArray: [6, 4],
                           );
@@ -1754,15 +1760,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+        ),
+        boxShadow: AppColors.cardShadowOf(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1786,7 +1789,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade500,
+              color: AppColors.textSecondaryOf(context),
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -1825,10 +1828,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
               const SizedBox(width: 10),
               Text(
                 'Top ${_type == 'Expense' ? 'Spending' : 'Earning'} Categories',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: AppColors.textPrimaryOf(context),
                   letterSpacing: -0.2,
                 ),
               ),
@@ -1862,15 +1865,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.cardOf(context),
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  border: Border.all(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                  ),
+                  boxShadow: AppColors.cardShadowOf(context),
                 ),
                 child: Row(
                   children: [
@@ -1927,10 +1927,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         children: [
                           Text(
                             cat['category'] as String,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: AppColors.textPrimary,
+                              color: AppColors.textPrimaryOf(context),
                               letterSpacing: -0.2,
                             ),
                           ),
@@ -1940,7 +1940,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                             height: 6,
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(3),
-                              color: Colors.grey.shade100,
+                              color: AppColors.surfaceOf(context),
                             ),
                             child: FractionallySizedBox(
                               alignment: Alignment.centerLeft,

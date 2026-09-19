@@ -412,11 +412,11 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     HapticFeedback.mediumImpact();
     showCupertinoModalPopup(
       context: context,
-      builder: (BuildContext context) {
+      builder: (BuildContext ctx) {
         DateTime tempDate = _showingToday ? _selectedDate : _currentMonth;
         return Container(
           height: 300,
-          color: Colors.white,
+          color: AppColors.cardOf(ctx),
           child: Column(
             children: [
               SizedBox(
@@ -621,15 +621,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(
+            color: AppColors.borderOf(context),
+            width: 1,
+          ),
+          boxShadow: AppColors.cardShadowOf(context),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
@@ -665,7 +663,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                   width: 46,
                                   height: 46,
                                   decoration: BoxDecoration(
-                                    color: catColor.withValues(alpha: 0.1),
+                                    color: catColor.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
@@ -685,7 +683,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF2196F3),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        border: Border.all(color: AppColors.cardOf(context), width: 1.5),
                                       ),
                                       child: const Icon(
                                         Icons.auto_awesome,
@@ -704,10 +702,10 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 children: [
                                   Text(
                                     (tx['title'] as String?)?.isNotEmpty == true ? tx['title'] as String : category,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryOf(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -718,13 +716,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
+                                          color: AppColors.surfaceOf(context),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           category,
                                           style: TextStyle(
-                                            color: Colors.grey.shade600,
+                                            color: AppColors.textSecondaryOf(context),
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -748,13 +746,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               Icon(
                                                 Icons.auto_awesome,
                                                 size: 9,
-                                                color: Colors.blue.shade600,
+                                                color: Colors.blue.shade400,
                                               ),
                                               const SizedBox(width: 2),
                                               Text(
                                                 'Auto',
                                                 style: TextStyle(
-                                                  color: Colors.blue.shade600,
+                                                  color: Colors.blue.shade400,
                                                   fontSize: 9,
                                                   fontWeight: FontWeight.w700,
                                                 ),
@@ -776,7 +774,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 Text(
                                   '${isTxIncome ? '+' : '-'}${_formatCurrency(tx['amount'] as double)}',
                                   style: TextStyle(
-                                    color: isTxIncome ? AppColors.income : AppColors.textPrimary,
+                                    color: isTxIncome ? AppColors.income : AppColors.textPrimaryOf(context),
                                     fontWeight: FontWeight.w800,
                                     fontSize: 14,
                                   ),
@@ -785,7 +783,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 Text(
                                   _formatTime(tx['date'] as DateTime),
                                   style: TextStyle(
-                                    color: Colors.grey.shade400,
+                                    color: AppColors.textSecondaryOf(context),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -825,23 +823,23 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
         : (isIncome ? AppColors.income : AppColors.expense);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundOf(context),
       extendBodyBehindAppBar: false,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardOf(context),
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(
+          icon: Icon(
             Icons.arrow_back_rounded,
-            color: AppColors.textPrimary,
+            color: AppColors.textPrimaryOf(context),
           ),
         ),
         title: Text(
           widget.type == 'All' ? 'All Transactions' : '${widget.type} Transactions',
-          style: const TextStyle(
-            color: AppColors.textPrimary,
+          style: TextStyle(
+            color: AppColors.textPrimaryOf(context),
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -850,7 +848,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Divider(
-            color: Colors.grey.shade100,
+            color: AppColors.borderOf(context),
             height: 1,
             thickness: 1,
           ),
@@ -862,7 +860,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
             children: [
               // Filter controls & Summary card
               Container(
-                color: Colors.white,
+                color: AppColors.cardOf(context),
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
@@ -917,7 +915,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                               width: totalWidth,
                               height: 40,
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
+                                color: AppColors.surfaceOf(context),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Stack(
@@ -933,15 +931,9 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                       ),
                                       curve: Curves.easeOut,
                                       decoration: BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.cardOf(context),
                                         borderRadius: BorderRadius.circular(10),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.04),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
+                                        boxShadow: AppColors.cardShadowOf(context),
                                       ),
                                     ),
                                   ),
@@ -957,7 +949,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               style: TextStyle(
                                                 color: _showingToday
                                                     ? accentColor
-                                                    : Colors.grey.shade500,
+                                                    : AppColors.textSecondaryOf(context),
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -975,7 +967,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               style: TextStyle(
                                                 color: !_showingToday
                                                     ? accentColor
-                                                    : Colors.grey.shade500,
+                                                    : AppColors.textSecondaryOf(context),
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -1006,8 +998,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           icon: Icon(
                             Icons.chevron_left_rounded,
                             color: (_isTransitioning || _isDragging)
-                                ? Colors.grey.shade300
-                                : AppColors.textPrimary,
+                                ? AppColors.textLightOf(context)
+                                : AppColors.textPrimaryOf(context),
                             size: 32,
                           ),
                         ),
@@ -1019,10 +1011,10 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
+                              color: AppColors.surfaceOf(context),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: Colors.grey.shade200,
+                                color: AppColors.borderOf(context),
                                 width: 1,
                               ),
                             ),
@@ -1033,8 +1025,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                   _showingToday
                                       ? _fullDateLabel()
                                       : _monthYearLabel(),
-                                  style: const TextStyle(
-                                    color: AppColors.textPrimary,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimaryOf(context),
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1042,7 +1034,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 const SizedBox(width: 8),
                                 Icon(
                                   Icons.calendar_today_rounded,
-                                  color: Colors.grey.shade600,
+                                  color: AppColors.textSecondaryOf(context),
                                   size: 14,
                                 ),
                               ],
@@ -1058,8 +1050,8 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           icon: Icon(
                             Icons.chevron_right_rounded,
                             color: (_isTransitioning || _isDragging)
-                                ? Colors.grey.shade300
-                                : AppColors.textPrimary,
+                                ? AppColors.textLightOf(context)
+                                : AppColors.textPrimaryOf(context),
                             size: 32,
                           ),
                         ),
@@ -1083,10 +1075,10 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Total',
                             style: TextStyle(
-                              color: AppColors.textSecondary,
+                              color: AppColors.textSecondaryOf(context),
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
                               letterSpacing: 0.2,
@@ -1261,14 +1253,14 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                         ? Icons.trending_up_rounded
                         : Icons.trending_down_rounded),
               size: 80,
-              color: Colors.grey.shade300,
+              color: AppColors.textLightOf(context),
             ),
             const SizedBox(height: 16),
             Text(
               'No ${widget.type.toLowerCase()} transactions',
               style: TextStyle(
                 fontSize: 18,
-                color: Colors.grey.shade600,
+                color: AppColors.textSecondaryOf(context),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1277,7 +1269,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
               _showingToday
                   ? 'for ${_fullDateLabel()}'
                   : 'for ${_monthYearLabel()}',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 14, color: AppColors.textLightOf(context)),
             ),
           ],
         ),

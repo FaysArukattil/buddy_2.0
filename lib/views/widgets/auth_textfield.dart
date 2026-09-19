@@ -38,10 +38,10 @@ class _AuthTextFieldState extends State<AuthTextField> {
       children: [
         Text(
           widget.label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
+            color: AppColors.textPrimaryOf(context),
           ),
         ),
         const SizedBox(height: 8),
@@ -57,11 +57,14 @@ class _AuthTextFieldState extends State<AuthTextField> {
             keyboardType: widget.keyboardType,
             enabled: widget.enabled,
             validator: widget.validator,
-            style: const TextStyle(fontSize: 16, color: AppColors.textPrimary),
+            style: TextStyle(
+              fontSize: 16,
+              color: AppColors.textPrimaryOf(context),
+            ),
             decoration: InputDecoration(
               hintText: widget.hint,
-              hintStyle: const TextStyle(
-                color: AppColors.textLight,
+              hintStyle: TextStyle(
+                color: AppColors.textLightOf(context),
                 fontSize: 16,
               ),
               prefixIcon: widget.prefixIcon != null
@@ -76,7 +79,7 @@ class _AuthTextFieldState extends State<AuthTextField> {
                         _obscureText ? Icons.visibility_off : Icons.visibility,
                         color: _isFocused
                             ? AppColors.secondary
-                            : AppColors.textLight,
+                            : AppColors.textLightOf(context),
                       ),
                       onPressed: () {
                         setState(() {
@@ -86,22 +89,22 @@ class _AuthTextFieldState extends State<AuthTextField> {
                     )
                   : null,
               filled: true,
-              fillColor: Colors.white,
+              fillColor: AppColors.surfaceOf(context),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 16,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFFE8E8E8),
+                borderSide: BorderSide(
+                  color: AppColors.borderOf(context),
                   width: 1.5,
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(
-                  color: Color(0xFFE8E8E8),
+                borderSide: BorderSide(
+                  color: AppColors.borderOf(context),
                   width: 1.5,
                 ),
               ),

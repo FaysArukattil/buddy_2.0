@@ -4,12 +4,21 @@ import 'package:buddy/views/screens/onboarding/splashscreen/splash_screen.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/app_init_helper.dart';
+import 'package:buddy/services/theme_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   debugPrint('🚀 APP: Starting initialization...');
+
+  // Initialize Theme Service
+  try {
+    await ThemeService.initialize();
+    debugPrint('✅ APP: ThemeService initialized');
+  } catch (e) {
+    debugPrint('⚠️ APP: ThemeService initialization failed: $e');
+  }
 
   // 0. Initialize Firebase
   try {
@@ -100,16 +109,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Buddy',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primaryColor: AppColors.primary,
-        scaffoldBackgroundColor: AppColors.background,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
-        useMaterial3: true,
-      ),
-      home: const SplashScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentMode, child) {
+        return MaterialApp(
+          title: 'Buddy',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentMode,
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }

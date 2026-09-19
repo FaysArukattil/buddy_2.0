@@ -207,7 +207,7 @@ class HomeScreenState extends State<HomeScreen>
               top: Radius.circular(20),
             ),
             child: Material(
-              color: AppColors.background,
+              color: AppColors.backgroundOf(context),
               child: const AddTransactionScreen(),
             ),
           ),
@@ -251,10 +251,10 @@ class HomeScreenState extends State<HomeScreen>
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
+                color: AppColors.textSecondaryOf(context),
               ),
             ),
           ],
@@ -275,12 +275,12 @@ class HomeScreenState extends State<HomeScreen>
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.backgroundOf(context),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: refreshData,
           color: AppColors.primary,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardOf(context),
           displacement: 60,
           strokeWidth: 3.0,
           child: CustomScrollView(
@@ -310,16 +310,16 @@ class HomeScreenState extends State<HomeScreen>
                                     style: TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
-                                      color: Colors.grey.shade500,
+                                      color: AppColors.textSecondaryOf(context),
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     _displayName,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.bold,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryOf(context),
                                       letterSpacing: -0.5,
                                     ),
                                     textAlign: TextAlign.start,
@@ -335,17 +335,17 @@ class HomeScreenState extends State<HomeScreen>
                                 icon: Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.grey.shade50,
+                                    color: AppColors.cardOf(context),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: Colors.grey.shade100,
+                                      color: AppColors.borderOf(context),
                                       width: 1.5,
                                     ),
                                   ),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.settings_rounded,
                                     size: 20,
-                                    color: AppColors.textPrimary,
+                                    color: AppColors.textPrimaryOf(context),
                                   ),
                                 ),
                               ),
@@ -574,12 +574,12 @@ class HomeScreenState extends State<HomeScreen>
                       const SizedBox(height: 24),
 
                       // Quick Actions Section
-                      const Text(
+                      Text(
                         'Quick Actions',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: AppColors.textPrimaryOf(context),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -629,12 +629,12 @@ class HomeScreenState extends State<HomeScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Recent Transactions',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: AppColors.textPrimaryOf(context),
                             ),
                           ),
                           if (_transactions.isNotEmpty)
@@ -738,7 +738,7 @@ class HomeScreenState extends State<HomeScreen>
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Divider(
-                                      color: Colors.grey.shade200,
+                                      color: AppColors.borderOf(context),
                                       thickness: 1,
                                     ),
                                   ),
@@ -849,15 +849,13 @@ class HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(alpha: 0.5),
+            width: 1,
+          ),
+          boxShadow: AppColors.cardShadowOf(context),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
@@ -877,7 +875,7 @@ class HomeScreenState extends State<HomeScreen>
                       onTap: () {
                         final displayMap = txn.toDisplayMap();
                         Navigator.push(
-                          context,
+                           context,
                           MaterialPageRoute(
                             builder: (_) => TransactionDetailScreen(data: displayMap),
                           ),
@@ -930,10 +928,10 @@ class HomeScreenState extends State<HomeScreen>
                                 children: [
                                   Text(
                                     txn.note?.isNotEmpty == true ? txn.note! : txn.category,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 14,
-                                      color: AppColors.textPrimary,
+                                      color: AppColors.textPrimaryOf(context),
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -944,13 +942,13 @@ class HomeScreenState extends State<HomeScreen>
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade100,
+                                          color: AppColors.surfaceOf(context),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           txn.category,
                                           style: TextStyle(
-                                            color: Colors.grey.shade600,
+                                            color: AppColors.textSecondaryOf(context),
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -1002,7 +1000,7 @@ class HomeScreenState extends State<HomeScreen>
                                 Text(
                                   '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
                                   style: TextStyle(
-                                    color: isIncome ? AppColors.income : AppColors.textPrimary,
+                                    color: isIncome ? AppColors.income : AppColors.textPrimaryOf(context),
                                     fontWeight: FontWeight.w800,
                                     fontSize: 14,
                                   ),
@@ -1011,7 +1009,7 @@ class HomeScreenState extends State<HomeScreen>
                                 Text(
                                   _formatTime(txn.date),
                                   style: TextStyle(
-                                    color: Colors.grey.shade400,
+                                    color: AppColors.textSecondaryOf(context),
                                     fontSize: 11,
                                     fontWeight: FontWeight.w500,
                                   ),

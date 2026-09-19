@@ -107,16 +107,22 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                     filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.14),
+                        color: AppColors.isDark(context)
+                            ? const Color(0xFF161D26).withValues(alpha: 0.92)
+                            : AppColors.primary.withValues(alpha: 0.14),
                         border: Border.all(
-                          color: AppColors.secondary.withValues(alpha: 0.24),
+                          color: AppColors.isDark(context)
+                              ? AppColors.borderOf(context)
+                              : AppColors.secondary.withValues(alpha: 0.24),
                           width: 1,
                         ),
-                        boxShadow: const [
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x11000000),
+                            color: Colors.black.withValues(
+                              alpha: AppColors.isDark(context) ? 0.45 : 0.08,
+                            ),
                             blurRadius: 20,
-                            offset: Offset(0, -4),
+                            offset: const Offset(0, -4),
                           ),
                         ],
                       ),
@@ -391,6 +397,10 @@ class _NavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    final activeColor = isDark ? Colors.white : AppColors.secondary;
+    final inactiveColor = isDark ? Colors.white60 : Colors.black54;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -404,7 +414,7 @@ class _NavIcon extends StatelessWidget {
             selected ? icon : outline,
             key: ValueKey<bool>(selected),
             size: selected ? 24 : 22,
-            color: selected ? Colors.white : Colors.white70,
+            color: selected ? activeColor : inactiveColor,
           ),
         ),
       ),
