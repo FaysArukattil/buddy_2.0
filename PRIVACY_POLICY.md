@@ -78,5 +78,5 @@ We may update this Privacy Policy from time to time. Any changes will be posted 
 
 If you have any questions, concerns, or requests regarding this Privacy Policy or your data, please contact us at:
 
-- **Developer:** Faysal Arukattil
+- **Developer:** Fays Arukattil
 - **Email:** [faysarukattil@gmail.com](mailto:faysarukattil@gmail.com)

@@ -5,6 +5,7 @@ import 'package:buddy/utils/colors.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/models/category.dart' as cat;
+import 'package:buddy/utils/icon_helper.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -60,8 +61,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       _selectedCategoryName = tx['category'] as String?;
       final iconCode = tx['icon'] as int?;
       if (iconCode != null) {
-        // ignore: non_const_argument_for_const_parameter
-        _selectedCategoryIcon = IconData(iconCode, fontFamily: 'MaterialIcons');
+        _selectedCategoryIcon = IconHelper.getIcon(iconCode);
       }
     }
 

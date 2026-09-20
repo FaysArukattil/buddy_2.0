@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
+import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 
@@ -668,7 +669,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                   ),
                                   child: Icon(
                                     tx['icon'] != null
-                                        ? IconData(tx['icon'] as int, fontFamily: 'MaterialIcons') // ignore: non_const_argument_for_const_parameter
+                                        ? IconHelper.getIcon(tx['icon'])
                                         : _iconForNote(tx['note'] as String?),
                                     color: catColor,
                                     size: 20,

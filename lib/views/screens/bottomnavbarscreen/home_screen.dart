@@ -1,6 +1,7 @@
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
+import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 import 'package:buddy/views/screens/filtered_transactions_screen.dart';
 import 'package:buddy/services/firestore_service.dart';
@@ -895,7 +896,7 @@ class HomeScreenState extends State<HomeScreen>
                                     shape: BoxShape.circle,
                                   ),
                                   child: Icon(
-                                    IconData(txn.icon, fontFamily: 'MaterialIcons'), // ignore: non_const_argument_for_const_parameter
+                                    IconHelper.getIcon(txn.icon),
                                     color: catColor,
                                     size: 20,
                                   ),

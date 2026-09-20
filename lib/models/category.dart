@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/icon_helper.dart';
 
 class Category {
   final String id;
@@ -36,11 +37,7 @@ class Category {
     return Category(
       id: doc.id,
       name: data['name'] as String? ?? '',
-      icon: IconData(
-        // ignore: non_const_argument_for_const_parameter
-        (data['icon'] as num?)?.toInt() ?? Icons.category_rounded.codePoint,
-        fontFamily: 'MaterialIcons',
-      ),
+      icon: IconHelper.getIcon(data['icon']),
       color: Color(
         (data['color'] as num?)?.toInt() ?? 0xFF9E9E9E,
       ),
@@ -54,11 +51,7 @@ class Category {
     return Category(
       id: map['id'] as String? ?? '',
       name: map['name'] as String? ?? '',
-      icon: IconData(
-        // ignore: non_const_argument_for_const_parameter
-        (map['icon'] as num?)?.toInt() ?? Icons.category_rounded.codePoint,
-        fontFamily: 'MaterialIcons',
-      ),
+      icon: IconHelper.getIcon(map['icon']),
       color: Color(
         (map['color'] as num?)?.toInt() ?? 0xFF9E9E9E,
       ),

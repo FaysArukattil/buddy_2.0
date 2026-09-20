@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
+import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/views/widgets/animated_money_text.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
@@ -156,10 +157,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               ),
                               child: widget.data['icon'] != null
                                   ? Icon(
-                                      IconData(
-                                        widget.data['icon'] as int, // ignore: non_const_argument_for_const_parameter
-                                        fontFamily: 'MaterialIcons',
-                                      ),
+                                      IconHelper.getIcon(widget.data['icon']),
                                       size: 24,
                                       color: catColor,
                                     )

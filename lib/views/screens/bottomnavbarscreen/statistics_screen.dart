@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
+import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:intl/intl.dart';
@@ -1908,13 +1909,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
-                        cat['icon'] != null
-                            ? IconData(
-                                // ignore: non_const_argument_for_const_parameter
-                                cat['icon'] as int,
-                                fontFamily: 'MaterialIcons',
-                              )
-                            : Icons.category_rounded,
+                        IconHelper.getIcon(cat['icon']),
                         color: catColor,
                         size: 20,
                       ),

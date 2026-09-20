@@ -33,6 +33,7 @@ extensions.configure<ApplicationExtension> {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        resourceConfigurations += listOf("en")
     }
 
     signingConfigs {

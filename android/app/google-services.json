@@ -14,11 +14,27 @@
       },
       "oauth_client": [
         {
+          "client_id": "902883106258-6slj61uq3drrst4hmi85vsoh4rrjir8v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.faysarukattil.buddy",
+            "certificate_hash": "a1251d67400c76c7dc1d96af61e3e59d0c6b509b"
+          }
+        },
+        {
           "client_id": "902883106258-cf8k0nbb00vt60l8p20emqat86krk6bf.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.faysarukattil.buddy",
             "certificate_hash": "c52f040a12d006bc3961a8d5175f3d2512fa079b"
+          }
+        },
+        {
+          "client_id": "902883106258-gejsoj8h0tg4dbib4d8a58inmri8i6a8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.faysarukattil.buddy",
+            "certificate_hash": "26b04bcf24e2e01c24cce1ba566f8047efcf7263"
           }
         },
         {
