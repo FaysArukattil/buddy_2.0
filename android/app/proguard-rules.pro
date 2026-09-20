@@ -71,6 +71,7 @@
 -keep class com.google.android.gms.auth.api.signin.** { *; }
 -keep class com.google.android.gms.auth.api.credentials.** { *; }
 -keep class androidx.credentials.** { *; }
+-keep class io.flutter.plugins.googlesignin.** { *; }
 
 # ------------------------------------------------------------------------------
 # 7. Strip Verbose and Debug Logging in Release Builds

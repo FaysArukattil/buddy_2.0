@@ -7,8 +7,15 @@ import 'app_init_helper.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Firebase OAuth 2.0 Web Client ID for buddy-expense-tracker
+  // Required to obtain idToken for Firebase Authentication on Android
+  static const String _webClientId =
+      '902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com';
+
   final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: ['email'],
+    serverClientId: _webClientId,
+    scopes: ['email', 'profile'],
   );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -138,25 +145,13 @@ class AuthService {
   // Sign in with Google
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      // Clear any stale Google sign-in session to prevent "sign_in_canceled" errors
+      // Ensure clean state before starting
       try {
         await _googleSignIn.signOut();
-      } catch (_) {
-        // Ignore - user may not have been signed in
-      }
+      } catch (_) {}
 
-      // Trigger the authentication flow
-      GoogleSignInAccount? googleUser;
-      try {
-        googleUser = await _googleSignIn.signIn();
-      } catch (signInError) {
-        debugPrint('⚠️ Google Sign-In initial attempt failed: $signInError');
-        // Try disconnecting completely and retrying
-        try {
-          await _googleSignIn.disconnect();
-        } catch (_) {}
-        googleUser = await _googleSignIn.signIn();
-      }
+      // Trigger the authentication flow — single attempt, no retry
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
         // User cancelled the sign-in
@@ -167,8 +162,11 @@ class AuthService {
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
+      debugPrint('🔑 Google Auth - accessToken: ${googleAuth.accessToken != null ? "present" : "NULL"}');
+      debugPrint('🔑 Google Auth - idToken: ${googleAuth.idToken != null ? "present" : "NULL"}');
+
       if (googleAuth.accessToken == null && googleAuth.idToken == null) {
-        throw 'Failed to obtain Google authentication tokens. Please try again.';
+        throw 'Failed to obtain Google authentication tokens. This usually means the OAuth client is not properly configured for this app signing key.';
       }
 
       // Create a new credential
@@ -231,6 +229,7 @@ class AuthService {
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
+      debugPrint('❌ Google Sign-In FirebaseAuthException: code=${e.code} message=${e.message}');
       throw _handleAuthException(e);
     } catch (e) {
       debugPrint('❌ Google Sign-In Error: $e');
@@ -241,8 +240,12 @@ class AuthService {
         throw 'Sign-in was cancelled. Please try again.';
       } else if (errorStr.contains('credential') || errorStr.contains('token')) {
         throw 'Authentication failed. Please try signing in again.';
+      } else if (errorStr.contains('10:') || errorStr.contains('apiexception: 10')) {
+        throw 'Google Sign-In configuration error (code 10). The app signing key may not be registered. Please contact support.';
+      } else if (errorStr.contains('12500') || errorStr.contains('12501') || errorStr.contains('12502')) {
+        throw 'Google Sign-In failed (code in error). Please ensure Google Play Services is up to date.';
       }
-      throw 'Failed to sign in with Google. Please try again.';
+      throw 'Failed to sign in with Google: ${e.toString().length > 100 ? e.toString().substring(0, 100) : e}';
     }
   }
 
