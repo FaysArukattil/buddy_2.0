@@ -41,6 +41,30 @@ class MainActivity : FlutterActivity() {
                     val count = getUnsyncedTransactionCount()
                     result.success(count)
                 }
+                "getAppSignatureSha1" -> {
+                    try {
+                        val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+                        }
+                        val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                            packageInfo.signingInfo?.apkContentsSigners
+                        } else {
+                            @Suppress("DEPRECATION")
+                            packageInfo.signatures
+                        }
+                        val md = java.security.MessageDigest.getInstance("SHA-1")
+                        val sha1List = signatures?.map { sig ->
+                            val digest = md.digest(sig.toByteArray())
+                            digest.joinToString(":") { String.format("%02X", it) }
+                        } ?: emptyList()
+                        result.success(sha1List.firstOrNull() ?: "NONE")
+                    } catch (e: Exception) {
+                        result.success("ERROR: ${e.message}")
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

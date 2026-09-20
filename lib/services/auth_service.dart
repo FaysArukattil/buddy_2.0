@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'app_init_helper.dart';
 
 class AuthService {
@@ -241,7 +242,12 @@ class AuthService {
       } else if (errorStr.contains('credential') || errorStr.contains('token')) {
         throw 'Authentication failed. Please try signing in again.';
       } else if (errorStr.contains('10:') || errorStr.contains('apiexception: 10')) {
-        throw 'Google Sign-In configuration error (code 10). The app signing key may not be registered. Please contact support.';
+        String appSha1 = '';
+        try {
+          const channel = MethodChannel('notification_channel');
+          appSha1 = await channel.invokeMethod<String>('getAppSignatureSha1') ?? '';
+        } catch (_) {}
+        throw 'Google Sign-In configuration error (code 10). Device app SHA-1 is: $appSha1';
       } else if (errorStr.contains('12500') || errorStr.contains('12501') || errorStr.contains('12502')) {
         throw 'Google Sign-In failed (code in error). Please ensure Google Play Services is up to date.';
       }
