@@ -65,9 +65,16 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 }
                 json.put("date", dateStr)
 
+                val historyJson = JSONObject().apply {
+                    put("amount", json.getDouble("amount"))
+                    put("type", json.getString("type"))
+                    put("timestamp", System.currentTimeMillis())
+                }
+
                 // Move from pending to confirmed
                 val success = prefs.edit()
                     .putString("${KEY_PREFIX}txn_$hash", json.toString())
+                    .putString("${KEY_PREFIX}history_$hash", historyJson.toString())
                     .remove("${KEY_PREFIX}pending_$hash")
                     .commit()
 

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.util.Log
 
 /**
@@ -26,6 +27,30 @@ class MainActivity : FlutterActivity() {
     }
 
     private lateinit var channel: MethodChannel
+
+    override fun onResume() {
+        super.onResume()
+        ensureNotificationListenerActive()
+    }
+
+    /**
+     * Rebinds the NotificationListenerService on devices where the OEM OS
+     * (Vivo, Nothing, Xiaomi, Oppo, Samsung) killed or unlinked the listener.
+     */
+    private fun ensureNotificationListenerActive() {
+        if (!isNotificationListenerEnabled()) return
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                NotificationListenerService.requestRebind(
+                    ComponentName(applicationContext, NotificationListener::class.java)
+                )
+                Log.d(TAG, "🔄 NotificationListener rebind requested onResume")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Rebind attempt onResume: ${e.message}")
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)

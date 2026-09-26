@@ -202,7 +202,18 @@ class NotificationService {
           syncedCount++;
           debugPrint('✅ SYNC: Transaction synced to Firestore (hash=$hash, id=$docId)');
 
-          // Clean up from SharedPreferences after successful sync
+          // Ensure history record is preserved for today's duplicate checks
+          final histKey = 'history_$hash';
+          if (!prefs.containsKey(histKey)) {
+            final histData = jsonEncode({
+              'amount': data['amount'],
+              'type': txnType,
+              'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+            });
+            await prefs.setString(histKey, histData);
+          }
+
+          // Clean up txn_ from SharedPreferences after successful sync
           await prefs.remove(key);
 
           // Notify callback if provided
@@ -214,6 +225,26 @@ class NotificationService {
         debugPrint('❌ SYNC: Error syncing transaction $key: $e');
       }
     }
+
+    // Ensure today's transactions in Firestore are also reflected in history_
+    // so native NotificationListener knows not to duplicate same amounts seen today
+    try {
+      final now = DateTime.now();
+      final monthTxns = await firestore.getTransactionsForMonth(now.year, now.month);
+      final todayStart = DateTime(now.year, now.month, now.day);
+      final todayTxns = monthTxns.where((t) => t.date.isAfter(todayStart) || t.date.isAtSameMomentAs(todayStart)).toList();
+      for (final t in todayTxns) {
+        final histKey = 'history_fs_${t.id}';
+        if (!prefs.containsKey(histKey)) {
+          final histData = jsonEncode({
+            'amount': t.amount,
+            'type': t.type,
+            'timestamp': t.date.millisecondsSinceEpoch,
+          });
+          await prefs.setString(histKey, histData);
+        }
+      }
+    } catch (_) {}
 
     if (syncedCount > 0) {
       debugPrint('✅ SYNC: Synced $syncedCount transaction(s) to Firestore');

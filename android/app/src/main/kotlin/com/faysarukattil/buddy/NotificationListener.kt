@@ -1,5 +1,6 @@
 package com.faysarukattil.buddy
 
+import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -27,10 +28,8 @@ class NotificationListener : NotificationListenerService() {
         private const val PREFS_NAME = "FlutterSharedPreferences"
         private const val KEY_PREFIX = "flutter."
 
-        // SMS/Messaging apps — banks always send SMS for actual transactions
-        // Also includes UPI payment apps that send transaction notifications
-        private val FINANCIAL_APPS = setOf(
-            // SMS / Messaging (including OEM packages for Nothing, Vivo, Xiaomi, Oppo, Samsung, OnePlus, etc.)
+        // SMS / Messaging apps — banks always send SMS for actual transactions
+        private val SMS_APPS = setOf(
             "com.google.android.apps.messaging",
             "com.android.messaging",
             "com.samsung.android.messaging",
@@ -45,27 +44,35 @@ class NotificationListener : NotificationListenerService() {
             "com.miui.mms",
             "com.oppo.mms",
             "com.motorola.mms",
-            "com.transsion.mobile.message",
-            // UPI / Payment apps (they send transaction confirmations)
-            "com.phonepe.app",
-            "com.google.android.apps.nbu.paisa.user",  // GPay
-            "net.one97.paytm",
-            "in.org.npci.upiapp",  // BHIM UPI
-            "com.dreamplug.androidapp",  // CRED
-            "com.mobikwik_new",
-            "com.freecharge.android",
-            // Bank apps
-            "com.sbi.SBIFreedomPlus",
-            "com.csam.icici.bank.imobile",
-            "com.hdfc.retail",
-            "com.axis.mobile",
-            "com.msf.kbank.mobile",
-            "com.kotak.mobile.banking",
-            "com.bankofbaroda.mconnect",
-            "com.canaaborbank.mobility",
-            "com.fedmobile",  // Federal Bank
-            "com.idfcfirst.bank"
+            "com.transsion.mobile.message"
         )
+
+        // UPI & Payment apps (they send transaction confirmations)
+        private val PAYMENT_APPS = setOf(
+            "com.phonepe.app",
+            "com.google.android.apps.nbu.paisa.user",  // Google Pay
+            "net.one97.paytm",                        // Paytm
+            "in.org.npci.upiapp",                     // BHIM UPI
+            "com.dreamplug.androidapp",               // CRED
+            "com.mobikwik_new",
+            "com.freecharge.android"
+        )
+
+        // Official Mobile Banking Apps
+        private val BANK_APPS = setOf(
+            "com.fedmobile",                          // Federal Bank (FedMobile)
+            "com.sbi.SBIFreedomPlus",                 // YONO SBI
+            "com.csam.icici.bank.imobile",            // iMobile (ICICI)
+            "com.hdfc.retail",                        // HDFC MobileBanking
+            "com.axis.mobile",                        // Axis Mobile
+            "com.msf.kbank.mobile",                   // Kotak Mobile Banking
+            "com.kotak.mobile.banking",
+            "com.bankofbaroda.mconnect",              // bob World
+            "com.canaaborbank.mobility",              // Canara ai1
+            "com.idfcfirst.bank"                      // IDFC FIRST Bank
+        )
+
+        private val FINANCIAL_APPS = SMS_APPS + PAYMENT_APPS + BANK_APPS
 
         // Apps whose notifications should NEVER be treated as transactions
         private val BLACKLISTED_APPS = setOf(
@@ -86,44 +93,78 @@ class NotificationListener : NotificationListenerService() {
             "com.netflix.mediaclient"
         )
 
-        // Spam/promotional keywords — reject notifications containing these
-        // NOTE: "refund" and "cashback" are NOT spam — they're valid credit transactions
-        private val SPAM_KEYWORDS = listOf(
-            "due", "upcoming", "pay by", "bill reminder", "recharge now",
-            "plan expiry", "renew", "activate", "your plan", "validity",
-            "offer", "cashback offer", "apply now", "click here", "win ",
-            "limited time", "download", "subscribe", "free ", "avail ",
-            "otp", "verification code", "one time password", "promo",
-            "discount", "coupon", "upgrade", "premium plan", "recharge offer",
-            "data pack", "missed call", "loan approved", "pre-approved",
-            "insurance", "mutual fund", "apply for", "link your",
-            "kyc", "pan card", "aadhaar", "verify your", "expire",
-            "register", "enroll", "pay your bill", "auto-pay",
-            "payment due", "overdue", "outstanding", "reminder"
+        // Strict promotional and spam keywords — notifications containing ANY of these are rejected immediately.
+        // This filter is MANDATORY and NEVER bypassed.
+        private val PROMOTIONAL_AND_SPAM_KEYWORDS = listOf(
+            // Promotional incentives & reward offers
+            "get up to", "get upto", "getup to", "getupto",
+            "up to rs", "up to inr", "up to ₹", "upto rs", "upto inr", "upto ₹",
+            "up to ", "upto ",
+            "win up to", "win upto", "stand a chance", "chance to win", "win a ", "win cash", "win rewards",
+            "earn up to", "earn upto", "earn cash", "earn rewards", "start earning",
+            "flat cashback", "flat rs", "flat ₹", "flat inr", "cashback offer", "cashback on", "cashback when",
+            "cashback alert", "cashback waiting", "cashback voucher", "claim cashback", "cashback from",
+            "scratch card", "rewards waiting", "unlock rewards", "exclusive offer", "special offer",
+            "limited time", "limited period", "hurry", "valid till", "expires on", "expiring soon",
+            "discount", "promo code", "coupon code", "use code", "voucher code",
+            "congratulations", "congrats", "you've won", "you have won", "you are eligible", "you're eligible",
+            "pre-approved", "pre approved", "instant loan", "loan approved", "apply for loan",
+            "credit card offer", "apply now", "click here", "click to", "tap here", "tap to",
+            "download now", "install now", "subscribe now", "join now", "avail now", "claim now",
+            "invite friends", "refer friends", "referral bonus", "refer & earn", "refer and earn",
+            "free recharge", "bonus cash", "spin and win", "spin & win",
+
+            // Reminders & Due Dates (NOT a completed payment)
+            "bill due", "payment due", "amount due", "due on", "due date", "pay by ", "pay before",
+            "bill reminder", "recharge reminder", "upcoming bill", "upcoming payment", "overdue",
+            "outstanding balance", "recharge now", "plan expiry", "plan expiring", "validity expiring",
+            "renew plan", "auto-pay scheduled", "mandate scheduled",
+
+            // Payment Requests (someone asking for money, NOT a completed payment)
+            "requested money", "has requested", "request received", "collect request", "payment request",
+            "request to pay",
+
+            // Failed / Declined transactions
+            "failed", "declined", "unsuccessful", "cancelled", "rejected", "timed out", "could not be processed",
+
+            // Security & Admin (not transactions)
+            "otp", "verification code", "one time password", "secret code", "login code",
+            "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
         )
 
-        // Keywords that indicate an ACTUAL financial transaction — these override spam filter
-        private val TRANSACTION_SIGNAL_KEYWORDS = listOf(
-            "debited", "credited", "deducted", "deposited", "received",
-            "withdrawn", "transferred", "sent to", "paid to",
-            "refund", "cashback", "reversed"
-        )
-
-        // Bank account patterns — strong signal that it's a real bank SMS
+        // Bank account patterns — matching A/c XX1549, a/c X1549, A/c ending 1234, etc.
         private val ACCOUNT_PATTERN = Regex(
-            """(?:a/c|a\.c|acct?|account)\s*[xX*]*\d{2,}""",
+            """(?:a/c|a\.c|acct?|account)\s*(?:no\.?|ending)?\s*[xX*]*\d{2,}""",
             RegexOption.IGNORE_CASE
         )
+
+        // UPI Reference / RRN / Transaction ID pattern
         private val UPI_REF_PATTERN = Regex(
-            """ref\.?\s*\d{6,}""",
+            """(?:upi\s*ref(?:\s*no)?|ref(?:\s*no)?\.?|txn(?:\s*id)?\.?|rrn|utr)[\s:.-]*\d{6,}""",
             RegexOption.IGNORE_CASE
         )
+
+        // Bank balance pattern — matching BAL-Rs.60001.27, Bal Rs 37010.08, Avbl Bal: Rs. 15000, etc.
         private val BALANCE_PATTERN = Regex(
-            """(?:bal|balance)[\s:.-]*(?:rs\.?\s?|inr\s?|₹\s?)?[0-9,]+""",
+            """(?:bal|balance|avbl\s*bal|avl\s*bal|available\s*bal(?:ance)?|total\s*bal(?:ance)?|clear\s*bal(?:ance)?)[\s:.-]*(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
             RegexOption.IGNORE_CASE
         )
+
+        // Amount pattern — must start with a digit so a preceding comma (e.g. "Dear Customer, Rs.200") is not captured
         private val AMOUNT_PATTERN = Regex(
-            """(?:Rs\.?\s?|INR\s?|₹\s?)([0-9,]+\.?[0-9]*)|([0-9,]+\.?[0-9]*)\s?(?:Rs\.?|INR|₹)""",
+            """(?:Rs\.?\s*|INR\s*|₹\s*)([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)|([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:Rs\.?|INR|₹)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Explicit debit patterns in bank SMS / UPI text
+        private val DEBIT_ACTION_PATTERN = Regex(
+            """(?:debited\s*(?:(?:from|for|with|by)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+)?debited)""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Explicit credit patterns in bank SMS / UPI text
+        private val CREDIT_ACTION_PATTERN = Regex(
+            """(?:credited\s*(?:(?:to|with|by|in)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)?\s*[0-9,.]+\s+(?:has been\s+)?credited|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in))""",
             RegexOption.IGNORE_CASE
         )
 
@@ -278,7 +319,6 @@ class NotificationListener : NotificationListenerService() {
             "upstox" to Pair("Investment", 983636),
             "refund" to Pair("Refund", 983294),
             "reversed" to Pair("Refund", 983294),
-            "cashback" to Pair("Cashback", 983797),
             "gift" to Pair("Gift", 63002)
         )
     }
@@ -337,9 +377,14 @@ class NotificationListener : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
-        // Let the OS handle rebinding. Do NOT call requestRebind() —
-        // it causes aggressive reconnection loops and battery drain.
-        Log.d(TAG, "⚠️ Listener disconnected — OS will rebind automatically")
+        Log.d(TAG, "⚠️ Listener disconnected — requesting rebind")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            try {
+                requestRebind(ComponentName(this, NotificationListener::class.java))
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to request rebind: ${e.message}")
+            }
+        }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -360,12 +405,21 @@ class NotificationListener : NotificationListenerService() {
             // 3. Only process SMS/messaging apps and known financial apps
             if (!isFromFinancialApp(pkg)) return
 
-            // 4. Extract notification text
+            // 4. Extract notification text (combining all potential OEM fields: bigText, textLines, text, subText)
             val extras = sbn.notification.extras
             val title = extras.getCharSequence("android.title")?.toString() ?: ""
             val text = extras.getCharSequence("android.text")?.toString() ?: ""
             val bigText = extras.getCharSequence("android.bigText")?.toString() ?: ""
-            val content = if (bigText.isNotEmpty()) bigText else text
+            val textLines = extras.getCharSequenceArray("android.textLines")
+            val linesContent = textLines?.joinToString(" ") { it.toString() } ?: ""
+            val subText = extras.getCharSequence("android.subText")?.toString() ?: ""
+
+            val content = when {
+                bigText.isNotEmpty() -> bigText
+                linesContent.isNotEmpty() -> linesContent
+                text.isNotEmpty() -> text
+                else -> subText
+            }
 
             if (title.isEmpty() && content.isEmpty()) return
 
@@ -386,7 +440,7 @@ class NotificationListener : NotificationListenerService() {
 
             // 7. Parse transaction
             val fullText = "$title $content"
-            val transaction = parseTransaction(fullText) ?: return
+            val transaction = parseTransaction(fullText, pkg) ?: return
 
             Log.d(TAG, "💰 Transaction detected: ₹${transaction.amount} ${transaction.type} (${transaction.category})")
 
@@ -399,14 +453,14 @@ class NotificationListener : NotificationListenerService() {
                 return
             }
 
-            // 9. Check for similar transactions (same amount + type in last 24h)
-            val similarCount = countSimilarTransactions(buddyPrefs, transaction.amount, transaction.type)
+            // 9. Check if the same amount was already recorded today (calendar day / 24h)
+            val sameAmountSeen = isSameAmountSeenToday(buddyPrefs, transaction.amount, transaction.type)
 
-            if (similarCount > 0) {
-                // Store as pending and show confirmation notification
+            if (sameAmountSeen) {
+                // Store as pending and ask user to confirm via notification
                 storePendingTransaction(buddyPrefs, hash, transaction, pkg)
-                showDuplicateConfirmationNotification(hash, transaction, similarCount)
-                Log.d(TAG, "⚠️ $similarCount similar transaction(s) found — asking user to confirm")
+                showDuplicateConfirmationNotification(hash, transaction)
+                Log.d(TAG, "⚠️ Same amount (₹${transaction.amount}) already seen today — asking user to confirm")
                 return
             }
 
@@ -424,9 +478,17 @@ class NotificationListener : NotificationListenerService() {
     // ── Filtering ──
 
     private fun isFromFinancialApp(packageName: String): Boolean {
+        // Universal OEM SMS check: matches user's active default SMS app on ANY device
+        try {
+            val defaultSmsPkg = android.provider.Telephony.Sms.getDefaultSmsPackage(this)
+            if (defaultSmsPkg != null && defaultSmsPkg.equals(packageName, ignoreCase = true)) {
+                return true
+            }
+        } catch (_: Exception) {}
+
         if (FINANCIAL_APPS.contains(packageName)) return true
         val lower = packageName.lowercase()
-        return listOf("sms", "message", "messaging", "mms", "bank").any { lower.contains(it) }
+        return listOf("sms", "message", "messaging", "mms", "bank", "pay").any { lower.contains(it) }
     }
 
     private fun isOwnNotification(title: String, content: String): Boolean {
@@ -441,106 +503,160 @@ class NotificationListener : NotificationListenerService() {
 
     // ── Parsing ──
 
-    private fun parseTransaction(text: String): Transaction? {
+    private fun parseTransaction(text: String, packageName: String): Transaction? {
         val lowerText = text.lowercase()
 
-        // Step 1: Check if text contains actual transaction signals FIRST
-        val hasTransactionSignal = TRANSACTION_SIGNAL_KEYWORDS.any { lowerText.contains(it) }
-
-        // Step 2: Only apply spam filter if no transaction signal found
-        // This prevents rejecting valid refund/cashback credit messages
-        if (!hasTransactionSignal) {
-            for (keyword in SPAM_KEYWORDS) {
-                if (lowerText.contains(keyword)) return null
-            }
-        } else {
-            // Even with transaction signals, reject obvious promotions
-            val strongSpam = listOf("apply now", "click here", "limited time",
-                "download", "subscribe", "promo", "coupon", "win ")
-            for (keyword in strongSpam) {
-                if (lowerText.contains(keyword)) return null
+        // ────────────────────────────────────────────────────────────────
+        // STEP 1: Mandatory Promotional, Spam, Offer, & Request Rejection
+        // ZERO EXCEPTIONS — ANY matching keyword causes immediate discard.
+        // ────────────────────────────────────────────────────────────────
+        for (keyword in PROMOTIONAL_AND_SPAM_KEYWORDS) {
+            if (lowerText.contains(keyword)) {
+                Log.d(TAG, "🚫 Rejected spam/promotional message (keyword '$keyword'): ${text.take(60)}")
+                return null
             }
         }
 
-        // Step 3: Require banking signals OR explicit transaction phrase OR known merchant
-        val hasAccount = ACCOUNT_PATTERN.containsMatchIn(text)
-        val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(text)
-        val hasBalance = BALANCE_PATTERN.containsMatchIn(text)
-        val hasBankingSignal = hasAccount || hasBalance || hasUpiRef ||
-            lowerText.contains("upi") || lowerText.contains("vpa") ||
-            lowerText.contains("imps") || lowerText.contains("neft") ||
-            lowerText.contains("rtgs") || lowerText.contains("bank") ||
-            lowerText.contains("card") || lowerText.contains("wallet")
+        // ────────────────────────────────────────────────────────────────
+        // STEP 2: App classification
+        // ────────────────────────────────────────────────────────────────
+        val lowerPkg = packageName.lowercase()
+        val isSms = SMS_APPS.contains(packageName) ||
+            listOf("sms", "message", "messaging", "mms").any { lowerPkg.contains(it) }
+        val isPaymentApp = PAYMENT_APPS.contains(packageName)
+        val isBankApp = BANK_APPS.contains(packageName) || lowerPkg.contains("bank")
 
-        val hasExplicitTransactionPhrase =
-            lowerText.contains("paid you") || lowerText.contains("sent you") ||
-            lowerText.contains("received from") || lowerText.contains("credited to") ||
-            lowerText.contains("credited with") || lowerText.contains("credit of") ||
-            lowerText.contains("refund of") || lowerText.contains("refunded") ||
-            lowerText.contains("reversed") || lowerText.contains("cashback of") ||
-            lowerText.contains("debited from") || lowerText.contains("paid to") ||
-            lowerText.contains("you paid") || lowerText.contains("you sent") ||
-            lowerText.contains("purchase of")
+        // ────────────────────────────────────────────────────────────────
+        // STEP 3: Debit vs Credit Action Determination
+        // Must contain an explicit, completed transaction action verb.
+        // ────────────────────────────────────────────────────────────────
+        val hasDebitVerb = DEBIT_ACTION_PATTERN.containsMatchIn(text) ||
+            lowerText.contains("debited from") ||
+            lowerText.contains("debited rs") ||
+            lowerText.contains("debited inr") ||
+            lowerText.contains("debited ₹") ||
+            lowerText.contains("has been debited") ||
+            lowerText.contains("is debited") ||
+            lowerText.contains("withdrawn from") ||
+            lowerText.contains("you paid") ||
+            lowerText.contains("paid to") ||
+            lowerText.contains("payment to") ||
+            lowerText.contains("payment of") ||
+            lowerText.contains("money sent to") ||
+            lowerText.contains("purchase of") ||
+            lowerText.contains("spent on")
 
-        val hasMerchant = MERCHANT_CATEGORY_MAP.keys.any { lowerText.contains(it) }
-
-        if (!hasBankingSignal && !hasExplicitTransactionPhrase && !hasMerchant) return null
-
-        // Step 4: Determine debit vs credit
-        val isDebit = when {
-            // Credit patterns (check first — more specific)
-            lowerText.contains("paid you") ||
-            lowerText.contains("sent you") ||
-            lowerText.contains("received from") -> false
-
+        val hasCreditVerb = CREDIT_ACTION_PATTERN.containsMatchIn(text) ||
             lowerText.contains("credited to") ||
             lowerText.contains("credited with") ||
             lowerText.contains("credit of") ||
+            lowerText.contains("credited in") ||
+            lowerText.contains("has been credited") ||
+            lowerText.contains("is credited") ||
+            lowerText.contains("deposited to") ||
+            lowerText.contains("deposited in") ||
+            lowerText.contains("received from") ||
+            lowerText.contains("you received") ||
+            (lowerText.contains("received") && lowerText.contains("from")) ||
+            lowerText.contains("sent you") ||
+            lowerText.contains("paid you") ||
             lowerText.contains("refund of") ||
-            lowerText.contains("refunded") ||
-            lowerText.contains("reversed") ||
-            lowerText.contains("cashback of") -> false
+            lowerText.contains("refunded to")
 
-            // Debit patterns
-            lowerText.contains("you paid") ||
-            lowerText.contains("you sent") ||
-            lowerText.contains("paid to") ||
-            lowerText.contains("debited from") ||
-            lowerText.contains("debited rs") ||
-            lowerText.contains("withdrawn") ||
-            lowerText.contains("purchase of") -> true
-
-            // General patterns (lower priority)
-            lowerText.contains("debited") ||
-            lowerText.contains("deducted") -> true
-
-            lowerText.contains("credited") ||
-            lowerText.contains("deposited") ||
-            lowerText.contains("received") ||
-            lowerText.contains("refund") ||
-            lowerText.contains("cashback") -> false
-
-            else -> return null
+        // If it doesn't describe money being debited or credited, it is NOT a transaction.
+        if (!hasDebitVerb && !hasCreditVerb) {
+            return null
         }
 
-        // Step 5: Extract amount (avoid taking balance amount when both exist)
-        val balanceMatch = BALANCE_PATTERN.find(text)
-        val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
-        if (allAmounts.isEmpty()) return null
+        // ────────────────────────────────────────────────────────────────
+        // STEP 4: Source Verification & Anti-Spam Gate
+        // - For SMS: Bank SMS in India ALWAYS has an account number (A/c XX1549),
+        //   a balance indicator (Bal-Rs.60001), or a UPI/UTR/RRN reference (Ref 614755429328).
+        // - For Payment Apps (Google Pay, PhonePe, Paytm): Must have an explicit
+        //   past-tense confirmed action ("you paid", "paid to", "received from", etc.)
+        // - For Bank Apps: Must have account, balance, or explicit transaction text.
+        // ────────────────────────────────────────────────────────────────
+        val hasAccount = ACCOUNT_PATTERN.containsMatchIn(text)
+        val hasBalance = BALANCE_PATTERN.containsMatchIn(text)
+        val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(text)
 
-        val amountMatch = allAmounts.firstOrNull { match ->
-            if (balanceMatch != null) {
-                match.range.first < balanceMatch.range.first || match.range.first > balanceMatch.range.last
+        if (isSms || isBankApp) {
+            // Authentic bank SMS/alerts must have at least one banking identifier
+            val hasBankIdentifier = hasAccount || hasBalance || hasUpiRef ||
+                lowerText.contains("a/c") || lowerText.contains("acct") ||
+                lowerText.contains("upi") || lowerText.contains("imps") ||
+                lowerText.contains("neft") || lowerText.contains("rtgs")
+            if (!hasBankIdentifier) {
+                Log.d(TAG, "🚫 Ignored message without banking identifier: ${text.take(60)}")
+                return null
+            }
+        } else if (isPaymentApp) {
+            // Payment apps (GPay, PhonePe, Paytm) send lots of promo notifications.
+            // Require explicit payment receipt phrases:
+            val isExplicitPaymentReceipt =
+                lowerText.contains("you paid") ||
+                lowerText.contains("paid to") ||
+                lowerText.contains("payment to") ||
+                lowerText.contains("payment of") ||
+                lowerText.contains("money sent to") ||
+                lowerText.contains("you received") ||
+                lowerText.contains("received from") ||
+                (lowerText.contains("received") && lowerText.contains("from")) ||
+                lowerText.contains("sent you") ||
+                lowerText.contains("paid you") ||
+                (lowerText.contains("cashback credited") && (lowerText.contains("bank") || lowerText.contains("account")))
+
+            if (!isExplicitPaymentReceipt) {
+                Log.d(TAG, "🚫 Ignored payment app notification without confirmed receipt action: ${text.take(60)}")
+                return null
+            }
+        }
+
+        // Determine direction: Credit takes precedence if both credit and debit verbs exist (e.g. refund/cashback)
+        val isDebit = if (hasCreditVerb && !hasDebitVerb) {
+            false
+        } else if (hasDebitVerb && !hasCreditVerb) {
+            true
+        } else {
+            if (lowerText.contains("refund") || lowerText.contains("credited") || lowerText.contains("received")) {
+                false
             } else {
                 true
             }
-        } ?: allAmounts.first()
+        }
 
-        val amountStr = (amountMatch.groupValues[1].ifEmpty { amountMatch.groupValues[2] })
+        // ────────────────────────────────────────────────────────────────
+        // STEP 5: Amount Extraction (Balance-Excluded)
+        // Never capture the bank balance (e.g., BAL-Rs.60001.27) as the transaction amount!
+        // ────────────────────────────────────────────────────────────────
+        val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
+        if (allAmounts.isEmpty()) return null
+
+        val balanceMatches = BALANCE_PATTERN.findAll(text).toList()
+
+        // Exclude amounts that fall within any balance regex match span
+        val transactionAmounts = allAmounts.filter { amountMatch ->
+            balanceMatches.none { balMatch ->
+                val aStart = amountMatch.range.first
+                val aEnd = amountMatch.range.last
+                val bStart = balMatch.range.first
+                val bEnd = balMatch.range.last
+                !(aEnd < bStart || aStart > bEnd)
+            }
+        }
+
+        if (transactionAmounts.isEmpty()) {
+            Log.d(TAG, "🚫 Only balance amount found, no transaction amount in: ${text.take(60)}")
+            return null
+        }
+
+        // Use the first valid non-balance amount
+        val targetMatch = transactionAmounts.first()
+        val amountStr = (targetMatch.groupValues[1].ifEmpty { targetMatch.groupValues[2] })
             .replace(",", "")
             .trim()
         val amount = amountStr.toDoubleOrNull() ?: return null
-        if (amount <= 0) return null
+        if (amount <= 0.0 || amount > 10000000.0) return null
 
         val type = if (isDebit) "expense" else "income"
         val (category, icon) = detectCategory(lowerText, type)
@@ -615,20 +731,32 @@ class NotificationListener : NotificationListenerService() {
         return hash.joinToString("") { "%02x".format(it) }
     }
 
-    private fun countSimilarTransactions(prefs: android.content.SharedPreferences, amount: Double, type: String): Int {
+    private fun isSameAmountSeenToday(prefs: android.content.SharedPreferences, amount: Double, type: String): Boolean {
+        // Prune old history entries older than 48h to prevent unbounded pref growth
+        pruneOldHistory(prefs)
+
+        val calendar = Calendar.getInstance()
+        calendar.set(Calendar.HOUR_OF_DAY, 0)
+        calendar.set(Calendar.MINUTE, 0)
+        calendar.set(Calendar.SECOND, 0)
+        calendar.set(Calendar.MILLISECOND, 0)
+        val todayStart = calendar.timeInMillis
         val oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
-        var count = 0
+        val cutoffTime = minOf(todayStart, oneDayAgo)
 
         for ((key, value) in prefs.all) {
-            if (key.startsWith("${KEY_PREFIX}txn_") || key.startsWith("${KEY_PREFIX}pending_")) {
+            if (key.startsWith("${KEY_PREFIX}txn_") ||
+                key.startsWith("${KEY_PREFIX}pending_") ||
+                key.startsWith("${KEY_PREFIX}history_")) {
                 try {
                     val json = JSONObject(value as String)
                     val txnAmount = json.getDouble("amount")
                     val txnType = json.getString("type")
-                    val txnTime = json.getLong("timestamp")
+                    val txnTime = json.optLong("timestamp", 0L)
 
-                    if (txnAmount == amount && txnType == type && txnTime >= oneDayAgo) {
-                        count++
+                    // Match if same amount (within 1 paisa) and same type from today / last 24h
+                    if (txnType == type && kotlin.math.abs(txnAmount - amount) < 0.01 && txnTime >= cutoffTime) {
+                        return true
                     }
                 } catch (_: Exception) {
                     // Skip invalid entries
@@ -636,7 +764,28 @@ class NotificationListener : NotificationListenerService() {
             }
         }
 
-        return count
+        return false
+    }
+
+    private fun pruneOldHistory(prefs: android.content.SharedPreferences) {
+        val twoDaysAgo = System.currentTimeMillis() - (48 * 60 * 60 * 1000)
+        val editor = prefs.edit()
+        var pruned = false
+        for ((key, value) in prefs.all) {
+            if (key.startsWith("${KEY_PREFIX}history_")) {
+                try {
+                    val json = JSONObject(value as String)
+                    if (json.optLong("timestamp", 0L) < twoDaysAgo) {
+                        editor.remove(key)
+                        pruned = true
+                    }
+                } catch (_: Exception) {
+                    editor.remove(key)
+                    pruned = true
+                }
+            }
+        }
+        if (pruned) editor.apply()
     }
 
     private fun saveTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {
@@ -655,7 +804,16 @@ class NotificationListener : NotificationListenerService() {
             put("date", isoDate)
         }
 
-        prefs.edit().putString("${KEY_PREFIX}txn_$hash", json.toString()).apply()
+        val historyJson = JSONObject().apply {
+            put("amount", transaction.amount)
+            put("type", transaction.type)
+            put("timestamp", System.currentTimeMillis())
+        }
+
+        prefs.edit()
+            .putString("${KEY_PREFIX}txn_$hash", json.toString())
+            .putString("${KEY_PREFIX}history_$hash", historyJson.toString())
+            .apply()
     }
 
     private fun storePendingTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {
@@ -679,11 +837,17 @@ class NotificationListener : NotificationListenerService() {
 
     // ── Notifications ──
 
-    private fun showDuplicateConfirmationNotification(hash: String, transaction: Transaction, similarCount: Int) {
+    private fun showDuplicateConfirmationNotification(hash: String, transaction: Transaction) {
         val channelId = "duplicate_confirmations"
         createNotificationChannel(channelId, "Transaction Confirmations", android.app.NotificationManager.IMPORTANCE_HIGH)
 
         val typeIcon = if (transaction.type == "expense") "💸" else "💰"
+        val typeLabel = if (transaction.type == "expense") "Expense" else "Income"
+        val formattedAmount = if (transaction.amount % 1.0 == 0.0) {
+            "%.0f".format(transaction.amount)
+        } else {
+            "%.2f".format(transaction.amount)
+        }
 
         val yesIntent = android.content.Intent(this, NotificationActionReceiver::class.java).apply {
             action = "ACTION_YES"
@@ -708,15 +872,16 @@ class NotificationListener : NotificationListenerService() {
         )
 
         val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
-            .setContentTitle("⚠️ Possible Duplicate Transaction")
-            .setContentText("$typeIcon ₹${transaction.amount} (${transaction.category})")
+            .setContentTitle("⚠️ Same amount detected today: ₹$formattedAmount")
+            .setContentText("$typeIcon ₹$formattedAmount (${transaction.category}) — Not added automatically. Tap Add if new.")
             .setStyle(androidx.core.app.NotificationCompat.BigTextStyle()
-                .bigText("$typeIcon ₹${transaction.amount} - ${transaction.category}\n\nFound $similarCount similar transaction(s) in last 24 hours.\n\nIs this a NEW transaction?"))
+                .bigText("$typeIcon ₹$formattedAmount - ${transaction.category} ($typeLabel)\n\nThis amount was already recorded today. To prevent duplicates, it was NOT added automatically.\n\nIf this is a separate transaction, tap \"Add\" below.")
+            )
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(false)
-            .addAction(android.R.drawable.ic_input_add, "✅ Yes, Add", yesPendingIntent)
-            .addAction(android.R.drawable.ic_delete, "❌ No, Ignore", noPendingIntent)
+            .addAction(android.R.drawable.ic_input_add, "➕ Add", yesPendingIntent)
+            .addAction(android.R.drawable.ic_delete, "✕ Ignore", noPendingIntent)
             .build()
 
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
