@@ -3,11 +3,17 @@ package com.faysarukattil.buddy
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import android.content.ComponentName
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 
 /**
- * Simplified MainActivity — only provides a MethodChannel for Flutter
- * to check notification listener permission status and read SharedPreferences.
+ * Simplified MainActivity — provides a MethodChannel for Flutter
+ * to check notification listener permission status, manage battery
+ * optimization settings, and read SharedPreferences.
  *
  * The NotificationListenerService is managed entirely by the OS.
  * No manual service start/stop, no instance tracking, no sync handlers.
@@ -41,15 +47,25 @@ class MainActivity : FlutterActivity() {
                     val count = getUnsyncedTransactionCount()
                     result.success(count)
                 }
+                "openBatterySettings" -> {
+                    // Open battery optimization settings
+                    openBatteryOptimizationSettings()
+                    result.success(true)
+                }
+                "openAutoStartSettings" -> {
+                    // Open autostart settings (OEM-specific)
+                    val opened = openAutoStartSettings()
+                    result.success(opened)
+                }
                 "getAppSignatureSha1" -> {
                     try {
-                        val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
                         } else {
                             @Suppress("DEPRECATION")
                             packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
                         }
-                        val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                        val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                             packageInfo.signingInfo?.apkContentsSigners
                         } else {
                             @Suppress("DEPRECATION")
@@ -73,7 +89,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
-        val flat = android.provider.Settings.Secure.getString(
+        val flat = Settings.Secure.getString(
             contentResolver,
             "enabled_notification_listeners"
         )
@@ -81,8 +97,116 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun getUnsyncedTransactionCount(): Int {
-        val prefs = getSharedPreferences("buddy_prefs", MODE_PRIVATE)
-        return prefs.all.keys.count { it.startsWith("txn_") }
+        val prefs = getSharedPreferences("FlutterSharedPreferences", MODE_PRIVATE)
+        return prefs.all.keys.count { it.startsWith("flutter.txn_") }
+    }
+
+    /**
+     * Opens battery optimization settings.
+     * On Android 6+, requests ignore battery optimizations for this app.
+     * This is critical for devices like Nothing, Vivo, iQOO, Xiaomi, Oppo, Realme
+     * where the OS aggressively kills background services.
+     */
+    private fun openBatteryOptimizationSettings() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+                startActivity(intent)
+            } else {
+                val intent = Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+                startActivity(intent)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "⚠️ Could not open battery settings: ${e.message}")
+            try {
+                val intent = Intent(Settings.ACTION_SETTINGS)
+                startActivity(intent)
+            } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Attempts to open OEM-specific autostart settings.
+     * Returns true if successfully opened, false otherwise.
+     *
+     * Supports: Xiaomi, Oppo, Vivo, iQOO, Huawei, Samsung, OnePlus,
+     * Nothing, Realme, Asus, Letv, Meizu.
+     */
+    private fun openAutoStartSettings(): Boolean {
+        val manufacturer = Build.MANUFACTURER.lowercase()
+        Log.d(TAG, "📱 Device manufacturer: $manufacturer")
+
+        val intents = when {
+            manufacturer.contains("xiaomi") || manufacturer.contains("redmi") -> listOf(
+                Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+                Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.powercenter.PowerSettings"))
+            )
+            manufacturer.contains("oppo") || manufacturer.contains("realme") -> listOf(
+                Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+                Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")),
+                Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"))
+            )
+            manufacturer.contains("vivo") || manufacturer.contains("iqoo") -> listOf(
+                Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+                Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")),
+                Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")),
+                Intent().setComponent(ComponentName("com.vivo.abe", "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity"))
+            )
+            manufacturer.contains("huawei") || manufacturer.contains("honor") -> listOf(
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+                Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"))
+            )
+            manufacturer.contains("samsung") -> listOf(
+                Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.battery.ui.BatteryActivity")),
+                Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.android.sm.ui.battery.BatteryActivity"))
+            )
+            manufacturer.contains("oneplus") || manufacturer.contains("nothing") -> listOf(
+                Intent().setComponent(ComponentName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+            manufacturer.contains("asus") -> listOf(
+                Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.autostart.AutoStartActivity"))
+            )
+            manufacturer.contains("letv") || manufacturer.contains("leeco") -> listOf(
+                Intent().setComponent(ComponentName("com.letv.android.letvsafe", "com.letv.android.letvsafe.AutobootManageActivity"))
+            )
+            manufacturer.contains("meizu") -> listOf(
+                Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.security.SHOW_APPSEC")),
+            )
+            else -> listOf(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+        }
+
+        for (intent in intents) {
+            try {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(intent)
+                Log.d(TAG, "✅ Opened autostart settings for $manufacturer")
+                return true
+            } catch (_: Exception) {
+                // Try next intent
+            }
+        }
+
+        // Fallback: open app info page
+        try {
+            val fallback = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(fallback)
+            return true
+        } catch (_: Exception) {}
+
+        return false
     }
 
     override fun onDestroy() {

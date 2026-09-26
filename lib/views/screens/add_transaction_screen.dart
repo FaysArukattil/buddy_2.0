@@ -167,11 +167,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     await showCupertinoModalPopup(
       context: context,
       builder: (ctx) {
+        final isDark = AppColors.isDark(context);
         return Container(
           height: 320,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
             children: [
@@ -186,7 +187,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       onPressed: () => Navigator.of(ctx).pop(),
                       child: Text(
                         'Cancel',
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: AppColors.textSecondaryOf(context)),
                       ),
                     ),
                     CupertinoButton(
@@ -195,24 +196,38 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                         Navigator.of(ctx).pop();
                         setState(() => _selectedDate = temp);
                       },
-                      child: const Text(
+                      child: Text(
                         'Done',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
               Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  use24hFormat: false,
-                  initialDateTime: _selectedDate,
-                  maximumDate: DateTime.now().add(const Duration(days: 1)),
-                  onDateTimeChanged: (d) {
-                    temp = d;
-                    HapticFeedback.selectionClick();
-                  },
+                child: CupertinoTheme(
+                  data: CupertinoThemeData(
+                    brightness: isDark ? Brightness.dark : Brightness.light,
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        color: AppColors.textPrimaryOf(context),
+                        fontSize: 20,
+                      ),
+                    ),
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    use24hFormat: false,
+                    initialDateTime: _selectedDate,
+                    maximumDate: DateTime.now().add(const Duration(days: 1)),
+                    onDateTimeChanged: (d) {
+                      temp = d;
+                      HapticFeedback.selectionClick();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -542,11 +557,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Column(
             children: [
-              Icon(Icons.search_off_rounded, size: 32, color: Colors.grey.shade400),
+              Icon(Icons.search_off_rounded, size: 32, color: AppColors.textLightOf(context)),
               const SizedBox(height: 8),
               Text(
                 'No categories found',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                style: TextStyle(color: AppColors.textSecondaryOf(context), fontSize: 14),
               ),
             ],
           ),
@@ -728,7 +743,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               width: itemWidth,
               height: 64,
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: AppColors.surfaceOf(context),
                 borderRadius: BorderRadius.circular(16),
               ),
             ),
@@ -1016,7 +1031,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                           width: 36,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
+                            color: AppColors.isDark(context) ? Colors.white24 : Colors.grey.shade300,
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -1024,11 +1039,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'New Category',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimaryOf(context),
                             ),
                           ),
                           const Spacer(),
@@ -1037,13 +1053,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
+                                color: AppColors.surfaceOf(context),
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
                                 Icons.close_rounded,
                                 size: 18,
-                                color: Colors.grey.shade600,
+                                color: AppColors.textSecondaryOf(context),
                               ),
                             ),
                           ),
@@ -1057,7 +1073,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                           labelText: 'Category Name',
                           hintText: 'e.g., Starbucks',
                           filled: true,
-                          fillColor: Colors.grey.shade50,
+                          fillColor: AppColors.surfaceOf(context),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(14),
                             borderSide: BorderSide.none,
@@ -1076,11 +1092,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
+                      Text(
                         'Pick an icon',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
+                          color: AppColors.textPrimaryOf(context),
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -1106,11 +1123,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                 decoration: BoxDecoration(
                                   color: selected
                                       ? AppColors.primary.withValues(alpha: 0.15)
-                                      : Colors.grey.shade50,
+                                      : AppColors.surfaceOf(context),
                                   border: Border.all(
                                     color: selected
                                         ? AppColors.primary
-                                        : Colors.grey.shade200,
+                                        : AppColors.borderOf(context),
                                     width: selected ? 2 : 1,
                                   ),
                                   borderRadius: BorderRadius.circular(12),
@@ -1119,7 +1136,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                   ic,
                                   color: selected
                                       ? AppColors.secondary
-                                      : Colors.grey.shade700,
+                                      : AppColors.textSecondaryOf(context),
                                   size: 22,
                                 ),
                               ),

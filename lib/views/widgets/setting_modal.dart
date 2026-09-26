@@ -22,6 +22,7 @@ class SettingsModal extends StatefulWidget {
 class _SettingsModalState extends State<SettingsModal> {
   bool _autoDetectionEnabled = false;
   bool _isLoading = true;
+  bool _isToggling = false; // Prevents rapid-fire toggle spam
   bool _isAccountActionLoading = false;
   final AuthService _authService = AuthService();
 
@@ -34,9 +35,10 @@ class _SettingsModalState extends State<SettingsModal> {
   Future<void> _loadSettings() async {
     try {
       final enabled = await NotificationService.isAutoDetectionEnabled();
+      final hasAccess = await NotificationService.isNotificationAccessGranted();
       if (mounted) {
         setState(() {
-          _autoDetectionEnabled = enabled;
+          _autoDetectionEnabled = enabled && hasAccess;
           _isLoading = false;
         });
       }
@@ -49,45 +51,69 @@ class _SettingsModalState extends State<SettingsModal> {
   }
 
   Future<void> _toggleAutoDetection(bool value) async {
+    // Prevent rapid-fire toggling (fixes repeated snackbar on Nothing/Vivo)
+    if (_isToggling) return;
+    _isToggling = true;
+
     setState(() => _isLoading = true);
+
+    // Clear any existing snackbars first
+    if (mounted) {
+      ScaffoldMessenger.of(context).clearSnackBars();
+    }
 
     try {
       if (value) {
+        // Request notification posting permission (Android 13+)
         await NotificationHelper.requestNotificationPermission();
-        final hasAccess = await NotificationService.requestNotificationAccess();
+
+        // Check if notification listener access is already granted
+        final hasAccess = await NotificationService.isNotificationAccessGranted();
 
         if (!hasAccess) {
-          if (!mounted) return;
+          // Open settings — DON'T show snackbar repeatedly
+          await NotificationService.requestNotificationAccess();
+
+          if (!mounted) { _isToggling = false; return; }
+
+          // Show a single informative snackbar
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text(
-                '⚠️ Please grant notification access in settings',
+                '⚠️ Enable "Buddy" in notification access settings, then come back',
               ),
               backgroundColor: Colors.orange,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
           );
 
-          await Future.delayed(const Duration(milliseconds: 500));
-          final recheckAccess =
-              await NotificationService.requestNotificationAccess();
-          if (!recheckAccess) {
-            setState(() => _isLoading = false);
-            return;
-          }
+          // Don't call requestNotificationAccess() again — that opens settings AGAIN
+          // and causes the repeated snackbar loop on Nothing/Vivo devices
+          setState(() => _isLoading = false);
+          _isToggling = false;
+          return;
         }
 
+        // Access is granted — enable auto-detection
         await NotificationService.setAutoDetectionEnabled(true);
 
-        if (!mounted) return;
+        if (!mounted) { _isToggling = false; return; }
+
+        setState(() {
+          _autoDetectionEnabled = true;
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('✅ Auto-detection enabled successfully!'),
+            content: const Text('✅ Auto-detection enabled!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -96,20 +122,25 @@ class _SettingsModalState extends State<SettingsModal> {
       } else {
         await NotificationService.setAutoDetectionEnabled(false);
 
-        if (!mounted) return;
+        if (!mounted) { _isToggling = false; return; }
+
+        setState(() {
+          _autoDetectionEnabled = false;
+          _isLoading = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Auto-detection disabled'),
             backgroundColor: AppColors.primary,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
         );
       }
-
-      await _loadSettings();
     } catch (e) {
       debugPrint('❌ Error toggling auto-detection: $e');
       if (mounted) {
@@ -122,6 +153,11 @@ class _SettingsModalState extends State<SettingsModal> {
         );
         setState(() => _isLoading = false);
       }
+    } finally {
+      // Reset debounce after a short delay
+      Future.delayed(const Duration(milliseconds: 800), () {
+        _isToggling = false;
+      });
     }
   }
 
@@ -899,6 +935,67 @@ class _SettingsModalState extends State<SettingsModal> {
                   ),
                 ),
 
+                // ── Sub-options: Battery & Autostart (shown when enabled) ──
+                if (_autoDetectionEnabled) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1A2230) : const Color(0xFFF8FAFC),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline_rounded,
+                              size: 16,
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'For best results on your device:',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Battery Optimization
+                        _buildSubOptionTile(
+                          icon: Icons.battery_saver_rounded,
+                          title: 'Disable Battery Optimization',
+                          subtitle: 'Prevents the system from stopping auto-detection',
+                          color: const Color(0xFF4CAF50),
+                          onTap: () => NotificationService.openBatteryOptimizationSettings(),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Autostart
+                        _buildSubOptionTile(
+                          icon: Icons.rocket_launch_rounded,
+                          title: 'Enable Autostart',
+                          subtitle: 'Required on Vivo, Xiaomi, Oppo, Nothing & more',
+                          color: const Color(0xFF2196F3),
+                          onTap: () => NotificationService.openAutoStartSettings(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 28),
 
                 // ── Support & Feedback Section ──
@@ -1179,6 +1276,76 @@ class _SettingsModalState extends State<SettingsModal> {
                 ),
               ),
               Icon(Icons.chevron_right_rounded, color: AppColors.textSecondaryOf(context)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isDark = AppColors.isDark(context);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark
+                ? color.withValues(alpha: 0.08)
+                : color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: color.withValues(alpha: 0.15),
+              width: 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 16),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.open_in_new_rounded,
+                size: 14,
+                color: AppColors.textSecondaryOf(context),
+              ),
             ],
           ),
         ),

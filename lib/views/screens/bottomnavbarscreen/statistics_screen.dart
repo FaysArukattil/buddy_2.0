@@ -472,31 +472,33 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     await showCupertinoModalPopup(
       context: context,
-      builder: (context) => Container(
+      builder: (context) {
+        final isDark = AppColors.isDark(context);
+        return Container(
         height: 300,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: AppColors.surfaceOf(context),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                border: Border(bottom: BorderSide(color: AppColors.borderOf(context))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+                    child: Text('Cancel', style: TextStyle(color: AppColors.textSecondaryOf(context))),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Text(
+                  Text(
                     'Select Day',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context)),
                   ),
                   CupertinoButton(
                     child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -510,18 +512,30 @@ class StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
             Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.date,
-                initialDateTime: _selectedDate,
-                maximumDate: DateTime.now(),
-                onDateTimeChanged: (date) {
-                  tempDate = date;
-                },
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: TextStyle(
+                      color: AppColors.textPrimaryOf(context),
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: _selectedDate,
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (date) {
+                    tempDate = date;
+                  },
+                ),
               ),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -530,31 +544,33 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     await showCupertinoModalPopup(
       context: context,
-      builder: (context) => Container(
+      builder: (context) {
+        final isDark = AppColors.isDark(context);
+        return Container(
         height: 300,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: AppColors.surfaceOf(context),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                border: Border(bottom: BorderSide(color: AppColors.borderOf(context))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+                    child: Text('Cancel', style: TextStyle(color: AppColors.textSecondaryOf(context))),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Text(
+                  Text(
                     'Select Week',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context)),
                   ),
                   CupertinoButton(
                     child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -568,18 +584,30 @@ class StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
             Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.date,
-                initialDateTime: _selectedDate,
-                maximumDate: DateTime.now(),
-                onDateTimeChanged: (date) {
-                  tempDate = date;
-                },
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: TextStyle(
+                      color: AppColors.textPrimaryOf(context),
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.date,
+                  initialDateTime: _selectedDate,
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (date) {
+                    tempDate = date;
+                  },
+                ),
               ),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -588,31 +616,33 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     await showCupertinoModalPopup(
       context: context,
-      builder: (context) => Container(
+      builder: (context) {
+        final isDark = AppColors.isDark(context);
+        return Container(
         height: 300,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: AppColors.surfaceOf(context),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                border: Border(bottom: BorderSide(color: AppColors.borderOf(context))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+                    child: Text('Cancel', style: TextStyle(color: AppColors.textSecondaryOf(context))),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Text(
+                  Text(
                     'Select Month',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context)),
                   ),
                   CupertinoButton(
                     child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -626,18 +656,30 @@ class StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
             Expanded(
-              child: CupertinoDatePicker(
-                mode: CupertinoDatePickerMode.monthYear,
-                initialDateTime: _selectedDate,
-                maximumDate: DateTime.now(),
-                onDateTimeChanged: (date) {
-                  tempDate = date;
-                },
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: isDark ? Brightness.dark : Brightness.light,
+                  textTheme: CupertinoTextThemeData(
+                    dateTimePickerTextStyle: TextStyle(
+                      color: AppColors.textPrimaryOf(context),
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+                child: CupertinoDatePicker(
+                  mode: CupertinoDatePickerMode.monthYear,
+                  initialDateTime: _selectedDate,
+                  maximumDate: DateTime.now(),
+                  onDateTimeChanged: (date) {
+                    tempDate = date;
+                  },
+                ),
               ),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -646,31 +688,33 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     await showCupertinoModalPopup(
       context: context,
-      builder: (context) => Container(
+      builder: (context) {
+        final isDark = AppColors.isDark(context);
+        return Container(
         height: 300,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
+                color: AppColors.surfaceOf(context),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                border: Border(bottom: BorderSide(color: AppColors.borderOf(context))),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   CupertinoButton(
-                    child: Text('Cancel', style: TextStyle(color: Colors.grey[600])),
+                    child: Text('Cancel', style: TextStyle(color: AppColors.textSecondaryOf(context))),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Text(
+                  Text(
                     'Select Year',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context)),
                   ),
                   CupertinoButton(
                     child: const Text('Done', style: TextStyle(fontWeight: FontWeight.w700)),
@@ -686,30 +730,36 @@ class StatisticsScreenState extends State<StatisticsScreen>
               ),
             ),
             Expanded(
-              child: CupertinoPicker(
-                scrollController: FixedExtentScrollController(
-                  initialItem: DateTime.now().year - selectedYear,
+              child: CupertinoTheme(
+                data: CupertinoThemeData(
+                  brightness: isDark ? Brightness.dark : Brightness.light,
                 ),
-                itemExtent: 40,
-                onSelectedItemChanged: (index) {
-                  selectedYear = DateTime.now().year - index;
-                },
-                children: List.generate(DateTime.now().year - 2020 + 1, (
-                  index,
-                ) {
-                  final year = DateTime.now().year - index;
-                  return Center(
-                    child: Text(
-                      year.toString(),
-                      style: const TextStyle(fontSize: 22),
-                    ),
-                  );
-                }),
+                child: CupertinoPicker(
+                  scrollController: FixedExtentScrollController(
+                    initialItem: DateTime.now().year - selectedYear,
+                  ),
+                  itemExtent: 40,
+                  onSelectedItemChanged: (index) {
+                    selectedYear = DateTime.now().year - index;
+                  },
+                  children: List.generate(DateTime.now().year - 2020 + 1, (
+                    index,
+                  ) {
+                    final year = DateTime.now().year - index;
+                    return Center(
+                      child: Text(
+                        year.toString(),
+                        style: TextStyle(fontSize: 22, color: AppColors.textPrimaryOf(context)),
+                      ),
+                    );
+                  }),
+                ),
               ),
             ),
           ],
         ),
-      ),
+      );
+      },
     );
   }
 
@@ -718,9 +768,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -730,14 +780,14 @@ class StatisticsScreenState extends State<StatisticsScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey[300],
+                color: AppColors.isDark(context) ? Colors.white24 : Colors.grey[300],
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'PDF Generated Successfully!',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.textPrimaryOf(context)),
             ),
             const SizedBox(height: 20),
             ListTile(
@@ -749,7 +799,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ),
                 child: const Icon(Icons.open_in_new, color: AppColors.primary),
               ),
-              title: const Text('Open PDF', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: Text('Open PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimaryOf(context))),
               onTap: () {
                 Navigator.pop(context);
                 PdfService.openPdf(file);
@@ -764,7 +814,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ),
                 child: const Icon(Icons.share, color: AppColors.secondary),
               ),
-              title: const Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: Text('Share PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimaryOf(context))),
               onTap: () {
                 Navigator.pop(context);
                 PdfService.sharePdf(file);
@@ -779,7 +829,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ),
                 child: const Icon(Icons.print, color: AppColors.income),
               ),
-              title: const Text('Print PDF', style: TextStyle(fontWeight: FontWeight.w600)),
+              title: Text('Print PDF', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimaryOf(context))),
               onTap: () {
                 Navigator.pop(context);
                 PdfService.printPdf(file);
@@ -1584,7 +1634,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                   '₹${_formatCompactCurrency(value)}',
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: Colors.grey.shade500,
+                                    color: AppColors.textSecondaryOf(context),
                                     fontWeight: FontWeight.w600,
                                   ),
                                   textAlign: TextAlign.right,
@@ -1631,7 +1681,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                   labels[idx],
                                   style: TextStyle(
                                     fontSize: _selectedTab == 1 ? 10 : 9,
-                                    color: Colors.grey.shade500,
+                                    color: AppColors.textSecondaryOf(context),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -1886,7 +1936,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                 ? const Color(0xFFB0BEC5)
                                 : idx == 2
                                     ? const Color(0xFFBCAAA4)
-                                    : Colors.grey.shade100,
+                                    : AppColors.surfaceOf(context),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -1895,7 +1945,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w800,
-                            color: idx < 3 ? Colors.white : Colors.grey.shade500,
+                            color: idx < 3 ? Colors.white : AppColors.textSecondaryOf(context),
                           ),
                         ),
                       ),

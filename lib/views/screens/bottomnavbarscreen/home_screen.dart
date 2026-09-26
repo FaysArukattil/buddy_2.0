@@ -684,14 +684,16 @@ class HomeScreenState extends State<HomeScreen>
                           Icon(
                             Icons.receipt_long_rounded,
                             size: 64,
-                            color: Colors.grey.shade300,
+                            color: AppColors.isDark(context)
+                                ? AppColors.textMutedOf(context).withValues(alpha: 0.4)
+                                : Colors.grey.shade300,
                           ),
                           const SizedBox(height: 16),
                           Text(
                             'No transactions yet',
                             style: TextStyle(
                               fontSize: 16,
-                              color: Colors.grey.shade600,
+                              color: AppColors.textPrimaryOf(context),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -701,7 +703,7 @@ class HomeScreenState extends State<HomeScreen>
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade500,
+                              color: AppColors.textSecondaryOf(context),
                             ),
                           ),
                         ],
@@ -732,7 +734,7 @@ class HomeScreenState extends State<HomeScreen>
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w800,
-                                      color: Colors.grey.shade500,
+                                      color: AppColors.textSecondaryOf(context),
                                       letterSpacing: 1.2,
                                     ),
                                   ),

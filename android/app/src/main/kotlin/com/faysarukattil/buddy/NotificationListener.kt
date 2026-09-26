@@ -27,14 +27,44 @@ class NotificationListener : NotificationListenerService() {
         private const val PREFS_NAME = "FlutterSharedPreferences"
         private const val KEY_PREFIX = "flutter."
 
-        // Only SMS/Messaging apps — banks always send SMS for actual transactions
+        // SMS/Messaging apps — banks always send SMS for actual transactions
+        // Also includes UPI payment apps that send transaction notifications
         private val FINANCIAL_APPS = setOf(
+            // SMS / Messaging (including OEM packages for Nothing, Vivo, Xiaomi, Oppo, Samsung, OnePlus, etc.)
             "com.google.android.apps.messaging",
             "com.android.messaging",
             "com.samsung.android.messaging",
             "com.android.mms",
             "com.samsung.android.vvm",
-            "com.android.providers.telephony"
+            "com.android.providers.telephony",
+            "com.nothing.messaging",
+            "com.oneplus.mms",
+            "com.bbm.messaging",
+            "com.vivo.mms",
+            "com.coloros.mms",
+            "com.miui.mms",
+            "com.oppo.mms",
+            "com.motorola.mms",
+            "com.transsion.mobile.message",
+            // UPI / Payment apps (they send transaction confirmations)
+            "com.phonepe.app",
+            "com.google.android.apps.nbu.paisa.user",  // GPay
+            "net.one97.paytm",
+            "in.org.npci.upiapp",  // BHIM UPI
+            "com.dreamplug.androidapp",  // CRED
+            "com.mobikwik_new",
+            "com.freecharge.android",
+            // Bank apps
+            "com.sbi.SBIFreedomPlus",
+            "com.csam.icici.bank.imobile",
+            "com.hdfc.retail",
+            "com.axis.mobile",
+            "com.msf.kbank.mobile",
+            "com.kotak.mobile.banking",
+            "com.bankofbaroda.mconnect",
+            "com.canaaborbank.mobility",
+            "com.fedmobile",  // Federal Bank
+            "com.idfcfirst.bank"
         )
 
         // Apps whose notifications should NEVER be treated as transactions
@@ -50,10 +80,14 @@ class NotificationListener : NotificationListenerService() {
             "com.jio.myjio",
             "com.myairtelapp",
             "com.bsnl.selfcare",
-            "com.vi.care"
+            "com.vi.care",
+            "com.google.android.youtube",
+            "com.spotify.music",
+            "com.netflix.mediaclient"
         )
 
-        // Bill reminder / promotional keywords — reject notifications containing these
+        // Spam/promotional keywords — reject notifications containing these
+        // NOTE: "refund" and "cashback" are NOT spam — they're valid credit transactions
         private val SPAM_KEYWORDS = listOf(
             "due", "upcoming", "pay by", "bill reminder", "recharge now",
             "plan expiry", "renew", "activate", "your plan", "validity",
@@ -68,6 +102,13 @@ class NotificationListener : NotificationListenerService() {
             "payment due", "overdue", "outstanding", "reminder"
         )
 
+        // Keywords that indicate an ACTUAL financial transaction — these override spam filter
+        private val TRANSACTION_SIGNAL_KEYWORDS = listOf(
+            "debited", "credited", "deducted", "deposited", "received",
+            "withdrawn", "transferred", "sent to", "paid to",
+            "refund", "cashback", "reversed"
+        )
+
         // Bank account patterns — strong signal that it's a real bank SMS
         private val ACCOUNT_PATTERN = Regex(
             """(?:a/c|a\.c|acct?|account)\s*[xX*]*\d{2,}""",
@@ -78,12 +119,167 @@ class NotificationListener : NotificationListenerService() {
             RegexOption.IGNORE_CASE
         )
         private val BALANCE_PATTERN = Regex(
-            """(?:bal|balance)[\s:.-]*rs\.?\s*[0-9,]+""",
+            """(?:bal|balance)[\s:.-]*(?:rs\.?\s?|inr\s?|₹\s?)?[0-9,]+""",
             RegexOption.IGNORE_CASE
         )
         private val AMOUNT_PATTERN = Regex(
             """(?:Rs\.?\s?|INR\s?|₹\s?)([0-9,]+\.?[0-9]*)|([0-9,]+\.?[0-9]*)\s?(?:Rs\.?|INR|₹)""",
             RegexOption.IGNORE_CASE
+        )
+
+        // ── Merchant → Category mapping (all lowercase for matching) ──
+        // Category names match the app's default categories in FirestoreService:
+        // 'Swiggy', 'Zomato', 'Zepto', 'Instamart', 'Amazon', 'Flipkart', 'Myntra',
+        // 'Transport', 'Uber', 'Ola', 'Rapido', 'Fuel', 'Netflix', 'YouTube', 'Spotify',
+        // 'Hotstar', 'Gym & Fitness', 'Medical', 'Education', 'Rent', 'Bills & Utilities',
+        // 'Recharge', 'Coffee', 'Travel', 'Party', 'Gifts & Charity', 'Subscriptions',
+        // 'Local Food', 'Jio Internet', 'WiFi', 'Other'
+        // Income categories:
+        // 'Salary', 'Freelance', 'Business', 'Investment', 'Interest', 'Refund',
+        // 'Gift', 'Cashback', 'Rental Income', 'Other'
+        private val MERCHANT_CATEGORY_MAP: Map<String, Pair<String, Int>> = mapOf(
+            // Food delivery & quick commerce
+            "zomato" to Pair("Zomato", 63286),
+            "swiggy" to Pair("Swiggy", 63129),
+            "zepto" to Pair("Zepto", 62922),
+            "instamart" to Pair("Instamart", 983521),
+            "blinkit" to Pair("Zepto", 62922),
+            "bigbasket" to Pair("Instamart", 983521),
+            "dunzo" to Pair("Zepto", 62922),
+
+            // Shopping & E-commerce
+            "amazon" to Pair("Amazon", 63522),
+            "flipkart" to Pair("Flipkart", 983407),
+            "myntra" to Pair("Myntra", 63033),
+            "ajio" to Pair("Myntra", 63033),
+            "meesho" to Pair("Flipkart", 983407),
+            "nykaa" to Pair("Myntra", 63033),
+            "snapdeal" to Pair("Flipkart", 983407),
+            "croma" to Pair("Flipkart", 983407),
+            "reliance" to Pair("Amazon", 63522),
+            "decathlon" to Pair("Amazon", 63522),
+
+            // Rides & Transport & Fuel
+            "uber" to Pair("Uber", 63616),
+            "ola" to Pair("Ola", 63616),
+            "rapido" to Pair("Rapido", 983646),
+            "namma yatri" to Pair("Uber", 63616),
+            "fuel" to Pair("Fuel", 63597),
+            "petrol" to Pair("Fuel", 63597),
+            "diesel" to Pair("Fuel", 63597),
+            "indian oil" to Pair("Fuel", 63597),
+            "hp petrol" to Pair("Fuel", 63597),
+            "bharat petroleum" to Pair("Fuel", 63597),
+            "shell" to Pair("Fuel", 63597),
+            "metro" to Pair("Transport", 63155),
+            "irctc" to Pair("Travel", 63346),
+            "redbus" to Pair("Travel", 63346),
+
+            // Entertainment & Streaming
+            "netflix" to Pair("Netflix", 983645),
+            "youtube" to Pair("YouTube", 983086),
+            "spotify" to Pair("Spotify", 63725),
+            "hotstar" to Pair("Hotstar", 63584),
+            "disney" to Pair("Hotstar", 63584),
+            "prime video" to Pair("Netflix", 983645),
+            "jio cinema" to Pair("Hotstar", 63584),
+            "sonyliv" to Pair("Hotstar", 63584),
+            "zee5" to Pair("Hotstar", 63584),
+            "bookmyshow" to Pair("Hotstar", 63584),
+            "pvr" to Pair("Hotstar", 63584),
+            "inox" to Pair("Hotstar", 63584),
+
+            // Bills, Utilities & Recharge
+            "jio fiber" to Pair("Jio Internet", 983319),
+            "jiofiber" to Pair("Jio Internet", 983319),
+            "airtel" to Pair("Recharge", 983160),
+            "jio" to Pair("Recharge", 983160),
+            "vodafone" to Pair("Recharge", 983160),
+            "vi " to Pair("Recharge", 983160),
+            "bsnl" to Pair("Recharge", 983160),
+            "recharge" to Pair("Recharge", 983160),
+            "wifi" to Pair("WiFi", 983743),
+            "broadband" to Pair("WiFi", 983743),
+            "act fibernet" to Pair("WiFi", 983743),
+            "electricity" to Pair("Bills & Utilities", 983265),
+            "water bill" to Pair("Bills & Utilities", 983265),
+            "gas bill" to Pair("Bills & Utilities", 983265),
+            "bill" to Pair("Bills & Utilities", 983265),
+
+            // Food & Cafes
+            "coffee" to Pair("Coffee", 63061),
+            "starbucks" to Pair("Coffee", 63061),
+            "cafe" to Pair("Coffee", 63061),
+            "domino" to Pair("Local Food", 63609),
+            "pizza hut" to Pair("Local Food", 63609),
+            "mcdonald" to Pair("Local Food", 63609),
+            "kfc" to Pair("Local Food", 63609),
+            "burger king" to Pair("Local Food", 63609),
+            "subway" to Pair("Local Food", 63609),
+            "restaurant" to Pair("Local Food", 63609),
+            "bakery" to Pair("Local Food", 63609),
+            "food" to Pair("Local Food", 63609),
+
+            // Health & Medical
+            "pharmacy" to Pair("Medical", 63664),
+            "hospital" to Pair("Medical", 63664),
+            "medical" to Pair("Medical", 63664),
+            "apollo" to Pair("Medical", 63664),
+            "1mg" to Pair("Medical", 63664),
+            "pharmeasy" to Pair("Medical", 63664),
+            "netmeds" to Pair("Medical", 63664),
+            "practo" to Pair("Medical", 63664),
+
+            // Fitness
+            "gym" to Pair("Gym & Fitness", 63335),
+            "fitness" to Pair("Gym & Fitness", 63335),
+            "cult.fit" to Pair("Gym & Fitness", 63335),
+            "cult fit" to Pair("Gym & Fitness", 63335),
+
+            // Education
+            "udemy" to Pair("Education", 983342),
+            "coursera" to Pair("Education", 983342),
+            "unacademy" to Pair("Education", 983342),
+            "byju" to Pair("Education", 983342),
+            "school" to Pair("Education", 983342),
+            "college" to Pair("Education", 983342),
+            "tuition" to Pair("Education", 983342),
+            "education" to Pair("Education", 983342),
+
+            // Travel & Stay
+            "flight" to Pair("Travel", 63346),
+            "makemytrip" to Pair("Travel", 63346),
+            "goibibo" to Pair("Travel", 63346),
+            "cleartrip" to Pair("Travel", 63346),
+            "indigo" to Pair("Travel", 63346),
+            "air india" to Pair("Travel", 63346),
+            "travel" to Pair("Travel", 63346),
+
+            // Lifestyle / Housing
+            "rent" to Pair("Rent", 63477),
+            "party" to Pair("Party", 63013),
+            "club" to Pair("Party", 63013),
+            "pub" to Pair("Party", 63013),
+            "charity" to Pair("Gifts & Charity", 983707),
+            "donation" to Pair("Gifts & Charity", 983707),
+            "subscription" to Pair("Subscriptions", 62878),
+
+            // Income signals
+            "salary" to Pair("Salary", 983128),
+            "payroll" to Pair("Salary", 983128),
+            "stipend" to Pair("Salary", 983128),
+            "freelance" to Pair("Freelance", 983750),
+            "upwork" to Pair("Freelance", 983750),
+            "interest" to Pair("Interest", 983336),
+            "dividend" to Pair("Investment", 983636),
+            "investment" to Pair("Investment", 983636),
+            "groww" to Pair("Investment", 983636),
+            "zerodha" to Pair("Investment", 983636),
+            "upstox" to Pair("Investment", 983636),
+            "refund" to Pair("Refund", 983294),
+            "reversed" to Pair("Refund", 983294),
+            "cashback" to Pair("Cashback", 983797),
+            "gift" to Pair("Gift", 63002)
         )
     }
 
@@ -161,7 +357,7 @@ class NotificationListener : NotificationListenerService() {
             if (pkg == applicationContext.packageName) return
             if (BLACKLISTED_APPS.contains(pkg)) return
 
-            // 3. Only process SMS/messaging apps
+            // 3. Only process SMS/messaging apps and known financial apps
             if (!isFromFinancialApp(pkg)) return
 
             // 4. Extract notification text
@@ -230,7 +426,7 @@ class NotificationListener : NotificationListenerService() {
     private fun isFromFinancialApp(packageName: String): Boolean {
         if (FINANCIAL_APPS.contains(packageName)) return true
         val lower = packageName.lowercase()
-        return listOf("sms", "message", "messaging", "mms").any { lower.contains(it) }
+        return listOf("sms", "message", "messaging", "mms", "bank").any { lower.contains(it) }
     }
 
     private fun isOwnNotification(title: String, content: String): Boolean {
@@ -248,45 +444,98 @@ class NotificationListener : NotificationListenerService() {
     private fun parseTransaction(text: String): Transaction? {
         val lowerText = text.lowercase()
 
-        // Step 1: Reject spam/promotional messages
-        for (keyword in SPAM_KEYWORDS) {
-            if (lowerText.contains(keyword)) return null
+        // Step 1: Check if text contains actual transaction signals FIRST
+        val hasTransactionSignal = TRANSACTION_SIGNAL_KEYWORDS.any { lowerText.contains(it) }
+
+        // Step 2: Only apply spam filter if no transaction signal found
+        // This prevents rejecting valid refund/cashback credit messages
+        if (!hasTransactionSignal) {
+            for (keyword in SPAM_KEYWORDS) {
+                if (lowerText.contains(keyword)) return null
+            }
+        } else {
+            // Even with transaction signals, reject obvious promotions
+            val strongSpam = listOf("apply now", "click here", "limited time",
+                "download", "subscribe", "promo", "coupon", "win ")
+            for (keyword in strongSpam) {
+                if (lowerText.contains(keyword)) return null
+            }
         }
 
-        // Step 2: Require banking signals (account number, UPI ref, or balance)
+        // Step 3: Require banking signals OR explicit transaction phrase OR known merchant
         val hasAccount = ACCOUNT_PATTERN.containsMatchIn(text)
         val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(text)
         val hasBalance = BALANCE_PATTERN.containsMatchIn(text)
-        if (!hasAccount && !(hasUpiRef && hasBalance)) return null
+        val hasBankingSignal = hasAccount || hasBalance || hasUpiRef ||
+            lowerText.contains("upi") || lowerText.contains("vpa") ||
+            lowerText.contains("imps") || lowerText.contains("neft") ||
+            lowerText.contains("rtgs") || lowerText.contains("bank") ||
+            lowerText.contains("card") || lowerText.contains("wallet")
 
-        // Step 3: Determine debit vs credit
+        val hasExplicitTransactionPhrase =
+            lowerText.contains("paid you") || lowerText.contains("sent you") ||
+            lowerText.contains("received from") || lowerText.contains("credited to") ||
+            lowerText.contains("credited with") || lowerText.contains("credit of") ||
+            lowerText.contains("refund of") || lowerText.contains("refunded") ||
+            lowerText.contains("reversed") || lowerText.contains("cashback of") ||
+            lowerText.contains("debited from") || lowerText.contains("paid to") ||
+            lowerText.contains("you paid") || lowerText.contains("you sent") ||
+            lowerText.contains("purchase of")
+
+        val hasMerchant = MERCHANT_CATEGORY_MAP.keys.any { lowerText.contains(it) }
+
+        if (!hasBankingSignal && !hasExplicitTransactionPhrase && !hasMerchant) return null
+
+        // Step 4: Determine debit vs credit
         val isDebit = when {
+            // Credit patterns (check first — more specific)
             lowerText.contains("paid you") ||
             lowerText.contains("sent you") ||
             lowerText.contains("received from") -> false
 
+            lowerText.contains("credited to") ||
+            lowerText.contains("credited with") ||
+            lowerText.contains("credit of") ||
+            lowerText.contains("refund of") ||
+            lowerText.contains("refunded") ||
+            lowerText.contains("reversed") ||
+            lowerText.contains("cashback of") -> false
+
+            // Debit patterns
             lowerText.contains("you paid") ||
             lowerText.contains("you sent") ||
             lowerText.contains("paid to") ||
             lowerText.contains("debited from") ||
-            lowerText.contains("withdrawn") -> true
+            lowerText.contains("debited rs") ||
+            lowerText.contains("withdrawn") ||
+            lowerText.contains("purchase of") -> true
 
-            lowerText.contains("credited to") ||
-            lowerText.contains("refund") ||
-            lowerText.contains("cashback") -> false
-
+            // General patterns (lower priority)
             lowerText.contains("debited") ||
             lowerText.contains("deducted") -> true
 
             lowerText.contains("credited") ||
             lowerText.contains("deposited") ||
-            lowerText.contains("received") -> false
+            lowerText.contains("received") ||
+            lowerText.contains("refund") ||
+            lowerText.contains("cashback") -> false
 
             else -> return null
         }
 
-        // Step 4: Extract amount
-        val amountMatch = AMOUNT_PATTERN.find(text) ?: return null
+        // Step 5: Extract amount (avoid taking balance amount when both exist)
+        val balanceMatch = BALANCE_PATTERN.find(text)
+        val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
+        if (allAmounts.isEmpty()) return null
+
+        val amountMatch = allAmounts.firstOrNull { match ->
+            if (balanceMatch != null) {
+                match.range.first < balanceMatch.range.first || match.range.first > balanceMatch.range.last
+            } else {
+                true
+            }
+        } ?: allAmounts.first()
+
         val amountStr = (amountMatch.groupValues[1].ifEmpty { amountMatch.groupValues[2] })
             .replace(",", "")
             .trim()
@@ -294,45 +543,67 @@ class NotificationListener : NotificationListenerService() {
         if (amount <= 0) return null
 
         val type = if (isDebit) "expense" else "income"
-        val category = detectCategory(lowerText, type)
-        val icon = getIconForCategory(category)
+        val (category, icon) = detectCategory(lowerText, type)
 
         return Transaction(amount, type, category, icon, text.take(100))
     }
 
-    private fun detectCategory(text: String, type: String): String {
+    /**
+     * Detects category by scanning for known merchant names in the message.
+     * Maps directly to Buddy 2.0 categories and IconHelper codepoints.
+     */
+    private fun detectCategory(text: String, type: String): Pair<String, Int> {
+        val incomeCategories = setOf(
+            "Salary", "Freelance", "Business", "Investment",
+            "Interest", "Refund", "Gift", "Cashback", "Rental Income"
+        )
+
+        // Check merchant mapping first (most accurate)
+        for ((merchant, categoryPair) in MERCHANT_CATEGORY_MAP) {
+            if (text.contains(merchant)) {
+                if (type == "income") {
+                    if (categoryPair.first in incomeCategories) {
+                        return categoryPair
+                    }
+                    if (text.contains("refund") || text.contains("reversed")) {
+                        return Pair("Refund", 983294)
+                    }
+                    if (text.contains("cashback")) {
+                        return Pair("Cashback", 983797)
+                    }
+                    return Pair("Other", 983074)
+                } else {
+                    if (categoryPair.first !in incomeCategories) {
+                        return categoryPair
+                    }
+                }
+            }
+        }
+
+        // Fallbacks if no merchant was matched
         return if (type == "expense") {
             when {
-                text.contains("food") || text.contains("swiggy") || text.contains("zomato") -> "Food"
-                text.contains("amazon") || text.contains("flipkart") -> "Shopping"
-                text.contains("uber") || text.contains("ola") || text.contains("fuel") -> "Transport"
-                text.contains("bill") || text.contains("electricity") -> "Bills"
-                text.contains("movie") || text.contains("netflix") -> "Entertainment"
-                text.contains("pharmacy") || text.contains("hospital") -> "Health"
-                else -> "Other"
+                text.contains("bill") || text.contains("electricity") || text.contains("water") -> Pair("Bills & Utilities", 983265)
+                text.contains("recharge") -> Pair("Recharge", 983160)
+                text.contains("rent") -> Pair("Rent", 63477)
+                text.contains("emi") || text.contains("loan") -> Pair("Bills & Utilities", 983265)
+                text.contains("fuel") || text.contains("petrol") || text.contains("diesel") -> Pair("Fuel", 63597)
+                text.contains("food") -> Pair("Local Food", 63609)
+                text.contains("shopping") -> Pair("Amazon", 63522)
+                text.contains("movie") -> Pair("Hotstar", 63584)
+                text.contains("cab") || text.contains("taxi") -> Pair("Uber", 63616)
+                else -> Pair("Other", 983074)
             }
         } else {
             when {
-                text.contains("salary") -> "Salary"
-                text.contains("refund") || text.contains("cashback") -> "Refund"
-                text.contains("interest") -> "Interest"
-                else -> "Other"
+                text.contains("salary") || text.contains("wage") || text.contains("stipend") -> Pair("Salary", 983128)
+                text.contains("refund") || text.contains("reversed") -> Pair("Refund", 983294)
+                text.contains("cashback") || text.contains("reward") -> Pair("Cashback", 983797)
+                text.contains("interest") -> Pair("Interest", 983336)
+                text.contains("dividend") -> Pair("Investment", 983636)
+                text.contains("rent") -> Pair("Rental Income", 63489)
+                else -> Pair("Other", 983074)
             }
-        }
-    }
-
-    private fun getIconForCategory(category: String): Int {
-        return when (category) {
-            "Food" -> 0xe56c
-            "Shopping" -> 0xe8cc
-            "Transport" -> 0xe531
-            "Bills" -> 0xe8b0
-            "Entertainment" -> 0xe404
-            "Health" -> 0xe3f3
-            "Salary" -> 0xe263
-            "Refund" -> 0xe5d5
-            "Interest" -> 0xe227
-            else -> 0xe8f4
         }
     }
 

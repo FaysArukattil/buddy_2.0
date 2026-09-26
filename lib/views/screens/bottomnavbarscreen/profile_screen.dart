@@ -186,10 +186,10 @@ class ProfileScreenState extends State<ProfileScreen>
         ),
         child: CircleAvatar(
           radius: 44,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.isDark(context) ? const Color(0xFF1E293B) : Colors.white,
           child: CircleAvatar(
             radius: 41,
-            backgroundColor: Colors.grey[100],
+            backgroundColor: AppColors.surfaceOf(context),
             backgroundImage: NetworkImage(_googlePhotoUrl!),
             onBackgroundImageError: (exception, stackTrace) {
               debugPrint('Error loading Google photo: $exception');
@@ -217,7 +217,7 @@ class ProfileScreenState extends State<ProfileScreen>
       ),
       child: CircleAvatar(
         radius: 44,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.isDark(context) ? const Color(0xFF1E293B) : Colors.white,
         child: Container(
           width: 82,
           height: 82,

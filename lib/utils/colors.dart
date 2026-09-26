@@ -75,6 +75,9 @@ class AppColors {
   static Color textLightOf(BuildContext context) =>
       isDark(context) ? darkTextLight : textLight;
 
+  static Color textMutedOf(BuildContext context) =>
+      isDark(context) ? darkTextLight : textLight;
+
   // ── Category Color Palette ──
   static const Map<String, Color> categoryColors = {
     // Expense categories
