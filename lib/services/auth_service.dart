@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,11 +10,12 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Firebase OAuth 2.0 Web Client ID for buddy-expense-tracker
-  // Required to obtain idToken for Firebase Authentication on Android
+  // Required to obtain idToken for Firebase Authentication on Android and Web
   static const String _webClientId =
       '902883106258-a2mv3q4vtap7jnf71rvntpmardlai6lk.apps.googleusercontent.com';
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? _webClientId : null,
     serverClientId: _webClientId,
     scopes: ['email', 'profile'],
   );
