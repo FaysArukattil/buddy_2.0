@@ -377,6 +377,7 @@ class FirestoreService {
     {'name': 'Local Food', 'icon': Icons.local_pizza_rounded.codePoint},
     {'name': 'Jio Internet', 'icon': Icons.router_rounded.codePoint},
     {'name': 'WiFi', 'icon': Icons.wifi_rounded.codePoint},
+    {'name': 'Lending', 'icon': Icons.arrow_outward_rounded.codePoint},
     {'name': 'Other', 'icon': Icons.note_rounded.codePoint},
   ];
 
@@ -390,6 +391,7 @@ class FirestoreService {
     {'name': 'Gift', 'icon': Icons.card_giftcard_rounded.codePoint},
     {'name': 'Cashback', 'icon': Icons.currency_exchange_rounded.codePoint},
     {'name': 'Rental Income', 'icon': Icons.house_rounded.codePoint},
+    {'name': 'Borrowing', 'icon': Icons.arrow_downward_rounded.codePoint},
     {'name': 'Other', 'icon': Icons.note_rounded.codePoint},
   ];
 }

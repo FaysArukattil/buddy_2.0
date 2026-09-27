@@ -21,14 +21,14 @@ class StatisticsScreen extends StatefulWidget {
 
 class StatisticsScreenState extends State<StatisticsScreen>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
-  int _selectedTab = 0;
+  int _selectedTab = 2;
   String _type = 'Expense';
   final List<String> _tabs = const ['Day', 'Week', 'Month', 'Year'];
   bool _isDownloading = false;
   DateTime _selectedDate = DateTime.now();
 
   // Swipe gesture tracking
-  double _tabPage = 0;
+  double _tabPage = 2.0;
   bool _tabDragging = false;
   double _tabDragStartPage = 0;
   double _tabDragStartX = 0;
@@ -249,6 +249,31 @@ class StatisticsScreenState extends State<StatisticsScreen>
     }
   }
 
+  bool _isDateInCurrentPeriod(DateTime dt) {
+    final now = _selectedDate;
+    switch (_selectedTab) {
+      case 0: // Day: today or selected day
+        return dt.year == now.year &&
+            dt.month == now.month &&
+            dt.day == now.day;
+      case 1: // Week: Mon..Sun
+        final startOfWeek = now.subtract(Duration(days: (now.weekday - 1) % 7));
+        final start = DateTime(
+          startOfWeek.year,
+          startOfWeek.month,
+          startOfWeek.day,
+        );
+        final end = start.add(const Duration(days: 7));
+        return dt.isAfter(start.subtract(const Duration(milliseconds: 1))) &&
+            dt.isBefore(end);
+      case 2: // Month: selected month
+        return dt.year == now.year && dt.month == now.month;
+      case 3: // Year: selected year
+      default:
+        return dt.year == now.year;
+    }
+  }
+
   List<Map<String, dynamic>> _computeTopCategories() {
     final isIncome = _type.toLowerCase() == 'income';
     final categoryTotals = <String, double>{};
@@ -257,6 +282,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
     for (final r in _rows) {
       final type = (r['type'] as String).toLowerCase().trim();
       if ((isIncome && type != 'income') || (!isIncome && type != 'expense')) {
+        continue;
+      }
+
+      final dt = DateTime.tryParse(r['date'] as String);
+      if (dt == null || !_isDateInCurrentPeriod(dt)) {
         continue;
       }
 
@@ -274,8 +304,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final sorted = categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // Show EVERY category that has amount added in the selected period
     return sorted
-        .take(5)
+        .where((e) => e.value > 0)
         .map(
           (e) => {
             'category': e.key,
@@ -306,6 +337,8 @@ class StatisticsScreenState extends State<StatisticsScreen>
     for (final r in _rows) {
       final type = (r['type'] as String).toLowerCase().trim();
       if ((isIncome && type != 'income') || (!isIncome && type != 'expense')) continue;
+      final dt = DateTime.tryParse(r['date'] as String);
+      if (dt == null || !_isDateInCurrentPeriod(dt)) continue;
       txnCount++;
     }
 
@@ -2018,7 +2051,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                             fontSize: 15,
                             color: _type == 'Income'
                                 ? AppColors.income
-                                : AppColors.textPrimary,
+                                : AppColors.textPrimaryOf(context),
                             letterSpacing: -0.3,
                           ),
                         ),

@@ -648,7 +648,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                    color: isSelected
+                        ? Colors.white
+                        : AppColors.textPrimaryOf(context),
                   ),
                 ),
               ),

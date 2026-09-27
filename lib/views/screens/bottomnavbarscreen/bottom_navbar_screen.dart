@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/home_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/statistics_screen.dart';
+import 'package:buddy/views/screens/bottomnavbarscreen/borrow_lend_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/profile_screen.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/app_init_helper.dart';
@@ -25,6 +26,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       );
     }
   }
+
   late final PageController _pageController;
   int _currentIndex = 0;
   double _page = 0;
@@ -37,6 +39,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<StatisticsScreenState> _statisticsKey =
       GlobalKey<StatisticsScreenState>();
+  final GlobalKey<BorrowLendScreenState> _borrowLendKey =
+      GlobalKey<BorrowLendScreenState>();
   final GlobalKey<ProfileScreenState> _profileKey =
       GlobalKey<ProfileScreenState>();
 
@@ -80,14 +84,17 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             physics: const ClampingScrollPhysics(),
             onPageChanged: (i) {
               setState(() => _currentIndex = i);
-              // Refresh statistics screen when navigating to it
+              // Refresh screens when navigating to them
               if (i == 1) {
                 _statisticsKey.currentState?.refreshData();
+              } else if (i == 2) {
+                _borrowLendKey.currentState?.refreshData();
               }
             },
             children: [
               HomeScreen(key: _homeKey),
               StatisticsScreen(key: _statisticsKey),
+              BorrowLendScreen(key: _borrowLendKey),
               ProfileScreen(key: _profileKey),
             ],
           ),
@@ -133,7 +140,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           final totalWidth = constraints.maxWidth;
-                          const itemCount = 3;
+                          const itemCount = 4;
                           final itemWidth = totalWidth / itemCount;
                           final indicatorWidth = itemWidth - 8;
 
@@ -249,11 +256,22 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                         width: itemWidth,
                                         child: Center(
                                           child: _NavIcon(
+                                            icon: Icons.handshake_rounded,
+                                            outline: Icons.handshake_outlined,
+                                            selected: (_page.round() == 2),
+                                            onTap: () => _goTo(2),
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: itemWidth,
+                                        child: Center(
+                                          child: _NavIcon(
                                             icon: Icons.person_rounded,
                                             outline:
                                                 Icons.person_outline_rounded,
-                                            selected: (_page.round() == 2),
-                                            onTap: () => _goTo(2),
+                                            selected: (_page.round() == 3),
+                                            onTap: () => _goTo(3),
                                           ),
                                         ),
                                       ),
@@ -286,6 +304,14 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                   ),
                   child: GestureDetector(
                     onTap: () async {
+                      // On Borrow/Lend tab: delegate to that screen — it
+                      // will pre-select Lend or Borrow based on active filter
+                      if (_currentIndex == 2) {
+                        _borrowLendKey.currentState?.openAddSheet();
+                        return;
+                      }
+
+                      // All other tabs: open the add transaction sheet
                       final result = await showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
@@ -298,13 +324,14 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                 top: Radius.circular(20),
                               ),
                               child: Material(
-                                color: AppColors.background,
+                                color: AppColors.backgroundOf(ctx),
                                 child: const AddTransactionScreen(),
                               ),
                             ),
                           );
                         },
                       );
+
                       // Refresh all screens if transaction was added
                       if (result == true && mounted) {
                         debugPrint(
@@ -312,6 +339,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                         );
                         final homeState = _homeKey.currentState;
                         final statisticsState = _statisticsKey.currentState;
+                        final borrowLendState = _borrowLendKey.currentState;
                         final profileState = _profileKey.currentState;
 
                         debugPrint(
@@ -321,15 +349,20 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                           'Statistics state: ${statisticsState != null ? "Found ✓" : "NULL ✗"}',
                         );
                         debugPrint(
+                          'BorrowLend state: ${borrowLendState != null ? "Found ✓" : "NULL ✗"}',
+                        );
+                        debugPrint(
                           'Profile state: ${profileState != null ? "Found ✓" : "NULL ✗"}',
                         );
 
-                        // Refresh all screens
                         if (homeState != null) {
                           await homeState.refreshData();
                         }
                         if (statisticsState != null) {
                           await statisticsState.refreshData();
+                        }
+                        if (borrowLendState != null) {
+                          await borrowLendState.refreshData();
                         }
                         if (profileState != null) {
                           profileState.refreshData();
@@ -374,10 +407,14 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOut,
     );
-    // Refresh statistics screen when navigating to it
+    // Refresh screens when navigating to them
     if (index == 1) {
       Future.delayed(const Duration(milliseconds: 300), () {
         _statisticsKey.currentState?.refreshData();
+      });
+    } else if (index == 2) {
+      Future.delayed(const Duration(milliseconds: 300), () {
+        _borrowLendKey.currentState?.refreshData();
       });
     }
   }

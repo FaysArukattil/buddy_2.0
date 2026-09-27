@@ -116,6 +116,7 @@ class AppColors {
     'Local Food': Color(0xFFFF9E80),
     'Jio Internet': Color(0xFF005AE0),
     'WiFi': Color(0xFF00ACC1),
+    'Lending': Color(0xFF00897B),
     'Other': Color(0xFF90A4AE),
     // Income categories
     'Salary': Color(0xFF4CAF50),
@@ -127,6 +128,7 @@ class AppColors {
     'Gift': Color(0xFFEC407A),
     'Cashback': Color(0xFF00BFA5),
     'Rental Income': Color(0xFF8D6E63),
+    'Borrowing': Color(0xFFE65100),
   };
 
   /// Get color for a category name, with fallback

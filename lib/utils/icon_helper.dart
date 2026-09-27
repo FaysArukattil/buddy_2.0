@@ -12,7 +12,7 @@ import 'package:flutter/material.dart';
 class IconHelper {
   IconHelper._();
 
-  static const Map<int, IconData> _iconMap = {
+  static final Map<int, IconData> _iconMap = {
     // Default & selectable icons (Material Icons rounded)
     983304: Icons.restaurant_rounded,
     983409: Icons.shopping_cart_rounded,
@@ -59,6 +59,10 @@ class IconHelper {
     983159: Icons.pets_rounded,
     983484: Icons.sports_esports_rounded,
     63012: Icons.category_rounded,
+    Icons.handshake_rounded.codePoint: Icons.handshake_rounded,
+    Icons.swap_horiz_rounded.codePoint: Icons.swap_horiz_rounded,
+    Icons.arrow_outward_rounded.codePoint: Icons.arrow_outward_rounded,
+    Icons.arrow_downward_rounded.codePoint: Icons.arrow_downward_rounded,
 
     // Notification / legacy / non-rounded variations
     58674: Icons.restaurant,

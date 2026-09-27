@@ -2,6 +2,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
 import 'dart:convert';
 import 'firestore_service.dart';
 import '../models/transaction.dart';
@@ -33,6 +35,12 @@ class NotificationHelper {
       onDidReceiveBackgroundNotificationResponse:
           _onBackgroundNotificationTapped,
     );
+
+    try {
+      tz.initializeTimeZones();
+    } catch (e) {
+      debugPrint('⚠️ Timezone initialization warning: $e');
+    }
 
     _isInitialized = true;
     debugPrint('✅ NOTIFICATION_HELPER: Initialized');
@@ -293,6 +301,83 @@ class NotificationHelper {
     );
 
     debugPrint('🔔 Shown success notification for ₹$amount');
+  }
+
+  /// Schedule repayment reminder for a borrow/lend record
+  static Future<void> scheduleRepaymentReminder({
+    required int id,
+    required String personName,
+    required double amount,
+    required String type, // 'lend' or 'borrow'
+    required DateTime dueDate,
+  }) async {
+    await initialize();
+
+    final isLend = type.toLowerCase() == 'lend';
+    final title = isLend
+        ? '💰 Repayment Reminder: $personName'
+        : '🔔 Repayment Due: $personName';
+    final body = isLend
+        ? '$personName is scheduled to repay ₹${amount.toStringAsFixed(0)} today. Tap to check details!'
+        : 'Today is your scheduled date to repay ₹${amount.toStringAsFixed(0)} to $personName.';
+
+    final scheduledDate = DateTime(
+      dueDate.year,
+      dueDate.month,
+      dueDate.day,
+      9,
+      0,
+    );
+
+    final now = DateTime.now();
+
+    const channelId = 'debt_reminders';
+    const channelName = 'Repayment Reminders';
+    const channelDesc = 'Notifications for borrowing and lending repayment dates';
+
+    final androidDetails = AndroidNotificationDetails(
+      channelId,
+      channelName,
+      channelDescription: channelDesc,
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+      enableVibration: true,
+      styleInformation: BigTextStyleInformation(
+        body,
+        contentTitle: title,
+        summaryText: isLend ? 'Borrower Repayment Due' : 'Lender Repayment Due',
+      ),
+    );
+
+    final notificationDetails = NotificationDetails(android: androidDetails);
+
+    try {
+      if (scheduledDate.isAfter(now)) {
+        final tzScheduled = tz.TZDateTime.from(scheduledDate, tz.local);
+        await _notifications.zonedSchedule(
+          id,
+          title,
+          body,
+          tzScheduled,
+          notificationDetails,
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: 'debt_$id',
+        );
+        debugPrint('🔔 Scheduled repayment reminder for $personName on $scheduledDate (id=$id)');
+      } else if (dueDate.year == now.year && dueDate.month == now.month && dueDate.day == now.day) {
+        await _notifications.show(
+          id,
+          title,
+          body,
+          notificationDetails,
+          payload: 'debt_$id',
+        );
+        debugPrint('🔔 Triggered immediate repayment reminder for $personName (due today, id=$id)');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error scheduling repayment reminder: $e');
+    }
   }
 
   /// Cancel notification

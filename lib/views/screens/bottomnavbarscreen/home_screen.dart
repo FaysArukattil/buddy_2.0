@@ -352,7 +352,7 @@ class HomeScreenState extends State<HomeScreen>
                               ),
                               const SizedBox(width: 4),
                               GestureDetector(
-                                onTap: () => context.findAncestorStateOfType<BottomNavbarScreenState>()?.switchTab(2),
+                                onTap: () => context.findAncestorStateOfType<BottomNavbarScreenState>()?.switchTab(3),
                                 child: Container(
                                   width: 40,
                                   height: 40,
