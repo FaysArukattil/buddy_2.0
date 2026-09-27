@@ -89,5 +89,78 @@ void main() {
       expect(reconstructed.note, equals(original.note));
       expect(reconstructed.remindOnDueDate, equals(original.remindOnDueDate));
     });
+
+    test('Correctly tracks settlements, totalPaid, and progressPercent', () {
+      final debt = DebtModel(
+        id: 'debt_settle_1',
+        type: 'lend',
+        personName: 'Sam',
+        amount: 600.0,
+        originalAmount: 1000.0,
+        date: DateTime(2026, 9, 1),
+        dueDate: DateTime(2026, 9, 15),
+        settlements: [
+          DebtSettlement(
+            amount: 400.0,
+            date: DateTime(2026, 9, 10),
+            note: 'First installment',
+          ),
+        ],
+      );
+
+      expect(debt.hasPartialSettlements, isTrue);
+      expect(debt.totalPaid, equals(400.0));
+      expect(debt.progressPercent, equals(0.4));
+      expect(debt.settlements.length, equals(1));
+      expect(debt.settlements.first.amount, equals(400.0));
+      expect(debt.settlements.first.note, equals('First installment'));
+    });
+
+    test('Correctly determines isRepaidOnTime and isRepaidLate', () {
+      final dueDate = DateTime(2026, 9, 15);
+
+      final onTimeDebt = DebtModel(
+        type: 'lend',
+        personName: 'Alice',
+        amount: 0.0,
+        originalAmount: 500.0,
+        date: DateTime(2026, 9, 1),
+        dueDate: dueDate,
+        isRepaid: true,
+        repaidDate: DateTime(2026, 9, 14), // before due date
+      );
+
+      final sameDayDebt = DebtModel(
+        type: 'lend',
+        personName: 'Bob',
+        amount: 0.0,
+        originalAmount: 500.0,
+        date: DateTime(2026, 9, 1),
+        dueDate: dueDate,
+        isRepaid: true,
+        repaidDate: DateTime(2026, 9, 15, 20, 0), // same day
+      );
+
+      final lateDebt = DebtModel(
+        type: 'lend',
+        personName: 'Charlie',
+        amount: 0.0,
+        originalAmount: 500.0,
+        date: DateTime(2026, 9, 1),
+        dueDate: dueDate,
+        isRepaid: true,
+        repaidDate: DateTime(2026, 9, 18), // 3 days late
+      );
+
+      expect(onTimeDebt.isRepaidOnTime, isTrue);
+      expect(onTimeDebt.isRepaidLate, isFalse);
+
+      expect(sameDayDebt.isRepaidOnTime, isTrue);
+      expect(sameDayDebt.isRepaidLate, isFalse);
+
+      expect(lateDebt.isRepaidOnTime, isFalse);
+      expect(lateDebt.isRepaidLate, isTrue);
+      expect(lateDebt.daysLateRepaid, equals(3));
+    });
   });
 }

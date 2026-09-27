@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/models/category.dart' as cat;
 import 'package:buddy/utils/colors.dart';
+import 'package:buddy/utils/icon_helper.dart';
 
 class FirestoreService {
   static final FirestoreService instance = FirestoreService._();
@@ -192,6 +193,62 @@ class FirestoreService {
     debugPrint('✅ FIRESTORE: All transactions deleted');
   }
 
+  /// In-memory category cache for instant UI rendering
+  static List<cat.Category>? _cachedExpenseCategories;
+  static List<cat.Category>? _cachedIncomeCategories;
+
+  /// Clear the category cache when modified
+  static void clearCategoryCache() {
+    _cachedExpenseCategories = null;
+    _cachedIncomeCategories = null;
+  }
+
+  /// Get categories instantly (returns memory cache or default preset, with 0ms latency)
+  /// Automatically filters out Lending and Borrowing so they never conflict with regular transactions.
+  static List<cat.Category> getInstantCategories(String type) {
+    final isExpense = type.toLowerCase() == 'expense';
+    final cached = isExpense ? _cachedExpenseCategories : _cachedIncomeCategories;
+    if (cached != null && cached.isNotEmpty) {
+      return cached
+          .where((c) =>
+              c.name.toLowerCase() != 'lending' &&
+              c.name.toLowerCase() != 'borrowing')
+          .toList();
+    }
+    return getDefaultCategories(type);
+  }
+
+  /// Get default categories without Lending or Borrowing
+  static List<cat.Category> getDefaultCategories(String type) {
+    final isExpense = type.toLowerCase() == 'expense';
+    final list = isExpense ? _defaultExpenseCategories : _defaultIncomeCategories;
+    return list
+        .where((m) {
+          final name = (m['name'] as String).toLowerCase();
+          return name != 'lending' && name != 'borrowing';
+        })
+        .map((m) => cat.Category(
+              id: m['name'] as String,
+              name: m['name'] as String,
+              type: type.toLowerCase(),
+              icon: IconHelper.getIcon(m['icon']),
+              color: AppColors.getCategoryColor(m['name'] as String),
+              order: 0,
+            ))
+        .toList();
+  }
+
+  /// Get recent transactions with an optional limit (faster than downloading entire history)
+  Future<List<TransactionModel>> getRecentTransactions({int limit = 50}) async {
+    final snapshot = await _txnCol
+        .orderBy('date', descending: true)
+        .limit(limit)
+        .get();
+    return snapshot.docs
+        .map((doc) => TransactionModel.fromFirestore(doc))
+        .toList();
+  }
+
   // ── Categories ──
 
   /// Get all categories for a type (expense/income), deduplicated by name
@@ -211,6 +268,11 @@ class FirestoreService {
         categories.add(category);
       }
     }
+    if (type.toLowerCase() == 'expense') {
+      _cachedExpenseCategories = categories;
+    } else {
+      _cachedIncomeCategories = categories;
+    }
     return categories;
   }
 
@@ -228,6 +290,7 @@ class FirestoreService {
   /// Add a custom category
   Future<String> addCategory(cat.Category category) async {
     final doc = await _catCol.add(category.toFirestore());
+    clearCategoryCache();
     debugPrint('✅ FIRESTORE: Category "${category.name}" added');
     return doc.id;
   }
@@ -235,6 +298,7 @@ class FirestoreService {
   /// Delete a category
   Future<void> deleteCategory(String id) async {
     await _catCol.doc(id).delete();
+    clearCategoryCache();
     debugPrint('✅ FIRESTORE: Category $id deleted');
   }
 

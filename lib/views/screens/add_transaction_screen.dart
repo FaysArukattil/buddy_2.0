@@ -47,6 +47,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       duration: const Duration(milliseconds: 600),
     );
 
+    // Initialize categories instantly with 0ms latency from cache/preset
+    final instantExpense = FirestoreService.getInstantCategories('expense');
+    final instantIncome = FirestoreService.getInstantCategories('income');
+    _expenseCategories = instantExpense;
+    _incomeCategories = instantIncome;
+    _loadingCategories = instantExpense.isEmpty && instantIncome.isEmpty;
+    _setDefaultCategory();
+
+    // Async background sync with Firestore & usage frequencies
     _loadCategories();
 
     // Pre-fill if editing
@@ -103,22 +112,36 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       final firestore = FirestoreService.instance;
       
       // Load categories
-      final expense = await firestore.getCategories('expense');
-      final income = await firestore.getCategories('income');
-      
-      // Load all transactions to count category usage frequency
-      List<TransactionModel> txns = [];
-      try {
-        txns = await firestore.getAllTransactions();
-      } catch (e) {
-        debugPrint('⚠️ Error fetching transactions for sorting categories: $e');
-      }
+      final expenseRaw = await firestore.getCategories('expense');
+      final incomeRaw = await firestore.getCategories('income');
 
-      // Count usage frequency of each category name
+      // Filter out Lending and Borrowing so they NEVER appear in normal Add Transaction
+      final expense = expenseRaw.where((c) {
+        final n = c.name.toLowerCase();
+        return n != 'lending' && n != 'borrowing';
+      }).toList();
+      final income = incomeRaw.where((c) {
+        final n = c.name.toLowerCase();
+        return n != 'lending' && n != 'borrowing';
+      }).toList();
+
+      final finalExpense = expense.isNotEmpty
+          ? expense
+          : FirestoreService.getDefaultCategories('expense');
+      final finalIncome = income.isNotEmpty
+          ? income
+          : FirestoreService.getDefaultCategories('income');
+      
+      // Fast query for recent transactions to compute usage frequency without downloading entire history
       final usageCounts = <String, int>{};
-      for (final txn in txns) {
-        final catName = txn.category;
-        usageCounts[catName] = (usageCounts[catName] ?? 0) + 1;
+      try {
+        final recentTxns = await firestore.getRecentTransactions(limit: 60);
+        for (final txn in recentTxns) {
+          final catName = txn.category;
+          usageCounts[catName] = (usageCounts[catName] ?? 0) + 1;
+        }
+      } catch (e) {
+        debugPrint('⚠️ Error fetching recent transactions for sorting categories: $e');
       }
 
       // Sort categories: highest usage count first, alphabetical fallback
@@ -133,25 +156,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         });
       }
 
-      sortCategories(expense);
-      sortCategories(income);
+      sortCategories(finalExpense);
+      sortCategories(finalIncome);
 
       if (mounted) {
         setState(() {
-          _expenseCategories = expense;
-          _incomeCategories = income;
+          _expenseCategories = finalExpense;
+          _incomeCategories = finalIncome;
           _loadingCategories = false;
 
           // If editing, match category by name
           if (_isEditing && _selectedCategoryName != null) {
-            final cats = _typeIndex == 0 ? expense : income;
+            final cats = _typeIndex == 0 ? finalExpense : finalIncome;
             for (final c in cats) {
               if (c.name == _selectedCategoryName) {
                 _selectedCategoryIcon = c.icon;
                 break;
               }
             }
-          } else {
+          } else if (_selectedCategoryName == null) {
             _setDefaultCategory();
           }
         });

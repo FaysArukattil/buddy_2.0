@@ -162,6 +162,7 @@ class DebtService {
     if (debt.id == null) return;
 
     String? repaymentTxnId = debt.repaymentTransactionId;
+    final now = DateTime.now();
 
     if (isRepaid) {
       // Cancel reminder notification when settled
@@ -170,7 +171,7 @@ class DebtService {
       }
 
       // Record repayment transaction if chosen
-      if (recordTransaction) {
+      if (recordTransaction && debt.amount > 0) {
         try {
           final isLend = debt.isLend;
           // If I lent money and they repaid me -> Income
@@ -184,7 +185,7 @@ class DebtService {
           final txn = TransactionModel(
             amount: debt.amount,
             type: txnType,
-            date: DateTime.now(),
+            date: now,
             category: category,
             icon: isLend
                 ? Icons.arrow_downward_rounded.codePoint
@@ -199,6 +200,24 @@ class DebtService {
           debugPrint('⚠️ DEBT: Failed to record repayment transaction: $e');
         }
       }
+
+      // Record the final settlement in history if not already recorded
+      final updatedSettlements = List<DebtSettlement>.from(debt.settlements);
+      if (debt.amount > 0) {
+        updatedSettlements.add(DebtSettlement(
+          amount: debt.amount,
+          date: now,
+          note: 'Full settlement',
+        ));
+      }
+
+      await _debtCol.doc(debt.id).update({
+        'isRepaid': true,
+        'amount': 0.0,
+        'repaidDate': Timestamp.fromDate(now),
+        'repaymentTransactionId': repaymentTxnId,
+        'settlements': updatedSettlements.map((s) => s.toMap()).toList(),
+      });
     } else {
       // Reopening debt - delete repayment transaction if one was recorded
       if (repaymentTxnId != null) {
@@ -214,18 +233,20 @@ class DebtService {
         await NotificationHelper.scheduleRepaymentReminder(
           id: debt.notificationId!,
           personName: debt.personName,
-          amount: debt.amount,
+          amount: debt.originalAmount,
           type: debt.type,
           dueDate: debt.dueDate,
         );
       }
-    }
 
-    await _debtCol.doc(debt.id).update({
-      'isRepaid': isRepaid,
-      'repaidDate': isRepaid ? Timestamp.fromDate(DateTime.now()) : null,
-      'repaymentTransactionId': repaymentTxnId,
-    });
+      await _debtCol.doc(debt.id).update({
+        'isRepaid': false,
+        'amount': debt.originalAmount,
+        'repaidDate': null,
+        'repaymentTransactionId': null,
+        'settlements': [],
+      });
+    }
 
     debugPrint('✅ DEBT: Marked debt ${debt.id} as isRepaid=$isRepaid');
   }
@@ -233,17 +254,20 @@ class DebtService {
   /// Partially settle a debt.
   /// [settledAmount] is how much was paid now.
   /// Records the settled portion as a transaction.
+  /// Appends settlement to [debt.settlements] history.
   /// If settledAmount >= debt.amount, marks as fully repaid.
   /// Otherwise, reduces the debt amount to the remainder.
   Future<void> partialSettle({
     required DebtModel debt,
     required double settledAmount,
     bool recordTransaction = true,
+    String? note,
   }) async {
     if (debt.id == null) return;
     final settledAmount_ = settledAmount.clamp(0.0, debt.amount);
     final remaining = debt.amount - settledAmount_;
     final isFullySettled = remaining <= 0.001;
+    final now = DateTime.now();
 
     // 1. Record a transaction for the settled portion
     if (recordTransaction && settledAmount_ > 0) {
@@ -253,19 +277,22 @@ class DebtService {
         final txnType = isLend ? 'income' : 'expense';
         final category = isLend ? 'Lending' : 'Borrowing';
         final partialNote = isFullySettled ? 'Full' : 'Partial';
-        final note = isLend
-            ? '$partialNote repayment from ${debt.personName}'
-            : '$partialNote repayment to ${debt.personName}';
+        final noteSuffix = note != null && note.trim().isNotEmpty
+            ? ' (${note.trim()})'
+            : '';
+        final desc = isLend
+            ? '$partialNote repayment from ${debt.personName}$noteSuffix'
+            : '$partialNote repayment to ${debt.personName}$noteSuffix';
 
         final txn = TransactionModel(
           amount: settledAmount_,
           type: txnType,
-          date: DateTime.now(),
+          date: now,
           category: category,
           icon: isLend
               ? Icons.arrow_downward_rounded.codePoint
               : Icons.arrow_outward_rounded.codePoint,
-          note: note,
+          note: desc,
         );
         final txnId = await FirestoreService.instance.addTransaction(txn);
         debugPrint('✅ DEBT: Recorded partial settlement txn $txnId');
@@ -279,18 +306,29 @@ class DebtService {
       await NotificationHelper.cancelNotification(debt.notificationId!);
     }
 
-    // 3. Update the debt document
+    // 3. Append to settlement history
+    final settlement = DebtSettlement(
+      amount: settledAmount_,
+      date: now,
+      note: note != null && note.trim().isNotEmpty
+          ? note.trim()
+          : (isFullySettled ? 'Full settlement' : 'Partial payment'),
+    );
+    final updatedSettlements = List<DebtSettlement>.from(debt.settlements)
+      ..add(settlement);
+
+    // 4. Update the debt document in Firestore
+    final updateData = <String, dynamic>{
+      'amount': isFullySettled ? 0.0 : remaining,
+      'settlements': updatedSettlements.map((s) => s.toMap()).toList(),
+    };
+
     if (isFullySettled) {
-      await _debtCol.doc(debt.id).update({
-        'amount': 0.0,
-        'isRepaid': true,
-        'repaidDate': Timestamp.fromDate(DateTime.now()),
-      });
-    } else {
-      await _debtCol.doc(debt.id).update({
-        'amount': remaining,
-      });
+      updateData['isRepaid'] = true;
+      updateData['repaidDate'] = Timestamp.fromDate(now);
     }
+
+    await _debtCol.doc(debt.id).update(updateData);
 
     debugPrint(
       '✅ DEBT: Partial settle done. Settled ₹$settledAmount_, remaining ₹$remaining, fullySettled=$isFullySettled',

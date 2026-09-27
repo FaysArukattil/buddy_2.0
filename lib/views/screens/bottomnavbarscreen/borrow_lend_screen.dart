@@ -262,7 +262,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         children: [
           Row(
             children: [
-              // Lent / You'll Get
+              // Lent / To Receive (+)
               Expanded(
                 child: GestureDetector(
                   onTap: () => setState(() {
@@ -298,18 +298,18 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "You'll Get",
+                              "To Receive (+)",
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white70 : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.income,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _formatAmount(totalLentPending),
+                          '+${_formatAmount(totalLentPending)}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -319,7 +319,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Tap to filter lent',
+                          'Pending from friends',
                           style: TextStyle(
                             fontSize: 10,
                             color: AppColors.textLightOf(context),
@@ -332,7 +332,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               ),
               const SizedBox(width: 12),
 
-              // Borrowed / You Owe
+              // Borrowed / To Give (-)
               Expanded(
                 child: GestureDetector(
                   onTap: () => setState(() {
@@ -368,18 +368,18 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              "You'll Give",
+                              "To Give (-)",
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white70 : AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.expense,
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          _formatAmount(totalBorrowedPending),
+                          '-${_formatAmount(totalBorrowedPending)}',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
@@ -389,7 +389,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Tap to filter borrowed',
+                          'Pending you owe',
                           style: TextStyle(
                             fontSize: 10,
                             color: AppColors.textLightOf(context),
@@ -432,15 +432,29 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     ),
                   ],
                 ),
-                Text(
-                  '${netBalance >= 0 ? '+' : ''}${_formatAmount(netBalance)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: netBalance >= 0
-                        ? AppColors.income
-                        : AppColors.expense,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: netBalance >= 0
+                            ? AppColors.income
+                            : AppColors.expense,
+                      ),
+                    ),
+                    Text(
+                      netBalance >= 0
+                          ? 'You are owed overall'
+                          : 'You owe overall',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppColors.textLightOf(context),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -755,11 +769,27 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     IconData statusIcon;
 
     if (isRepaid) {
-      statusColor = AppColors.income;
-      statusText = debt.repaidDate != null
-          ? 'Settled on ${DateFormat('dd MMM').format(debt.repaidDate!)}'
-          : 'Settled';
-      statusIcon = Icons.check_circle_rounded;
+      if (debt.isRepaidOnTime) {
+        statusColor = const Color(0xFF1EBE5D);
+        final dateStr = debt.repaidDate != null
+            ? DateFormat('dd MMM').format(debt.repaidDate!)
+            : '';
+        statusText = dateStr.isNotEmpty ? 'Paid on time ($dateStr)' : 'Paid on time';
+        statusIcon = Icons.check_circle_rounded;
+      } else if (debt.isRepaidLate) {
+        statusColor = const Color(0xFFFF9800);
+        final dateStr = debt.repaidDate != null
+            ? DateFormat('dd MMM').format(debt.repaidDate!)
+            : '';
+        statusText = 'Paid ${debt.daysLateRepaid}d late${dateStr.isNotEmpty ? " ($dateStr)" : ""}';
+        statusIcon = Icons.warning_amber_rounded;
+      } else {
+        statusColor = AppColors.income;
+        statusText = debt.repaidDate != null
+            ? 'Settled on ${DateFormat('dd MMM').format(debt.repaidDate!)}'
+            : 'Settled';
+        statusIcon = Icons.check_circle_rounded;
+      }
     } else if (isDueToday) {
       statusColor = const Color(0xFFFF9800);
       statusText = 'Due Today!';
@@ -919,12 +949,14 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
+                          isRepaid
+                              ? '${isLend ? '+' : '-'}${_formatAmount(debt.originalAmount)}'
+                              : '${isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
                             color: isRepaid
-                                ? AppColors.textLightOf(context)
+                                ? (isDark ? Colors.white70 : AppColors.textSecondary)
                                 : (isLend
                                     ? AppColors.income
                                     : AppColors.expense),
@@ -961,6 +993,173 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     ),
                   ],
                 ),
+
+                // ── Settlements & Repayment Breakdown ──
+                if (debt.hasPartialSettlements) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Repayment Progress',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textSecondaryOf(context),
+                              ),
+                            ),
+                            Text(
+                              '${(debt.progressPercent * 100).toInt()}% • Paid ${_formatAmount(debt.totalPaid)} of ${_formatAmount(debt.originalAmount)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: isLend ? AppColors.income : AppColors.expense,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: debt.progressPercent,
+                            backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.4),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              isLend ? AppColors.income : AppColors.expense,
+                            ),
+                            minHeight: 5,
+                          ),
+                        ),
+                        if (debt.settlements.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          ...debt.settlements.take(3).map((s) => Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline_rounded,
+                                      size: 13,
+                                      color: isLend
+                                          ? AppColors.income
+                                          : AppColors.expense,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      DateFormat('dd MMM').format(s.date),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                    if (s.note != null && s.note!.trim().isNotEmpty) ...[
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(
+                                          '(${s.note!.trim()})',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: AppColors.textLightOf(context),
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ] else
+                                      const Spacer(),
+                                    Text(
+                                      '+${_formatAmount(s.amount)}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: isLend
+                                            ? AppColors.income
+                                            : AppColors.expense,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                          if (debt.settlements.length > 3)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                '+ ${debt.settlements.length - 3} more settlement(s)...',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppColors.textLightOf(context),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ] else if (isRepaid) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (debt.isRepaidOnTime
+                              ? AppColors.income
+                              : const Color(0xFFFF9800))
+                          .withValues(alpha: isDark ? 0.12 : 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: (debt.isRepaidOnTime
+                                ? AppColors.income
+                                : const Color(0xFFFF9800))
+                            .withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          debt.isRepaidOnTime
+                              ? Icons.verified_rounded
+                              : (debt.isRepaidLate
+                                  ? Icons.alarm_on_rounded
+                                  : Icons.check_circle_rounded),
+                          size: 14,
+                          color: debt.isRepaidOnTime
+                              ? AppColors.income
+                              : const Color(0xFFFF9800),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            debt.repaidDate != null
+                                ? (debt.isRepaidOnTime
+                                    ? 'Paid full ${_formatAmount(debt.originalAmount)} on time (${DateFormat('dd MMM yyyy').format(debt.repaidDate!)})'
+                                    : 'Paid full ${_formatAmount(debt.originalAmount)} late by ${debt.daysLateRepaid}d (${DateFormat('dd MMM yyyy').format(debt.repaidDate!)})')
+                                : 'Paid in full (${_formatAmount(debt.originalAmount)})',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: debt.isRepaidOnTime
+                                  ? AppColors.income
+                                  : (isDark ? const Color(0xFFFFB74D) : const Color(0xFFE65100)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 12),
                 Divider(
@@ -1182,6 +1381,7 @@ Please let me know once convenient to transfer. Thank you!''';
     final amountCtrl = TextEditingController(
       text: totalAmount.toStringAsFixed(0),
     );
+    final noteCtrl = TextEditingController();
     double settledAmount = totalAmount;
     bool recordTxn = true;
 
@@ -1257,7 +1457,7 @@ Please let me know once convenient to transfer. Thank you!''';
                                 ),
                               ),
                               Text(
-                                '${debt.personName} • Total: ${_formatAmount(totalAmount)}',
+                                '${debt.personName} • Remaining: ${_formatAmount(totalAmount)}',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: AppColors.textSecondaryOf(context),
@@ -1386,6 +1586,39 @@ Please let me know once convenient to transfer. Thank you!''';
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Settlement Note Input
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceOf(context),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                        ),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                      child: TextField(
+                        controller: noteCtrl,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
+                        decoration: InputDecoration(
+                          icon: Icon(
+                            Icons.edit_note_rounded,
+                            size: 18,
+                            color: AppColors.textLightOf(context),
+                          ),
+                          hintText: 'Note (optional, e.g. GPay, Cash, Part 1)',
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textLightOf(context),
+                          ),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
                     // Summary info
@@ -1467,6 +1700,7 @@ Please let me know once convenient to transfer. Thank you!''';
                         onPressed: settledAmount <= 0
                             ? null
                             : () async {
+                                final noteText = noteCtrl.text.trim();
                                 Navigator.pop(ctx);
                                 await _debtService.partialSettle(
                                   debt: debt,
@@ -1475,6 +1709,7 @@ Please let me know once convenient to transfer. Thank you!''';
                                     totalAmount,
                                   ),
                                   recordTransaction: recordTxn,
+                                  note: noteText.isNotEmpty ? noteText : null,
                                 );
                                 final isFully = (settledAmount - totalAmount).abs() < 0.01;
                                 if (mounted) {
@@ -1685,11 +1920,31 @@ Please let me know once convenient to transfer. Thank you!''';
               ),
               _buildDetailRow(
                 context,
-                'Amount',
-                _formatAmount(debt.amount),
+                'Initial Amount',
+                '${debt.isLend ? '+' : '-'}${_formatAmount(debt.originalAmount)}',
                 Icons.currency_rupee_rounded,
                 valueColor: debt.isLend ? AppColors.income : AppColors.expense,
               ),
+              if (debt.hasPartialSettlements || debt.isRepaid) ...[
+                _buildDetailRow(
+                  context,
+                  'Total Paid',
+                  '${_formatAmount(debt.totalPaid)} (${(debt.progressPercent * 100).toInt()}%)',
+                  Icons.task_alt_rounded,
+                  valueColor: AppColors.income,
+                ),
+                _buildDetailRow(
+                  context,
+                  'Remaining Balance',
+                  debt.isRepaid
+                      ? '₹0 (Fully Settled)'
+                      : '${debt.isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
+                  Icons.account_balance_wallet_outlined,
+                  valueColor: debt.isRepaid
+                      ? AppColors.income
+                      : (debt.isLend ? AppColors.income : AppColors.expense),
+                ),
+              ],
               _buildDetailRow(
                 context,
                 'Date Initiated',
@@ -1705,9 +1960,23 @@ Please let me know once convenient to transfer. Thank you!''';
               _buildDetailRow(
                 context,
                 'Status',
-                debt.isRepaid ? 'Settled' : 'Pending',
+                debt.isRepaid
+                    ? (debt.isRepaidOnTime
+                        ? '✅ Paid on time (${debt.repaidDate != null ? DateFormat('dd MMM yyyy').format(debt.repaidDate!) : "Settled"})'
+                        : (debt.isRepaidLate
+                            ? '⚠️ Paid ${debt.daysLateRepaid}d late (${debt.repaidDate != null ? DateFormat('dd MMM yyyy').format(debt.repaidDate!) : "Settled"})'
+                            : '✅ Settled'))
+                    : (debt.isDueToday
+                        ? '⏰ Due Today!'
+                        : (debt.isOverdue
+                            ? '⚠️ Overdue by ${debt.daysDifference.abs()} days'
+                            : 'Pending (Due in ${debt.daysDifference} days)')),
                 Icons.info_outline,
-                valueColor: debt.isRepaid ? AppColors.income : const Color(0xFFFF9800),
+                valueColor: debt.isRepaid
+                    ? (debt.isRepaidOnTime ? AppColors.income : const Color(0xFFFF9800))
+                    : (debt.isOverdue
+                        ? AppColors.expense
+                        : (debt.isDueToday ? const Color(0xFFFF9800) : const Color(0xFF00897B))),
               ),
               if (debt.note != null && debt.note!.isNotEmpty)
                 _buildDetailRow(
@@ -1716,6 +1985,132 @@ Please let me know once convenient to transfer. Thank you!''';
                   debt.note!,
                   Icons.notes_rounded,
                 ),
+
+              // Settlement History Timeline
+              if (debt.settlements.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceOf(context),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.history_rounded,
+                                size: 16,
+                                color: AppColors.textSecondaryOf(context),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Settlement History (${debt.settlements.length})',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimaryOf(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Text(
+                            'Paid: ${_formatAmount(debt.totalSettled)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: debt.isLend ? AppColors.income : AppColors.expense,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ...debt.settlements.asMap().entries.map((entry) {
+                        final idx = entry.key + 1;
+                        final s = entry.value;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardOf(context),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.borderOf(context).withValues(alpha: 0.3),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 10,
+                                    backgroundColor: (debt.isLend
+                                            ? AppColors.income
+                                            : AppColors.expense)
+                                        .withValues(alpha: 0.15),
+                                    child: Text(
+                                      '$idx',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w800,
+                                        color: debt.isLend
+                                            ? AppColors.income
+                                            : AppColors.expense,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        DateFormat('dd MMMM yyyy').format(s.date),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textPrimaryOf(context),
+                                        ),
+                                      ),
+                                      if (s.note != null && s.note!.trim().isNotEmpty)
+                                        Text(
+                                          s.note!.trim(),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.textLightOf(context),
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '+${_formatAmount(s.amount)}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: debt.isLend
+                                      ? AppColors.income
+                                      : AppColors.expense,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
 
               // Action buttons in detail modal
