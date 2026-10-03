@@ -57,6 +57,16 @@ class NotificationTestHelper extends StatelessWidget {
                 color: Colors.green,
               ),
               _TestButton(
+                label: 'SBI Debit ₹100',
+                onPressed: () => _testSbiDebit(context),
+                color: Colors.indigo,
+              ),
+              _TestButton(
+                label: 'SBI Credit ₹10',
+                onPressed: () => _testSbiCredit(context),
+                color: Colors.teal,
+              ),
+              _TestButton(
                 label: 'Food ₹450',
                 onPressed: () => _testFood(context),
                 color: Colors.orange,
@@ -70,6 +80,16 @@ class NotificationTestHelper extends StatelessWidget {
                 label: 'Transport ₹300',
                 onPressed: () => _testTransport(context),
                 color: Colors.blue,
+              ),
+              _TestButton(
+                label: 'Netflix Mandate ₹199',
+                onPressed: () => _testNetflixMandate(context),
+                color: Colors.red.shade800,
+              ),
+              _TestButton(
+                label: 'SBI UPI ₹6500',
+                onPressed: () => _testSbiUpiDebit(context),
+                color: Colors.blue.shade900,
               ),
             ],
           ),
@@ -90,6 +110,22 @@ class NotificationTestHelper extends StatelessWidget {
     await _simulateTransaction(
       context,
       text: 'Your A/C 5678 credited with Rs.2000 via UPI from John',
+      packageName: 'com.google.android.apps.messaging',
+    );
+  }
+
+  Future<void> _testSbiDebit(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Dear SBI User, your A/c X1690-debited by Rs 100.0 on 17Jan23 transfer to SANTHOSH KUMAR M Ref No 301786029918. If not done by u, fwd this SMS to 9223008333/Call 1800111109 to block UPI -SBI.',
+      packageName: 'com.google.android.apps.messaging',
+    );
+  }
+
+  Future<void> _testSbiCredit(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Dear SBI UPI User, ur A/cX1690 credited by Rs 10 on 17Jan23 by (Ref no 320125212325).',
       packageName: 'com.google.android.apps.messaging',
     );
   }
@@ -115,6 +151,22 @@ class NotificationTestHelper extends StatelessWidget {
       context,
       text: 'Rs.300 paid to Uber for ride',
       packageName: 'com.phonepe.app',
+    );
+  }
+
+  Future<void> _testNetflixMandate(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Dear Customer, Your mandate with ref no- be453b0999304fe59da234f67bc786c6@okaxis registered against Netflix for Rs 199.00 successfully executed on 28-07-2026 07:41:34. TXN Ref No -253323902096- Federal Bank',
+      packageName: 'com.google.android.apps.messaging',
+    );
+  }
+
+  Future<void> _testSbiUpiDebit(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Dear UPI user A/C X7495 debited by 6500.00 on date 01Oct26 trf to KUNHAYAMMU A Refno 627420891569 If not u? call-1800111109 for other services-18001234-SBI',
+      packageName: 'com.google.android.apps.messaging',
     );
   }
 
@@ -170,15 +222,19 @@ class NotificationTestHelper extends StatelessWidget {
   Map<String, dynamic>? _parseTransaction(String text, String packageName) {
     // Regex patterns
     final debitRegex = RegExp(
-      r'\b(debited|spent|purchase|paid|withdrawn|debit|payment|sent|transferred)\b',
+      r'(?:debited|spent|purchase|paid|withdrawn|debit|payment|sent|transferred|used\s+for|auto-debited|deducted|charged|utilized|withdrawal|successfully\s+executed|mandate.*executed|auto\s*pay|autopay)',
       caseSensitive: false,
     );
     final creditRegex = RegExp(
-      r'\b(credited|received|deposit|income|credit|refund|cashback)\b',
+      r'(?:credited|received|deposit|income|credit|refund|cashback|reversed)',
       caseSensitive: false,
     );
     final amountRegex = RegExp(
-      r'(?:Rs\.?|INR|₹)\s?([0-9,]+\.?[0-9]*)|([0-9,]+\.?[0-9]*)\s?(?:Rs\.?|INR|₹)',
+      r'(?:Rs\.?|INR|₹)[\s:.-]*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)|([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)[\s:.-]*(?:Rs\.?|INR|₹)|(?:debited\s+(?:by|for|with)|credited\s+(?:with|by|for)|spent|paid|amount\s+of)\s*(?:Rs\.?|INR|₹)?[\s:.-]*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)',
+      caseSensitive: false,
+    );
+    final balanceRegex = RegExp(
+      r'(?:bal|balance|avbl\.?\s*bal|avl\.?\s*bal|avail\.?\s*bal|available\s*bal|total\s*bal|clear\s*bal|net\s*bal|avail\.?\s*lmt)[\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*',
       caseSensitive: false,
     );
 
@@ -190,19 +246,35 @@ class NotificationTestHelper extends StatelessWidget {
       return null;
     }
 
-    // Extract amount
-    final amountMatch = amountRegex.firstMatch(text);
-    if (amountMatch == null) {
+    // Extract amount while excluding balance matches
+    final allAmountMatches = amountRegex.allMatches(text).toList();
+    if (allAmountMatches.isEmpty) {
       return null;
     }
 
-    final amountStr = amountMatch.group(1) ?? amountMatch.group(2);
+    final balanceMatches = balanceRegex.allMatches(text).toList();
+    final validAmountMatches = allAmountMatches.where((amountMatch) {
+      return !balanceMatches.any((balMatch) {
+        final aStart = amountMatch.start;
+        final aEnd = amountMatch.end;
+        final bStart = balMatch.start;
+        final bEnd = balMatch.end;
+        return !(aEnd < bStart || aStart > bEnd);
+      });
+    }).toList();
+
+    final targetMatch = validAmountMatches.isNotEmpty ? validAmountMatches.first : allAmountMatches.first;
+    final amountStr = (targetMatch.group(1) ?? targetMatch.group(2) ?? targetMatch.group(3))?.replaceAll(',', '');
     if (amountStr == null) {
       return null;
     }
 
-    final amount = double.parse(amountStr.replaceAll(',', ''));
-    final type = isDebit ? 'expense' : 'income';
+    final amount = double.tryParse(amountStr);
+    if (amount == null || amount <= 0.0) {
+      return null;
+    }
+
+    final type = (isCredit && !isDebit) ? 'income' : 'expense';
     final category = _detectCategory(text, type);
     final icon = _getIconForCategory(category);
 

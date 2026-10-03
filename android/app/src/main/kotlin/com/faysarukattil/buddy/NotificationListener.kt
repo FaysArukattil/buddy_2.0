@@ -44,7 +44,14 @@ class NotificationListener : NotificationListenerService() {
             "com.miui.mms",
             "com.oppo.mms",
             "com.motorola.mms",
-            "com.transsion.mobile.message"
+            "com.transsion.mobile.message",
+            "com.microsoft.msm",                      // Microsoft SMS Organizer
+            "com.realme.messaging",                   // Realme SMS
+            "com.mi.mms",                             // Xiaomi / POCO SMS
+            "com.asus.message",                       // Asus SMS
+            "com.sonyericsson.conversations",         // Sony SMS
+            "com.htc.sense.mms",                      // HTC SMS
+            "com.lenovo.ideafriend"                   // Lenovo SMS
         )
 
         // UPI & Payment apps (they send transaction confirmations)
@@ -60,16 +67,113 @@ class NotificationListener : NotificationListenerService() {
 
         // Official Mobile Banking Apps
         private val BANK_APPS = setOf(
+            // Federal Bank
             "com.fedmobile",                          // Federal Bank (FedMobile)
-            "com.sbi.SBIFreedomPlus",                 // YONO SBI
-            "com.csam.icici.bank.imobile",            // iMobile (ICICI)
-            "com.hdfc.retail",                        // HDFC MobileBanking
+            "com.fedbook",                            // FedBook
+
+            // State Bank of India (SBI)
+            "com.sbi.lotusintouch",                   // YONO SBI
+            "com.sbi.SBIFreedomPlus",                 // YONO Lite SBI
+            "com.sbi.upi",                            // BHIM SBI Pay
+            "com.sbicard.omni",                       // SBI Card
+
+            // ICICI Bank
+            "com.csam.icici.bank.imobile",            // iMobile Pay (ICICI)
+            "com.icicibank.pockets",                  // Pockets by ICICI
+            "com.icicibank.corp",                     // ICICI Corporate Mobile
+
+            // HDFC Bank
+            "com.snapwork.hdfc",                      // HDFC Bank MobileBanking
+            "com.hdfc.retail",                        // HDFC MobileBanking (legacy)
+            "com.enstage.wibmo.hdfc",                 // PayZapp by HDFC
+
+            // Axis Bank
             "com.axis.mobile",                        // Axis Mobile
+            "com.axis.open",                          // Axis Open
+
+            // Kotak Mahindra Bank
             "com.msf.kbank.mobile",                   // Kotak Mobile Banking
             "com.kotak.mobile.banking",
+            "com.kotak811.mobile",                    // Kotak 811
+
+            // Bank of Baroda
             "com.bankofbaroda.mconnect",              // bob World
+            "com.bob.upi",                            // BOB UPI
+
+            // Canara Bank
             "com.canaaborbank.mobility",              // Canara ai1
-            "com.idfcfirst.bank"                      // IDFC FIRST Bank
+            "com.canarabank.mobility",
+
+            // Punjab National Bank (PNB)
+            "com.pnb.pnbone",                         // PNB ONE
+            "com.pnb.upi",                            // PNB UPI
+
+            // Union Bank of India
+            "com.infrasofttech.uboi",                 // Union Bank Vyom
+
+            // IDFC FIRST Bank
+            "com.idfcfirst.bank",                     // IDFC FIRST Bank
+            "com.idfcfirstbank.optimus",
+
+            // IndusInd Bank
+            "com.indusind.mobile",                    // IndusMobile
+
+            // Yes Bank
+            "com.yesbank",                            // iris by YES BANK
+
+            // Indian Bank
+            "com.infrasofttech.indianbank",           // IndOASIS
+
+            // Central Bank of India
+            "com.centbank.mb",                        // Cent Mobile
+
+            // Bank of India
+            "com.boi.mobile",                         // BOI Mobile
+
+            // RBL Bank
+            "com.rblbank.mobank",                     // MoBank
+
+            // South Indian Bank
+            "com.sib.mirrorplus",                     // SIB Mirror+
+
+            // Karur Vysya Bank
+            "com.kvb.mobilebanking",                  // DLite
+
+            // AU Small Finance Bank
+            "com.aubank.au0101",                      // AU 0101
+
+            // Ujjivan & Equitas Small Finance Banks
+            "com.ujjivan.mobilebanking",
+            "com.equitasbank.mobilebanking",
+
+            // Modern Neo-banks & Digital Banking
+            "money.jupiter",                          // Jupiter Money
+            "money.fi",                               // Fi Money
+            "co.slice.android",                       // Slice
+            "org.flippay.app",                        // Slice (alternate)
+            "money.super",                            // Super.money
+            "com.naviapp",                            // Navi
+            "com.samsung.android.spay",               // Samsung Wallet
+            "com.samsung.android.spaymini",           // Samsung Wallet Mini
+
+            // Additional Public & Private Sector Banks
+            "com.iob.mobilebanking",                  // Indian Overseas Bank (IOB)
+            "com.uco.mobilebanking",                  // UCO Bank
+            "com.idbi.mpassbook",                     // IDBI Bank
+            "com.idbibank.mobilebanking",             // IDBI Bank GO Mobile+
+            "com.kbl.mobilebanking",                  // Karnataka Bank
+            "com.bandhanbank.mobile",                 // Bandhan Bank
+            "com.csb.ePayments",                      // CSB (Catholic Syrian Bank)
+            "com.tmb.mobilebanking",                  // Tamilnad Mercantile Bank
+            "com.dcbbank.mobile",                     // DCB Bank
+            "com.dhanlaxmi.mobilebanking",            // Dhanlaxmi Bank
+            "com.dbs.in.digitalbank",                 // DBS Bank India
+            "in.co.digibank.app",                     // digibank by DBS
+            "com.hsbc.hsbcindia",                     // HSBC India
+            "com.sc.mobile.india",                    // Standard Chartered India
+            "com.citibank.india.mobile",              // Citi (legacy, now Axis)
+            "com.baroda.mpassbook",                   // BOB (alternate)
+            "com.sbicard.app"                         // SBI Card app
         )
 
         private val FINANCIAL_APPS = SMS_APPS + PAYMENT_APPS + BANK_APPS
@@ -132,41 +236,60 @@ class NotificationListener : NotificationListenerService() {
             "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
         )
 
-        // Bank account patterns — matching A/c XX1549, a/c X1549, A/c ending 1234, etc.
+        // Bank account & card patterns — matching A/c XX1549, a/c X1549, A/c ending 1234, Card ending 1234, etc.
         private val ACCOUNT_PATTERN = Regex(
-            """(?:a/c|a\.c|acct?|account)\s*(?:no\.?|ending)?\s*[xX*]*\d{2,}""",
+            """(?:a/c|a\.c|acct?|account|card|credit\s*card|debit\s*card)\s*(?:no\.?|num(?:ber)?\.?|ending(?:\s+(?:with|in))?|linked\s+to)?\s*[:.-]*\s*[xX*.]*\d{2,}""",
             RegexOption.IGNORE_CASE
         )
 
-        // UPI Reference / RRN / Transaction ID pattern
+        // UPI Reference / RRN / UTR / Transaction ID pattern
         private val UPI_REF_PATTERN = Regex(
-            """(?:upi\s*ref(?:\s*no)?|ref(?:\s*no)?\.?|txn(?:\s*id)?\.?|rrn|utr)[\s:.-]*\d{6,}""",
+            """(?:upi\s*(?:ref|reference)?(?:\s*no)?|ref(?:\s*no)?\.?|txn(?:\s*id)?\.?|transaction\s*id|rrn|utr(?:\s*no)?|imps(?:\s*ref)?|neft(?:\s*ref)?|rtgs(?:\s*ref)?|upi\/(?:dr|cr|rev|p2a|p2m|p2p)?\/?\d{6,})[\s:.-]*[A-Za-z0-9]{6,}""",
             RegexOption.IGNORE_CASE
         )
 
-        // Bank balance pattern — matching BAL-Rs.60001.27, Bal Rs 37010.08, Avbl Bal: Rs. 15000, etc.
+        // Bank balance pattern — matching BAL-Rs.60001.27, Bal Rs 37010.08, Avail Bal: Rs 15000, Avl Bal: Rs. 15000, etc.
         private val BALANCE_PATTERN = Regex(
-            """(?:bal|balance|avbl\s*bal|avl\s*bal|available\s*bal(?:ance)?|total\s*bal(?:ance)?|clear\s*bal(?:ance)?)[\s:.-]*(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
+            """(?:bal|balance|avbl\.?\s*bal(?:ance)?|avl\.?\s*bal(?:ance)?|avail\.?\s*bal(?:ance)?|available\s*bal(?:ance)?|total\s*bal(?:ance)?|total\s*avail\.?\s*bal(?:ance)?|clear\s*bal(?:ance)?|net\s*bal(?:ance)?|updated\s*bal(?:ance)?|new\s*bal(?:ance)?|remaining\s*bal(?:ance)?|a/c\s*bal(?:ance)?|avail\.?\s*lmt|available\s*limit|credit\s*limit)[\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
             RegexOption.IGNORE_CASE
         )
 
-        // Amount pattern — must start with a digit so a preceding comma (e.g. "Dear Customer, Rs.200") is not captured
+        // Amount pattern — supports prefix (Rs.500), suffix (500 INR), or contextual actions (debited by 500)
         private val AMOUNT_PATTERN = Regex(
-            """(?:Rs\.?\s*|INR\s*|₹\s*)([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)|([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)\s*(?:Rs\.?|INR|₹)""",
+            """(?:Rs\.?|INR|₹)[\s:.-]*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)|([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)[\s:.-]*(?:Rs\.?|INR|₹)|(?:debited\s+(?:by|for|with)|credited\s+(?:with|by|for)|spent|paid|amount\s+of|txn\s+of|transfer\s+of)\s*(?:Rs\.?|INR|₹)?[\s:.-]*([0-9]+(?:,[0-9]+)*(?:\.[0-9]+)?)""",
             RegexOption.IGNORE_CASE
         )
 
         // Explicit debit patterns in bank SMS / UPI text
         private val DEBIT_ACTION_PATTERN = Regex(
-            """(?:debited\s*(?:(?:from|for|with|by)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+)?debited)""",
+            """(?:debited\s*(?:(?:from|for|with|by|towards|on)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?debited|(?:debit|debiting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:spent|paid|withdrawn|transferred|sent|deducted|charged|utilized)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
             RegexOption.IGNORE_CASE
         )
 
         // Explicit credit patterns in bank SMS / UPI text
         private val CREDIT_ACTION_PATTERN = Regex(
-            """(?:credited\s*(?:(?:to|with|by|in)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)?\s*[0-9,.]+\s+(?:has been\s+)?credited|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in))""",
+            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in|into|to)?|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
             RegexOption.IGNORE_CASE
         )
+
+        /**
+         * Checks whether phrases like "block your card" or "freeze your account" are part of an
+         * official bank fraud reporting disclaimer (mandated by RBI for every transaction SMS)
+         * rather than a scam or account suspension warning.
+         */
+        private fun isFraudReportingDisclaimer(lowerText: String): Boolean {
+            return lowerText.contains("if not done by") ||
+                   lowerText.contains("if not you") ||
+                   lowerText.contains("if not u") ||
+                   lowerText.contains("if not authorized") ||
+                   lowerText.contains("if unauthorized") ||
+                   lowerText.contains("not your transaction") ||
+                   lowerText.contains("to block") ||
+                   lowerText.contains("call ") ||
+                   lowerText.contains("forward this") ||
+                   lowerText.contains("fwd this") ||
+                   lowerText.contains("sms block")
+        }
 
         // ── Merchant → Category mapping (all lowercase for matching) ──
         // Category names match the app's default categories in FirestoreService:
@@ -398,9 +521,13 @@ class NotificationListener : NotificationListenerService() {
 
             val pkg = sbn.packageName
 
-            // 2. Skip own notifications and blacklisted apps
+            // 2. Skip own notifications and blacklisted apps (unless default SMS app)
             if (pkg == applicationContext.packageName) return
-            if (BLACKLISTED_APPS.contains(pkg)) return
+            val defaultSmsPkg = try {
+                android.provider.Telephony.Sms.getDefaultSmsPackage(this)
+            } catch (_: Exception) { null }
+            val isDefaultSms = defaultSmsPkg != null && defaultSmsPkg.equals(pkg, ignoreCase = true)
+            if (BLACKLISTED_APPS.contains(pkg) && !isDefaultSms) return
 
             // 3. Only process SMS/messaging apps and known financial apps
             if (!isFromFinancialApp(pkg)) return
@@ -488,7 +615,7 @@ class NotificationListener : NotificationListenerService() {
 
         if (FINANCIAL_APPS.contains(packageName)) return true
         val lower = packageName.lowercase()
-        return listOf("sms", "message", "messaging", "mms", "bank", "pay").any { lower.contains(it) }
+        return listOf("sms", "message", "messaging", "mms", "bank", "pay", "upi", "finance", "wallet", "credit", "card", "money", "sbi").any { lower.contains(it) }
     }
 
     private fun isOwnNotification(title: String, content: String): Boolean {
@@ -512,6 +639,16 @@ class NotificationListener : NotificationListenerService() {
         // ────────────────────────────────────────────────────────────────
         for (keyword in PROMOTIONAL_AND_SPAM_KEYWORDS) {
             if (lowerText.contains(keyword)) {
+                // Legitimate bank transaction alerts often include RBI-mandated fraud-reporting footers
+                // like "If not done by you, call 1800... to block your card" or "SMS BLOCK to ... to block your UPI".
+                // These security advisories are NOT spam/phishing attempts.
+                if ((keyword == "block your" || keyword == "freeze") && isFraudReportingDisclaimer(lowerText)) {
+                    continue
+                }
+                // Avoid matching "otp" inside merchant or reference words (e.g., "HOTPOT", "FOOTPRINT")
+                if (keyword == "otp" && !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) {
+                    continue
+                }
                 Log.d(TAG, "🚫 Rejected spam/promotional message (keyword '$keyword'): ${text.take(60)}")
                 return null
             }
@@ -521,10 +658,15 @@ class NotificationListener : NotificationListenerService() {
         // STEP 2: App classification
         // ────────────────────────────────────────────────────────────────
         val lowerPkg = packageName.lowercase()
+        val defaultSmsPkg = try {
+            android.provider.Telephony.Sms.getDefaultSmsPackage(this)
+        } catch (_: Exception) { null }
         val isSms = SMS_APPS.contains(packageName) ||
+            (defaultSmsPkg != null && defaultSmsPkg.equals(packageName, ignoreCase = true)) ||
             listOf("sms", "message", "messaging", "mms").any { lowerPkg.contains(it) }
         val isPaymentApp = PAYMENT_APPS.contains(packageName)
-        val isBankApp = BANK_APPS.contains(packageName) || lowerPkg.contains("bank")
+        val isBankApp = BANK_APPS.contains(packageName) ||
+            listOf("bank", "sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "fedmobile", "fedbook", "idfc", "indus", "yesbank", "rbl", "union", "wallet", "credit", "card", "finance", "money", "iob", "uco", "idbi", "karnataka", "bandhan", "csb", "tmb", "dcb", "dhanlaxmi", "dbs", "digibank", "hsbc", "standard", "citibank", "baroda", "sbicard").any { lowerPkg.contains(it) }
 
         // ────────────────────────────────────────────────────────────────
         // STEP 3: Debit vs Credit Action Determination
@@ -532,36 +674,125 @@ class NotificationListener : NotificationListenerService() {
         // ────────────────────────────────────────────────────────────────
         val hasDebitVerb = DEBIT_ACTION_PATTERN.containsMatchIn(text) ||
             lowerText.contains("debited from") ||
+            lowerText.contains("debited by") ||
+            lowerText.contains("debited for") ||
+            lowerText.contains("debited with") ||
+            lowerText.contains("debited towards") ||
+            lowerText.contains("debited on") ||
             lowerText.contains("debited rs") ||
             lowerText.contains("debited inr") ||
             lowerText.contains("debited ₹") ||
             lowerText.contains("has been debited") ||
             lowerText.contains("is debited") ||
+            lowerText.contains("was debited") ||
+            lowerText.contains("got debited") ||
+            lowerText.contains("debit of") ||
+            lowerText.contains("debit by") ||
+            lowerText.contains("has a debit") ||
             lowerText.contains("withdrawn from") ||
+            lowerText.contains("withdrawn at") ||
+            lowerText.contains("cash withdrawn") ||
             lowerText.contains("you paid") ||
             lowerText.contains("paid to") ||
+            lowerText.contains("paid at") ||
+            lowerText.contains("paid rs") ||
+            lowerText.contains("paid inr") ||
+            lowerText.contains("paid ₹") ||
             lowerText.contains("payment to") ||
             lowerText.contains("payment of") ||
             lowerText.contains("money sent to") ||
             lowerText.contains("purchase of") ||
-            lowerText.contains("spent on")
+            lowerText.contains("spent on") ||
+            lowerText.contains("spent at") ||
+            lowerText.contains("spent using") ||
+            lowerText.contains("used for") ||
+            lowerText.contains("used at") ||
+            lowerText.contains("transferred to") ||
+            lowerText.contains("transfer to") ||
+            lowerText.contains("transfer of") ||
+            lowerText.contains("sent rs") ||
+            lowerText.contains("sent inr") ||
+            lowerText.contains("sent ₹") ||
+            lowerText.contains("auto-debited") ||
+            lowerText.contains("auto debited") ||
+
+            // Deducted verb (common in newer bank SMS)
+            lowerText.contains("deducted from") ||
+            lowerText.contains("deducted for") ||
+            lowerText.contains("deducted by") ||
+            lowerText.contains("amount deducted") ||
+
+            // Credit card charge / utilization patterns
+            lowerText.contains("charged to") ||
+            lowerText.contains("charged on") ||
+            lowerText.contains("charged for") ||
+            lowerText.contains("utilized for") ||
+            lowerText.contains("utilized at") ||
+            lowerText.contains("utilized on") ||
+
+            // ATM cash withdrawal patterns
+            lowerText.contains("cash withdrawal") ||
+            lowerText.contains("withdrawal of") ||
+            lowerText.contains("withdrawal from") ||
+            lowerText.contains("withdrawal at") ||
+
+            // Mandate / Standing Instruction / Auto-pay execution
+            lowerText.contains("successfully executed") ||
+            lowerText.contains("mandate executed") ||
+            lowerText.contains("si executed") ||
+            (lowerText.contains("mandate") && lowerText.contains("executed")) ||
+            (lowerText.contains("standing instruction") && lowerText.contains("executed")) ||
+            lowerText.contains("auto pay") ||
+            lowerText.contains("autopay") ||
+
+            // Successfully transferred
+            lowerText.contains("successfully transferred") ||
+            lowerText.contains("successfully debited") ||
+
+            // Transaction-of / txn-of patterns (card alerts)
+            (lowerText.contains("txn of") && (lowerText.contains("card") || lowerText.contains("a/c") || lowerText.contains("account"))) ||
+            (lowerText.contains("transaction of") && (lowerText.contains("card") || lowerText.contains("a/c") || lowerText.contains("account")))
 
         val hasCreditVerb = CREDIT_ACTION_PATTERN.containsMatchIn(text) ||
             lowerText.contains("credited to") ||
             lowerText.contains("credited with") ||
+            lowerText.contains("credited by") ||
+            lowerText.contains("credited for") ||
             lowerText.contains("credit of") ||
+            lowerText.contains("credit by") ||
             lowerText.contains("credited in") ||
+            lowerText.contains("credited into") ||
+            lowerText.contains("credited rs") ||
+            lowerText.contains("credited inr") ||
+            lowerText.contains("credited ₹") ||
             lowerText.contains("has been credited") ||
             lowerText.contains("is credited") ||
+            lowerText.contains("was credited") ||
+            lowerText.contains("got credited") ||
+            lowerText.contains("has a credit") ||
             lowerText.contains("deposited to") ||
             lowerText.contains("deposited in") ||
+            lowerText.contains("deposited into") ||
+            lowerText.contains("deposited with") ||
             lowerText.contains("received from") ||
+            lowerText.contains("received in") ||
+            lowerText.contains("received rs") ||
+            lowerText.contains("received inr") ||
+            lowerText.contains("received ₹") ||
             lowerText.contains("you received") ||
             (lowerText.contains("received") && lowerText.contains("from")) ||
             lowerText.contains("sent you") ||
             lowerText.contains("paid you") ||
             lowerText.contains("refund of") ||
-            lowerText.contains("refunded to")
+            lowerText.contains("refunded to") ||
+            lowerText.contains("refund received") ||
+            lowerText.contains("refund from") ||
+            lowerText.contains("reversal of") ||
+            lowerText.contains("reversed to") ||
+            lowerText.contains("amount reversed") ||
+            lowerText.contains("cashback of") ||
+            lowerText.contains("cashback received") ||
+            lowerText.contains("salary credited")
 
         // If it doesn't describe money being debited or credited, it is NOT a transaction.
         if (!hasDebitVerb && !hasCreditVerb) {
@@ -571,7 +802,7 @@ class NotificationListener : NotificationListenerService() {
         // ────────────────────────────────────────────────────────────────
         // STEP 4: Source Verification & Anti-Spam Gate
         // - For SMS: Bank SMS in India ALWAYS has an account number (A/c XX1549),
-        //   a balance indicator (Bal-Rs.60001), or a UPI/UTR/RRN reference (Ref 614755429328).
+        //   a balance indicator (Bal-Rs.60001), a card number, or a UPI/UTR/RRN reference.
         // - For Payment Apps (Google Pay, PhonePe, Paytm): Must have an explicit
         //   past-tense confirmed action ("you paid", "paid to", "received from", etc.)
         // - For Bank Apps: Must have account, balance, or explicit transaction text.
@@ -583,9 +814,15 @@ class NotificationListener : NotificationListenerService() {
         if (isSms || isBankApp) {
             // Authentic bank SMS/alerts must have at least one banking identifier
             val hasBankIdentifier = hasAccount || hasBalance || hasUpiRef ||
-                lowerText.contains("a/c") || lowerText.contains("acct") ||
+                lowerText.contains("a/c") || lowerText.contains("acct") || lowerText.contains("account") ||
+                lowerText.contains("card") || lowerText.contains("bank") ||
                 lowerText.contains("upi") || lowerText.contains("imps") ||
-                lowerText.contains("neft") || lowerText.contains("rtgs")
+                lowerText.contains("neft") || lowerText.contains("rtgs") ||
+                lowerText.contains("vpa") || lowerText.contains("pos") ||
+                lowerText.contains("atm") || lowerText.contains("ref no") ||
+                lowerText.contains("ref:") || lowerText.contains("utr") ||
+                lowerText.contains("rrn") || lowerText.contains("txn id") ||
+                listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank", "indian bank", "central bank", "iob", "indian overseas", "uco bank", "idbi", "karnataka bank", "bandhan", "csb", "catholic syrian", "tmb", "tamilnad", "dcb bank", "dhanlaxmi", "dbs bank", "digibank", "hsbc", "standard chartered", "citi", "au bank", "au small", "equitas", "ujjivan", "south indian", "karur vysya", "kvb", "lakshmi vilas", "sbi card", "okaxis", "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
             if (!hasBankIdentifier) {
                 Log.d(TAG, "🚫 Ignored message without banking identifier: ${text.take(60)}")
                 return null
@@ -618,7 +855,7 @@ class NotificationListener : NotificationListenerService() {
         } else if (hasDebitVerb && !hasCreditVerb) {
             true
         } else {
-            if (lowerText.contains("refund") || lowerText.contains("credited") || lowerText.contains("received")) {
+            if (lowerText.contains("refund") || lowerText.contains("credited") || lowerText.contains("received") || lowerText.contains("reversal")) {
                 false
             } else {
                 true
@@ -652,7 +889,9 @@ class NotificationListener : NotificationListenerService() {
 
         // Use the first valid non-balance amount
         val targetMatch = transactionAmounts.first()
-        val amountStr = (targetMatch.groupValues[1].ifEmpty { targetMatch.groupValues[2] })
+        val amountStr = (targetMatch.groupValues.getOrNull(1)?.ifEmpty { "" } ?: "")
+            .ifEmpty { targetMatch.groupValues.getOrNull(2)?.ifEmpty { "" } ?: "" }
+            .ifEmpty { targetMatch.groupValues.getOrNull(3)?.ifEmpty { "" } ?: "" }
             .replace(",", "")
             .trim()
         val amount = amountStr.toDoubleOrNull() ?: return null
@@ -699,21 +938,23 @@ class NotificationListener : NotificationListenerService() {
         // Fallbacks if no merchant was matched
         return if (type == "expense") {
             when {
-                text.contains("bill") || text.contains("electricity") || text.contains("water") -> Pair("Bills & Utilities", 983265)
+                text.contains("bill") || text.contains("electricity") || text.contains("water") || text.contains("gas") -> Pair("Bills & Utilities", 983265)
                 text.contains("recharge") -> Pair("Recharge", 983160)
                 text.contains("rent") -> Pair("Rent", 63477)
                 text.contains("emi") || text.contains("loan") -> Pair("Bills & Utilities", 983265)
-                text.contains("fuel") || text.contains("petrol") || text.contains("diesel") -> Pair("Fuel", 63597)
-                text.contains("food") -> Pair("Local Food", 63609)
-                text.contains("shopping") -> Pair("Amazon", 63522)
-                text.contains("movie") -> Pair("Hotstar", 63584)
-                text.contains("cab") || text.contains("taxi") -> Pair("Uber", 63616)
+                text.contains("fuel") || text.contains("petrol") || text.contains("diesel") || text.contains("cng") -> Pair("Fuel", 63597)
+                text.contains("food") || text.contains("restaurant") || text.contains("dining") || text.contains("cafe") || text.contains("tea") || text.contains("coffee") || text.contains("dhaba") || text.contains("hotel") || text.contains("kitchen") -> Pair("Local Food", 63609)
+                text.contains("shopping") || text.contains("store") || text.contains("mart") || text.contains("supermarket") || text.contains("bazaar") || text.contains("kirana") -> Pair("Amazon", 63522)
+                text.contains("movie") || text.contains("cinema") || text.contains("theatre") -> Pair("Hotstar", 63584)
+                text.contains("cab") || text.contains("taxi") || text.contains("auto") -> Pair("Uber", 63616)
+                text.contains("metro") || text.contains("railway") || text.contains("irctc") || text.contains("train") || text.contains("bus") || text.contains("flight") -> Pair("Transport", 63155)
+                text.contains("medical") || text.contains("hospital") || text.contains("pharmacy") || text.contains("clinic") || text.contains("doctor") || text.contains("chemist") -> Pair("Medical", 63664)
                 else -> Pair("Other", 983074)
             }
         } else {
             when {
-                text.contains("salary") || text.contains("wage") || text.contains("stipend") -> Pair("Salary", 983128)
-                text.contains("refund") || text.contains("reversed") -> Pair("Refund", 983294)
+                text.contains("salary") || text.contains("wage") || text.contains("stipend") || text.contains("payroll") -> Pair("Salary", 983128)
+                text.contains("refund") || text.contains("reversed") || text.contains("reversal") -> Pair("Refund", 983294)
                 text.contains("cashback") || text.contains("reward") -> Pair("Cashback", 983797)
                 text.contains("interest") -> Pair("Interest", 983336)
                 text.contains("dividend") -> Pair("Investment", 983636)
