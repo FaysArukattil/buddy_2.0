@@ -5,6 +5,7 @@ import 'package:buddy/views/widgets/animated_money_text.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/pdf_service.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -510,12 +511,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error generating PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppSnackbar.showError(context, 'Error generating PDF: $e');
     } finally {
       if (mounted) {
         setState(() => _isDownloading = false);

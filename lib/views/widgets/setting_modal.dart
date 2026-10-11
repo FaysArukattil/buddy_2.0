@@ -10,6 +10,7 @@ import 'package:buddy/services/feedback_service.dart';
 import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -91,18 +92,10 @@ class _SettingsModalState extends State<SettingsModal> {
           if (!mounted) { _isToggling = false; return; }
 
           // Show a single informative snackbar
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                '⚠️ Enable "Buddy" in notification access settings, then come back',
-              ),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 4),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+          AppSnackbar.showWarning(
+            context,
+            'Enable "Buddy" in notification access settings, then come back',
+            duration: const Duration(seconds: 4),
           );
 
           // Don't call requestNotificationAccess() again — that opens settings AGAIN
@@ -122,17 +115,7 @@ class _SettingsModalState extends State<SettingsModal> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('✅ Auto-detection enabled!'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackbar.showSuccess(context, 'Auto-detection enabled!');
       } else {
         await NotificationService.setAutoDetectionEnabled(false);
 
@@ -143,28 +126,12 @@ class _SettingsModalState extends State<SettingsModal> {
           _isLoading = false;
         });
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Auto-detection disabled'),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackbar.showInfo(context, 'Auto-detection disabled');
       }
     } catch (e) {
       debugPrint('❌ Error toggling auto-detection: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, 'Error: $e');
         setState(() => _isLoading = false);
       }
     } finally {
@@ -204,25 +171,13 @@ class _SettingsModalState extends State<SettingsModal> {
       Navigator.pop(context);
       widget.onDataCleared();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Deleted $deletedCount transaction(s) from today'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      AppSnackbar.showSuccess(
+        context,
+        'Deleted $deletedCount transaction(s) from today',
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.showError(context, 'Error: $e');
     }
   }
 
@@ -253,25 +208,13 @@ class _SettingsModalState extends State<SettingsModal> {
       Navigator.pop(context);
       widget.onDataCleared();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Deleted $deletedCount transaction(s) from this month'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      AppSnackbar.showSuccess(
+        context,
+        'Deleted $deletedCount transaction(s) from this month',
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.showError(context, 'Error: $e');
     }
   }
 
@@ -293,25 +236,10 @@ class _SettingsModalState extends State<SettingsModal> {
       Navigator.pop(context);
       widget.onDataCleared();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('✅ All data cleared'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackbar.showSuccess(context, 'All data cleared');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.showError(context, 'Error: $e');
     }
   }
 
@@ -340,16 +268,7 @@ class _SettingsModalState extends State<SettingsModal> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackbar.showError(context, 'Error: $e');
     }
   }
 
@@ -385,16 +304,7 @@ class _SettingsModalState extends State<SettingsModal> {
         (route) => false,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Account deleted successfully'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackbar.showSuccess(context, 'Account deleted successfully');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);
@@ -403,16 +313,7 @@ class _SettingsModalState extends State<SettingsModal> {
         // Handle re-authentication requirement
         await _handleReauthAndDelete();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackbar.showError(context, 'Error: $e');
       }
     }
   }
@@ -426,15 +327,9 @@ class _SettingsModalState extends State<SettingsModal> {
     if (providers.contains('google.com')) {
       // Google re-auth: just trigger Google sign-in again
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please sign in with Google again to confirm deletion'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      AppSnackbar.showWarning(
+        context,
+        'Please sign in with Google again to confirm deletion',
       );
 
       final success = await _authService.reauthenticate();
@@ -450,13 +345,7 @@ class _SettingsModalState extends State<SettingsModal> {
         } catch (e) {
           if (mounted) {
             setState(() => _isAccountActionLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            AppSnackbar.showError(context, 'Error: $e');
           }
         }
       }
@@ -482,25 +371,13 @@ class _SettingsModalState extends State<SettingsModal> {
         } catch (e) {
           if (mounted) {
             setState(() => _isAccountActionLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            AppSnackbar.showError(context, 'Error: $e');
           }
         }
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Incorrect password. Account not deleted.'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        AppSnackbar.showError(
+          context,
+          'Incorrect password. Account not deleted.',
         );
       }
     } else if (user.isAnonymous) {
@@ -514,13 +391,7 @@ class _SettingsModalState extends State<SettingsModal> {
         );
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackbar.showError(context, 'Error: $e');
         }
       }
     }

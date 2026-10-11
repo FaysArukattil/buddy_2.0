@@ -7,6 +7,7 @@ import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/widgets/custom_button_filled.dart';
 import 'package:buddy/views/widgets/custom_button_outlined.dart';
 import 'package:buddy/views/widgets/auth_textfield.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,23 +37,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final hasNetwork = await NetworkHelper.hasInternetConnection();
     if (!hasNetwork) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.wifi_off, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No internet connection. Please check your network.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
+        AppSnackbar.showWarning(
+          context,
+          'No internet connection. Please check your network.',
         );
       }
       return;
@@ -70,13 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrint('🔐 LOGIN: Login successful!');
 
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Logged in successfully! ✅'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 800),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Logged in successfully!',
+          duration: const Duration(milliseconds: 800),
         );
 
         // Wait for auth state to propagate AND SnackBar to show
@@ -93,13 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
         setState(() => _isLoading = false);
       }
     }
@@ -110,23 +88,9 @@ class _LoginScreenState extends State<LoginScreen> {
     final hasNetwork = await NetworkHelper.hasInternetConnection();
     if (!hasNetwork) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.wifi_off, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No internet connection. Please check your network.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
+        AppSnackbar.showWarning(
+          context,
+          'No internet connection. Please check your network.',
         );
       }
       return;
@@ -141,13 +105,10 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrint('🔐 GOOGLE SIGNIN: Login successful!');
 
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signed in with Google successfully! ✅'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 800),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Signed in with Google successfully!',
+          duration: const Duration(milliseconds: 800),
         );
 
         // Wait for auth state to propagate AND SnackBar to show
@@ -163,24 +124,12 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } else if (mounted) {
         // User cancelled the sign-in
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sign-in cancelled'),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showWarning(context, 'Sign-in cancelled');
         setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
         setState(() => _isLoading = false);
       }
     }
@@ -196,13 +145,10 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrint('🔐 GUEST LOGIN: Login successful!');
 
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Continuing as guest ✅'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 800),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Continuing as guest',
+          duration: const Duration(milliseconds: 800),
         );
 
         // Wait for auth state to propagate AND SnackBar to show
@@ -219,13 +165,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -236,36 +176,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your email address'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      AppSnackbar.showWarning(context, 'Please enter your email address');
       return;
     }
 
     try {
       await _authService.resetPassword(email);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password reset email sent! Check your inbox.'),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Password reset email sent! Check your inbox.',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
       }
     }
   }

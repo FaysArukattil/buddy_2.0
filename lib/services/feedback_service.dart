@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/app_snackbar.dart';
 
 class FeedbackService {
   static const String developerEmail = 'faysarukattil@gmail.com';
@@ -109,17 +110,10 @@ Why it would be helpful:
     String body,
   ) {
     Clipboard.setData(const ClipboardData(text: developerEmail));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'No mail app found. Dev email ($developerEmail) copied to clipboard!',
-        ),
-        action: SnackBarAction(
-          label: 'OK',
-          onPressed: () {},
-        ),
-        duration: const Duration(seconds: 4),
-      ),
+    AppSnackbar.showInfo(
+      context,
+      'No mail app found. Dev email ($developerEmail) copied to clipboard!',
+      duration: const Duration(seconds: 4),
     );
   }
 }

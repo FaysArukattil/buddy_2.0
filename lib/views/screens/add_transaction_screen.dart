@@ -7,6 +7,7 @@ import 'package:buddy/models/transaction.dart';
 import 'package:buddy/models/category.dart' as cat;
 import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/Network_services.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -1281,32 +1282,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       ];
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.expense,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.showError(context, message);
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Text(message),
-          ],
-        ),
-        backgroundColor: AppColors.income,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(milliseconds: 800),
-      ),
+    AppSnackbar.showSuccess(
+      context,
+      message,
+      duration: const Duration(milliseconds: 1500),
     );
   }
 

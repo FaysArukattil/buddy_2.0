@@ -7,6 +7,7 @@ import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/widgets/custom_button_filled.dart';
 import 'package:buddy/views/widgets/custom_button_outlined.dart';
 import 'package:buddy/views/widgets/auth_textfield.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -51,23 +52,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final hasNetwork = await NetworkHelper.hasInternetConnection();
     if (!hasNetwork) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.wifi_off, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No internet connection. Please check your network.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
+        AppSnackbar.showWarning(
+          context,
+          'No internet connection. Please check your network.',
         );
       }
       return;
@@ -92,16 +79,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         debugPrint('🔐 SIGNUP: Account created successfully!');
 
         // Show success message briefly
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created successfully! ✅'),
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-            ),
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 800),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Account created successfully!',
+          duration: const Duration(milliseconds: 800),
         );
 
         // Wait for Firebase auth state to propagate AND SnackBar to show
@@ -119,13 +100,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     } catch (e) {
       debugPrint('❌ SIGNUP ERROR: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
         setState(() => _isLoading = false);
       }
     }
@@ -136,23 +111,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final hasNetwork = await NetworkHelper.hasInternetConnection();
     if (!hasNetwork) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.wifi_off, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'No internet connection. Please check your network.',
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: AppColors.warning,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(seconds: 3),
-          ),
+        AppSnackbar.showWarning(
+          context,
+          'No internet connection. Please check your network.',
         );
       }
       return;
@@ -169,16 +130,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       if (result != null && mounted) {
         // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Signed in with Google successfully! ✅'),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
-            ),
-            backgroundColor: AppColors.primary,
-            behavior: SnackBarBehavior.floating,
-            duration: Duration(milliseconds: 800),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Signed in with Google successfully!',
+          duration: const Duration(milliseconds: 800),
         );
 
         // Wait for auth state to propagate AND SnackBar to show
@@ -194,25 +149,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         }
       } else if (mounted) {
         // User cancelled
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sign-in cancelled'),
-            backgroundColor: Colors.orange,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showWarning(context, 'Sign-in cancelled');
         setState(() => _isLoading = false);
       }
     } catch (e) {
       debugPrint('❌ GOOGLE SIGNIN ERROR: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        AppSnackbar.showError(context, e.toString());
         setState(() => _isLoading = false);
       }
     }

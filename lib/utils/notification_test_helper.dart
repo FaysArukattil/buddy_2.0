@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../models/transaction.dart';
+import 'app_snackbar.dart';
 
 /// Test helper widget to simulate notifications and test parsing
 /// Add this to your Profile screen temporarily for testing
@@ -388,15 +389,13 @@ class NotificationTestHelper extends StatelessWidget {
   }
 
   void _showMessage(BuildContext context, String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    if (color == Colors.red) {
+      AppSnackbar.showError(context, message);
+    } else if (color == Colors.green) {
+      AppSnackbar.showSuccess(context, message);
+    } else {
+      AppSnackbar.showInfo(context, message);
+    }
   }
 }
 

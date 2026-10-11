@@ -16,6 +16,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/bottom_navbar_screen.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -240,27 +241,9 @@ class HomeScreenState extends State<HomeScreen>
       final isGranted = await NotificationService.isNotificationAccessGranted();
       if (isGranted && mounted) {
         _notifiedGranted = true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '🎉 Auto-tracking is active! Bank & UPI SMS will log automatically.',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: const Color(0xFF2E7D32),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        AppSnackbar.showSuccess(
+          context,
+          'Auto-tracking is active! Bank & UPI SMS will log automatically.',
         );
       }
     } catch (e) {
@@ -417,27 +400,10 @@ class HomeScreenState extends State<HomeScreen>
                     await NotificationService.requestNotificationAccess();
 
                     if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: const Row(
-                          children: [
-                            Icon(Icons.touch_app_rounded, color: Colors.white, size: 20),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                '👉 Enable "Buddy" in Notification Access settings to start auto-tracking!',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                        backgroundColor: AppColors.primary,
-                        behavior: SnackBarBehavior.floating,
-                        duration: const Duration(seconds: 5),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                    AppSnackbar.showInfo(
+                      context,
+                      'Enable "Buddy" in Notification Access settings to start auto-tracking!',
+                      duration: const Duration(seconds: 4),
                     );
                   },
                   style: ElevatedButton.styleFrom(

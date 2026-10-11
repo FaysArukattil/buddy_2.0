@@ -16,6 +16,7 @@ import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/feedback_service.dart';
 import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -257,15 +258,7 @@ class ProfileScreenState extends State<ProfileScreen>
     setState(() => _editing = false);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Profile updated successfully!'),
-        backgroundColor: AppColors.secondary,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    AppSnackbar.showSuccess(context, 'Profile updated successfully!');
   }
 
   String _formatCurrency(double v) =>
@@ -1342,17 +1335,10 @@ class ProfileScreenState extends State<ProfileScreen>
             MaterialPageRoute(builder: (_) => const LoginScreen()),
             (route) => false,
           );
-        } catch (_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
+        } catch (e) {
+          if (mounted) {
+            AppSnackbar.showError(context, 'Error: $e');
+          }
         }
       }
     } else {
@@ -1378,16 +1364,7 @@ class ProfileScreenState extends State<ProfileScreen>
       } catch (e) {
         if (!mounted) return;
         setState(() => _isAccountActionLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackbar.showError(context, 'Error: $e');
       }
     }
   }
@@ -1530,16 +1507,7 @@ class ProfileScreenState extends State<ProfileScreen>
         (route) => false,
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Account deleted successfully'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      );
+      AppSnackbar.showSuccess(context, 'Account deleted successfully');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);
@@ -1547,16 +1515,7 @@ class ProfileScreenState extends State<ProfileScreen>
       if (e.toString() == 'requires-recent-login') {
         await _handleReauthAndDelete();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
+        AppSnackbar.showError(context, 'Error: $e');
       }
     }
   }
@@ -1569,15 +1528,9 @@ class ProfileScreenState extends State<ProfileScreen>
 
     if (providers.contains('google.com')) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please sign in with Google again to confirm deletion'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
+      AppSnackbar.showWarning(
+        context,
+        'Please sign in with Google again to confirm deletion',
       );
 
       final success = await _authService.reauthenticate();
@@ -1593,13 +1546,7 @@ class ProfileScreenState extends State<ProfileScreen>
         } catch (e) {
           if (mounted) {
             setState(() => _isAccountActionLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            AppSnackbar.showError(context, 'Error: $e');
           }
         }
       }
@@ -1624,25 +1571,13 @@ class ProfileScreenState extends State<ProfileScreen>
         } catch (e) {
           if (mounted) {
             setState(() => _isAccountActionLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error: $e'),
-                backgroundColor: Colors.red,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
+            AppSnackbar.showError(context, 'Error: $e');
           }
         }
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Incorrect password. Account not deleted.'),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+        AppSnackbar.showError(
+          context,
+          'Incorrect password. Account not deleted.',
         );
       }
     } else if (user.isAnonymous) {
@@ -1655,13 +1590,7 @@ class ProfileScreenState extends State<ProfileScreen>
         );
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
+          AppSnackbar.showError(context, 'Error: $e');
         }
       }
     }

@@ -9,6 +9,7 @@ import '../../../services/debt_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/format_utils.dart';
 import '../../../services/Network_services.dart';
+import '../../../utils/app_snackbar.dart';
 
 class BorrowLendScreen extends StatefulWidget {
   const BorrowLendScreen({super.key});
@@ -65,16 +66,11 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     await prefs.setBool('include_debts_in_balance', newVal);
     if (mounted) {
       setState(() => _includeDebtsInHome = newVal);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            newVal
-                ? '🏠 Debts are now reflected in the Home Screen balance'
-                : '📁 Debts are now tracked separately from Home Screen',
-          ),
-          duration: const Duration(seconds: 2),
-          backgroundColor: AppColors.primary,
-        ),
+      AppSnackbar.showInfo(
+        context,
+        newVal
+            ? 'Debts are now reflected in the Home Screen balance'
+            : 'Debts are now tracked separately from Home Screen',
       );
     }
   }
@@ -901,48 +897,48 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
             .join()
         : 'F';
 
+    final accentStripeColor =
+        isRepaid ? const Color(0xFF1EBE5D) : debt.urgencyColor;
+    final borderColor = (isDueToday || isOverdue) && !isRepaid
+        ? (isDueToday ? const Color(0xFFFF9800) : AppColors.expense)
+            .withValues(alpha: 0.5)
+        : AppColors.borderOf(context).withValues(alpha: 0.5);
+    final borderWidth = (isDueToday || isOverdue) && !isRepaid ? 1.5 : 1.0;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(18),
-        border: Border(
-          left: BorderSide(
-            color: isRepaid ? const Color(0xFF1EBE5D) : debt.urgencyColor,
-            width: 4.5,
-          ),
-          top: BorderSide(
-            color: (isDueToday || isOverdue) && !isRepaid
-                ? (isDueToday ? const Color(0xFFFF9800) : AppColors.expense).withValues(alpha: 0.5)
-                : AppColors.borderOf(context).withValues(alpha: 0.5),
-            width: (isDueToday || isOverdue) && !isRepaid ? 1.5 : 1,
-          ),
-          right: BorderSide(
-            color: (isDueToday || isOverdue) && !isRepaid
-                ? (isDueToday ? const Color(0xFFFF9800) : AppColors.expense).withValues(alpha: 0.5)
-                : AppColors.borderOf(context).withValues(alpha: 0.5),
-            width: (isDueToday || isOverdue) && !isRepaid ? 1.5 : 1,
-          ),
-          bottom: BorderSide(
-            color: (isDueToday || isOverdue) && !isRepaid
-                ? (isDueToday ? const Color(0xFFFF9800) : AppColors.expense).withValues(alpha: 0.5)
-                : AppColors.borderOf(context).withValues(alpha: 0.5),
-            width: (isDueToday || isOverdue) && !isRepaid ? 1.5 : 1,
-          ),
+        border: Border.all(
+          color: borderColor,
+          width: borderWidth,
         ),
         boxShadow: AppColors.cardShadowOf(context),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: () => _showDebtDetailModal(context, debt),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Row: Avatar + Name + Amount
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Left accent stripe indicator
+              Container(
+                width: 4.5,
+                color: accentStripeColor,
+              ),
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => _showDebtDetailModal(context, debt),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                // ── Top Row: Avatar + Name & Subtitle + Amount ──
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -994,94 +990,25 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     ),
                     const SizedBox(width: 12),
 
+                    // Name + Subtitle (Takes full middle width safely)
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  debt.personName,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textPrimaryOf(context),
-                                    letterSpacing: -0.2,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: (isLend
-                                          ? AppColors.income
-                                          : AppColors.expense)
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  isLend ? 'Lent' : 'Borrowed',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w700,
-                                    color: isLend
-                                        ? AppColors.income
-                                        : AppColors.expense,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: (isRepaid
-                                          ? const Color(0xFF1EBE5D)
-                                          : debt.urgencyColor)
-                                      .withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isRepaid
-                                          ? Icons.check_circle_rounded
-                                          : (debt.isUrgent
-                                              ? Icons.priority_high_rounded
-                                              : (debt.isLenient
-                                                  ? Icons.spa_rounded
-                                                  : Icons.schedule_rounded)),
-                                      size: 9,
-                                      color: isRepaid
-                                          ? const Color(0xFF1EBE5D)
-                                          : debt.urgencyColor,
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      isRepaid ? 'Settled' : debt.urgencyLabel,
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.w700,
-                                        color: isRepaid
-                                            ? const Color(0xFF1EBE5D)
-                                            : debt.urgencyColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          Text(
+                            debt.personName.trim().isNotEmpty
+                                ? debt.personName.trim()
+                                : (isLend ? 'Friend (Lent)' : 'Friend (Borrowed)'),
+                            style: TextStyle(
+                              fontSize: 15.5,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimaryOf(context),
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 2),
                           Text(
                             isLend
                                 ? 'Given on ${DateFormat('dd MMM yyyy').format(debt.date)}'
@@ -1093,11 +1020,11 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                           ),
                           if (debt.note != null &&
                               debt.note!.trim().isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               debt.note!.trim(),
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 11.5,
                                 color: AppColors.textSecondaryOf(context),
                                 fontStyle: FontStyle.italic,
                               ),
@@ -1109,51 +1036,140 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       ),
                     ),
 
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          isRepaid
-                              ? '${isLend ? '+' : '-'}${_formatAmount(debt.originalAmount)}'
-                              : '${isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
+                    const SizedBox(width: 8),
+
+                    // Amount Display
+                    Text(
+                      isRepaid
+                          ? '${isLend ? '+' : '-'}${_formatAmount(debt.originalAmount)}'
+                          : '${isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
+                      style: TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        color: isRepaid
+                            ? (isDark ? Colors.white70 : AppColors.textSecondary)
+                            : (isLend
+                                ? AppColors.income
+                                : AppColors.expense),
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 10),
+
+                // ── Badges Row: Type Badge + Urgency Badge + Status Badge ──
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // Type Badge (Lent / Borrowed)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (isLend ? AppColors.income : AppColors.expense)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isLend
+                                ? Icons.arrow_outward_rounded
+                                : Icons.arrow_downward_rounded,
+                            size: 11,
+                            color: isLend ? AppColors.income : AppColors.expense,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            isLend ? 'Lent' : 'Borrowed',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: isLend
+                                  ? AppColors.income
+                                  : AppColors.expense,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Urgency Badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (isRepaid
+                                ? const Color(0xFF1EBE5D)
+                                : debt.urgencyColor)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isRepaid
+                                ? Icons.check_circle_rounded
+                                : (debt.isUrgent
+                                    ? Icons.priority_high_rounded
+                                    : (debt.isLenient
+                                        ? Icons.spa_rounded
+                                        : Icons.schedule_rounded)),
+                            size: 11,
                             color: isRepaid
-                                ? (isDark ? Colors.white70 : AppColors.textSecondary)
-                                : (isLend
-                                    ? AppColors.income
-                                    : AppColors.expense),
-                            letterSpacing: -0.3,
+                                ? const Color(0xFF1EBE5D)
+                                : debt.urgencyColor,
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                          const SizedBox(width: 3),
+                          Text(
+                            isRepaid ? 'Settled' : debt.urgencyLabel,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: isRepaid
+                                  ? const Color(0xFF1EBE5D)
+                                  : debt.urgencyColor,
+                            ),
                           ),
-                          decoration: BoxDecoration(
-                            color: statusColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(6),
+                        ],
+                      ),
+                    ),
+
+                    // Status Badge (Due Today, Overdue, Due in X days, Paid on time)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(statusIcon, size: 11, color: statusColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: statusColor,
+                            ),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(statusIcon, size: 11, color: statusColor),
-                              const SizedBox(width: 4),
-                              Text(
-                                statusText,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: statusColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1393,8 +1409,13 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     ),
                   ],
                 ),
-              ],
-            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1524,12 +1545,7 @@ Please let me know once convenient to transfer. Thank you!''';
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to open share: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.showError(context, 'Failed to open share: $e');
       }
     }
   }
@@ -1549,15 +1565,13 @@ Please let me know once convenient to transfer. Thank you!''';
     double settledAmount = totalAmount;
     bool recordTxn = true;
 
-    final messenger = ScaffoldMessenger.of(context);
-
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setSheet) {
+          builder: (sheetContext, setSheet) {
             final accentColor = isLend ? AppColors.income : AppColors.expense;
             final isFullSettle = (settledAmount - totalAmount).abs() < 0.01;
             final remaining = (totalAmount - settledAmount).clamp(0.0, totalAmount);
@@ -1877,16 +1891,11 @@ Please let me know once convenient to transfer. Thank you!''';
                                 );
                                 final isFully = (settledAmount - totalAmount).abs() < 0.01;
                                 if (mounted) {
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        isFully
-                                            ? '✅ Fully settled!'
-                                            : '✅ Partial payment of ${_formatAmount(settledAmount)} recorded.',
-                                      ),
-                                      backgroundColor: AppColors.primary,
-                                      duration: const Duration(seconds: 2),
-                                    ),
+                                  AppSnackbar.showSuccess(
+                                    this.context,
+                                    isFully
+                                        ? 'Fully settled!'
+                                        : 'Partial payment of ${_formatAmount(settledAmount)} recorded.',
                                   );
                                 }
                               },
@@ -1997,13 +2006,7 @@ Please let me know once convenient to transfer. Thank you!''';
     // Only handles reopening a settled debt
     await _debtService.markAsRepaid(debt: debt, isRepaid: false);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Record reopened as pending'),
-          backgroundColor: AppColors.primary,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      AppSnackbar.showInfo(context, 'Record reopened as pending');
     }
   }
 
@@ -2384,13 +2387,12 @@ Please let me know once convenient to transfer. Thank you!''';
   // ─── CONFIRM DELETE ───
   Future<void> _confirmDelete(BuildContext context, DebtModel debt) async {
     bool deleteLinked = true;
-    final messenger = ScaffoldMessenger.of(context);
 
     await showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setDialogState) {
+          builder: (dialogCtx, setDialogState) {
             return AlertDialog(
               backgroundColor: AppColors.cardOf(context),
               shape: RoundedRectangleBorder(
@@ -2446,12 +2448,7 @@ Please let me know once convenient to transfer. Thank you!''';
                       deleteLinkedTransactions: deleteLinked,
                     );
                     if (mounted) {
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('Record deleted'),
-                          backgroundColor: AppColors.primary,
-                        ),
-                      );
+                      AppSnackbar.showSuccess(this.context, 'Record deleted');
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -2595,23 +2592,13 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
 
     final amount = double.tryParse(_amountController.text.trim());
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid amount'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackbar.showError(context, 'Please enter a valid amount');
       return;
     }
 
     final personName = _personController.text.trim();
     if (personName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter friend or lender name'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppSnackbar.showError(context, 'Please enter friend or lender name');
       return;
     }
 
@@ -2655,31 +2642,22 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
       Navigator.pop(context);
 
       final isOnline = NetworkHelper.isOnline.value;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            !isOnline
-                ? (isEditing
-                    ? 'Record updated locally! (Will sync when online)'
-                    : 'Record saved locally! (Will sync when online)')
-                : (isEditing
-                    ? 'Record updated!'
-                    : (_typeIndex == 0
-                        ? 'Lent record saved! (Added to Expenses)'
-                        : 'Borrow record saved! (Added to Income)')),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
+      AppSnackbar.showSuccess(
+        context,
+        !isOnline
+            ? (isEditing
+                ? 'Record updated locally! (Will sync when online)'
+                : 'Record saved locally! (Will sync when online)')
+            : (isEditing
+                ? 'Record updated!'
+                : (_typeIndex == 0
+                    ? 'Lent record saved! (Added to Expenses)'
+                    : 'Borrow record saved! (Added to Income)')),
       );
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackbar.showError(context, 'Error saving: $e');
       }
     }
   }

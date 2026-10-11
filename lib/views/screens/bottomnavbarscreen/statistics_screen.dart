@@ -8,6 +8,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/utils/icon_helper.dart';
+import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:intl/intl.dart';
@@ -450,11 +451,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
       if (filteredTransactions.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No transactions found for this period'),
-            backgroundColor: AppColors.primary,
-          ),
+        AppSnackbar.showInfo(
+          context,
+          'No transactions found for this period',
         );
         return;
       }
@@ -469,11 +468,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
       _showPdfOptions(file);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error generating PDF: $e'),
-          backgroundColor: Colors.red,
-        ),
+      AppSnackbar.showError(
+        context,
+        'Error generating PDF: $e',
       );
     } finally {
       if (mounted) {
