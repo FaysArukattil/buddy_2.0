@@ -4,7 +4,6 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction.dart';
 import '../models/category.dart' as cat;
@@ -19,7 +18,7 @@ typedef OnTransactionDetected =
 /// - The native NotificationListenerService (OS-managed) handles notification
 ///   filtering, parsing, and saving transactions to SharedPreferences.
 /// - This Flutter service only handles:
-///   1. Checking/requesting notification listener permission
+///   1. Checking/requesting notification listener permission via native MethodChannel
 ///   2. Checking if auto-detection is enabled
 ///   3. Syncing transactions from SharedPreferences to Firestore on app open
 ///
@@ -32,26 +31,21 @@ class NotificationService {
   // ── Permission Management ──
 
   /// Check if notification listener permission is granted.
-  /// Uses MethodChannel for more reliable cross-device check.
+  /// Uses native MethodChannel which directly checks Settings.Secure.
   static Future<bool> isNotificationAccessGranted() async {
     if (!isSupportedPlatform) return false;
     try {
-      // Use our MethodChannel which directly checks Settings.Secure
-      // This is more reliable than the plugin on certain OEM devices
-      final result = await _channel.invokeMethod<bool>('isNotificationListenerEnabled');
+      final result =
+          await _channel.invokeMethod<bool>('isNotificationListenerEnabled');
       return result ?? false;
     } catch (e) {
-      debugPrint('⚠️ NOTIFICATION: MethodChannel check failed, falling back to plugin: $e');
-      try {
-        return await NotificationListenerService.isPermissionGranted();
-      } catch (e2) {
-        debugPrint('⚠️ NOTIFICATION: Plugin check also failed: $e2');
-        return false;
-      }
+      debugPrint('⚠️ NOTIFICATION: MethodChannel check failed: $e');
+      return false;
     }
   }
 
   /// Open system settings to grant notification listener access.
+  /// Uses native Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).
   /// Returns true if already granted, false if settings was opened.
   static Future<bool> requestNotificationAccess() async {
     if (!isSupportedPlatform) {
@@ -64,7 +58,11 @@ class NotificationService {
       return true;
     }
     debugPrint('⚠️ NOTIFICATION: Opening settings to grant permission');
-    await NotificationListenerService.requestPermission();
+    try {
+      await _channel.invokeMethod('openNotificationListenerSettings');
+    } catch (e) {
+      debugPrint('⚠️ NOTIFICATION: Could not open settings: $e');
+    }
     return false;
   }
 

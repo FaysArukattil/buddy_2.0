@@ -1,4 +1,3 @@
-import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/utils/icon_helper.dart';
@@ -44,7 +43,6 @@ class HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     debugPrint('🏠 HOME SCREEN INITIALIZED');
-    NotificationService.requestNotificationAccess();
 
     WidgetsBinding.instance.addObserver(this);
 
@@ -1042,7 +1040,7 @@ class HomeScreenState extends State<HomeScreen>
                                       decoration: BoxDecoration(
                                         color: const Color(0xFF2196F3),
                                         shape: BoxShape.circle,
-                                        border: Border.all(color: Colors.white, width: 1.5),
+                                        border: Border.all(color: AppColors.cardOf(context), width: 1.5),
                                       ),
                                       child: const Icon(
                                         Icons.auto_awesome,
@@ -1087,67 +1085,28 @@ class HomeScreenState extends State<HomeScreen>
                                           ),
                                         ),
                                       ),
-                                      if (isAutoDetected) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF2196F3).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
-                                              width: 0.5,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.auto_awesome,
-                                                size: 9,
-                                                color: Colors.blue.shade600,
-                                              ),
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                'Auto',
-                                                style: TextStyle(
-                                                  color: Colors.blue.shade600,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _formatTime(txn.date),
+                                        style: TextStyle(
+                                          color: AppColors.textMutedOf(context),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ],
+                                      ),
                                     ],
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
-                                  style: TextStyle(
-                                    color: isIncome ? AppColors.income : AppColors.textPrimaryOf(context),
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  _formatTime(txn.date),
-                                  style: TextStyle(
-                                    color: AppColors.textSecondaryOf(context),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                            Text(
+                              '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
+                              style: TextStyle(
+                                color: isIncome ? AppColors.income : AppColors.expense,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                              ),
                             ),
                           ],
                         ),

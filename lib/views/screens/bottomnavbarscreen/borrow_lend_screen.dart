@@ -22,6 +22,9 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
+  late Stream<List<DebtModel>> _debtsStream;
+  List<DebtModel> _cachedDebts = const [];
+
   int _typeFilter = 0; // 0 = All, 1 = Lent (You Gave), 2 = Borrowed (You Took)
   int _statusFilter = 0; // 0 = Pending, 1 = Settled, 2 = All
   String _searchQuery = '';
@@ -34,7 +37,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   @override
   void initState() {
     super.initState();
-    _loadRecentContacts();
+    _debtsStream = _debtService.getDebtsStream();
     _loadHomeSyncPreference();
   }
 
@@ -43,13 +46,6 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadRecentContacts() async {
-    final contacts = await _debtService.getRecentContacts();
-    if (mounted) {
-      setState(() => _recentContacts = contacts);
-    }
   }
 
   Future<void> _loadHomeSyncPreference() async {
@@ -83,7 +79,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   }
 
   Future<void> refreshData() async {
-    await _loadRecentContacts();
+    _debtsStream = _debtService.getDebtsStream();
     await _loadHomeSyncPreference();
     if (mounted) setState(() {});
   }
@@ -110,12 +106,24 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
       backgroundColor: AppColors.backgroundOf(context),
       body: SafeArea(
         child: StreamBuilder<List<DebtModel>>(
-          stream: _debtService.getDebtsStream(),
+          stream: _debtsStream,
+          initialData: _cachedDebts.isNotEmpty ? _cachedDebts : null,
           builder: (context, snapshot) {
-            final allDebts = snapshot.data ?? [];
+            final allDebts = snapshot.data ?? _cachedDebts;
+            if (snapshot.hasData && snapshot.data != null) {
+              _cachedDebts = snapshot.data!;
+              final contacts = <String>{};
+              for (final d in _cachedDebts) {
+                if (d.personName.trim().isNotEmpty) {
+                  contacts.add(d.personName.trim());
+                }
+              }
+              _recentContacts = contacts.toList();
+            }
             final isLoading =
                 snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData;
+                    !snapshot.hasData &&
+                    _cachedDebts.isEmpty;
 
             // Compute summary metrics (only pending counts towards active balance)
             double totalLentPending = 0;
@@ -154,6 +162,31 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               return true;
             }).toList();
 
+            // Build header items list for efficient rendering
+            final headerWidgets = <Widget>[
+              _buildSummaryCards(
+                context,
+                totalLentPending: totalLentPending,
+                totalBorrowedPending: totalBorrowedPending,
+                netBalance: netBalance,
+              ),
+              const SizedBox(height: 14),
+              if (dueTodayOrOverdue.isNotEmpty) ...[
+                _buildDueAlertBanner(context, dueTodayOrOverdue),
+                const SizedBox(height: 14),
+              ],
+              _buildSearchBar(context),
+              const SizedBox(height: 12),
+              _buildTypeFilters(context, allDebts),
+              const SizedBox(height: 10),
+              _buildStatusFilters(context, allDebts),
+              const SizedBox(height: 16),
+            ];
+
+            final headerCount = headerWidgets.length;
+            final debtCount = filteredDebts.length;
+            final totalCount = headerCount + (debtCount == 0 ? 1 : debtCount);
+
             return Column(
               children: [
                 _buildHeader(context),
@@ -167,49 +200,27 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       : RefreshIndicator(
                           onRefresh: refreshData,
                           color: AppColors.primary,
-                          child: ListView(
+                          child: ListView.builder(
                             controller: _scrollController,
                             physics: const AlwaysScrollableScrollPhysics(
                               parent: BouncingScrollPhysics(),
                             ),
                             padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                            children: [
-                              _buildSummaryCards(
+                            itemCount: totalCount,
+                            itemBuilder: (context, index) {
+                              if (index < headerCount) {
+                                return headerWidgets[index];
+                              }
+                              final debtIndex = index - headerCount;
+                              if (debtCount == 0) {
+                                return _buildEmptyState(context);
+                              }
+                              return _buildDebtCard(
                                 context,
-                                totalLentPending: totalLentPending,
-                                totalBorrowedPending: totalBorrowedPending,
-                                netBalance: netBalance,
-                              ),
-                              const SizedBox(height: 14),
-
-                              if (dueTodayOrOverdue.isNotEmpty) ...[
-                                _buildDueAlertBanner(
-                                  context,
-                                  dueTodayOrOverdue,
-                                ),
-                                const SizedBox(height: 14),
-                              ],
-
-                              _buildSearchBar(context),
-                              const SizedBox(height: 12),
-
-                              _buildTypeFilters(context, allDebts),
-                              const SizedBox(height: 10),
-
-                              _buildStatusFilters(context, allDebts),
-                              const SizedBox(height: 16),
-
-                              if (filteredDebts.isEmpty)
-                                _buildEmptyState(context)
-                              else
-                                ...filteredDebts.map(
-                                  (debt) => _buildDebtCard(
-                                    context,
-                                    debt,
-                                    isDark,
-                                  ),
-                                ),
-                            ],
+                                filteredDebts[debtIndex],
+                                isDark,
+                              );
+                            },
                           ),
                         ),
                 ),
@@ -254,76 +265,48 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               ],
             ),
           ),
-          Row(
-            children: [
-              // Home Screen Sync Toggle Pill
-              GestureDetector(
-                onTap: _toggleHomeSyncPreference,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
+          // Home Screen Sync Toggle Pill
+          GestureDetector(
+            onTap: _toggleHomeSyncPreference,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: _includeDebtsInHome
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : AppColors.surfaceOf(context),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _includeDebtsInHome
+                      ? AppColors.primary.withValues(alpha: 0.4)
+                      : AppColors.borderOf(context),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _includeDebtsInHome
+                        ? Icons.home_rounded
+                        : Icons.home_outlined,
+                    size: 14,
                     color: _includeDebtsInHome
-                        ? AppColors.primary.withValues(alpha: 0.12)
-                        : AppColors.surfaceOf(context),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+                        ? AppColors.primary
+                        : AppColors.textSecondaryOf(context),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _includeDebtsInHome ? 'On Home' : 'Separate',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
                       color: _includeDebtsInHome
-                          ? AppColors.primary.withValues(alpha: 0.4)
-                          : AppColors.borderOf(context),
+                          ? AppColors.primary
+                          : AppColors.textSecondaryOf(context),
                     ),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _includeDebtsInHome
-                            ? Icons.home_rounded
-                            : Icons.home_outlined,
-                        size: 14,
-                        color: _includeDebtsInHome
-                            ? AppColors.primary
-                            : AppColors.textSecondaryOf(context),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _includeDebtsInHome ? 'On Home' : 'Separate',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _includeDebtsInHome
-                              ? AppColors.primary
-                              : AppColors.textSecondaryOf(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                ],
               ),
-              const SizedBox(width: 8),
-              // Quick-add button in header
-              GestureDetector(
-                onTap: () => openAddSheet(),
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.add_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -2501,9 +2484,7 @@ Please let me know once convenient to transfer. Thank you!''';
             existingDebt: existingDebt,
             initialType: initialType,
             recentContacts: _recentContacts,
-            onSaved: () {
-              _loadRecentContacts();
-            },
+            onSaved: () {},
           ),
         );
       },

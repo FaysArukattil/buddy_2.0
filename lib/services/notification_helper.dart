@@ -303,7 +303,7 @@ class NotificationHelper {
     debugPrint('🔔 Shown success notification for ₹$amount');
   }
 
-  /// Schedule repayment reminder for a borrow/lend record
+  /// Schedule repayment reminders: 2 days before due date AND on the due date
   static Future<void> scheduleRepaymentReminder({
     required int id,
     required String personName,
@@ -313,29 +313,69 @@ class NotificationHelper {
   }) async {
     await initialize();
 
-    final isLend = type.toLowerCase() == 'lend';
-    final title = isLend
-        ? '💰 Repayment Reminder: $personName'
-        : '🔔 Repayment Due: $personName';
-    final body = isLend
-        ? '$personName is scheduled to repay ₹${amount.toStringAsFixed(0)} today. Tap to check details!'
-        : 'Today is your scheduled date to repay ₹${amount.toStringAsFixed(0)} to $personName.';
-
-    final scheduledDate = DateTime(
-      dueDate.year,
-      dueDate.month,
-      dueDate.day,
-      9,
-      0,
-    );
-
     final now = DateTime.now();
+    final isLend = type.toLowerCase() == 'lend';
+    final formattedAmount = '₹${amount.toStringAsFixed(0)}';
 
     const channelId = 'debt_reminders';
     const channelName = 'Repayment Reminders';
     const channelDesc = 'Notifications for borrowing and lending repayment dates';
 
-    final androidDetails = AndroidNotificationDetails(
+    // ── 1. Schedule advance reminder (2 days before) ──
+    final advanceDate = DateTime(
+      dueDate.year, dueDate.month, dueDate.day - 2, 9, 0,
+    );
+    final advanceId = id + 50000; // Offset to avoid collision with due-day ID
+
+    if (advanceDate.isAfter(now)) {
+      final advanceTitle = isLend
+          ? '📅 Upcoming: $personName owes $formattedAmount'
+          : '📅 Upcoming: You owe $formattedAmount to $personName';
+      final advanceBody = isLend
+          ? '$personName is scheduled to repay $formattedAmount in 2 days. You may want to send a reminder!'
+          : 'Your repayment of $formattedAmount to $personName is due in 2 days. Plan ahead!';
+
+      final advanceAndroid = AndroidNotificationDetails(
+        channelId,
+        channelName,
+        channelDescription: channelDesc,
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+        styleInformation: BigTextStyleInformation(
+          advanceBody,
+          contentTitle: advanceTitle,
+          summaryText: 'Due in 2 days',
+        ),
+      );
+
+      try {
+        final tzAdvance = tz.TZDateTime.from(advanceDate, tz.local);
+        await _notifications.zonedSchedule(
+          advanceId,
+          advanceTitle,
+          advanceBody,
+          tzAdvance,
+          NotificationDetails(android: advanceAndroid),
+          androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+          payload: 'debt_advance_$id',
+        );
+        debugPrint('🔔 Scheduled advance reminder for $personName on $advanceDate (id=$advanceId)');
+      } catch (e) {
+        debugPrint('⚠️ Error scheduling advance reminder: $e');
+      }
+    }
+
+    // ── 2. Schedule due-date reminder ──
+    final dueDayTitle = isLend
+        ? '💰 Repayment Due Today: $personName'
+        : '🔔 Repayment Due Today: $personName';
+    final dueDayBody = isLend
+        ? '$personName is scheduled to repay $formattedAmount today. Tap to check details!'
+        : 'Today is your scheduled date to repay $formattedAmount to $personName.';
+
+    final dueAndroid = AndroidNotificationDetails(
       channelId,
       channelName,
       channelDescription: channelDesc,
@@ -344,39 +384,43 @@ class NotificationHelper {
       playSound: true,
       enableVibration: true,
       styleInformation: BigTextStyleInformation(
-        body,
-        contentTitle: title,
+        dueDayBody,
+        contentTitle: dueDayTitle,
         summaryText: isLend ? 'Borrower Repayment Due' : 'Lender Repayment Due',
       ),
     );
 
-    final notificationDetails = NotificationDetails(android: androidDetails);
+    final dueDateNotification = NotificationDetails(android: dueAndroid);
+
+    final scheduledDate = DateTime(
+      dueDate.year, dueDate.month, dueDate.day, 9, 0,
+    );
 
     try {
       if (scheduledDate.isAfter(now)) {
         final tzScheduled = tz.TZDateTime.from(scheduledDate, tz.local);
         await _notifications.zonedSchedule(
           id,
-          title,
-          body,
+          dueDayTitle,
+          dueDayBody,
           tzScheduled,
-          notificationDetails,
+          dueDateNotification,
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           payload: 'debt_$id',
         );
-        debugPrint('🔔 Scheduled repayment reminder for $personName on $scheduledDate (id=$id)');
+        debugPrint('🔔 Scheduled due-date reminder for $personName on $scheduledDate (id=$id)');
       } else if (dueDate.year == now.year && dueDate.month == now.month && dueDate.day == now.day) {
         await _notifications.show(
           id,
-          title,
-          body,
-          notificationDetails,
+          dueDayTitle,
+          dueDayBody,
+          dueDateNotification,
           payload: 'debt_$id',
         );
-        debugPrint('🔔 Triggered immediate repayment reminder for $personName (due today, id=$id)');
+        debugPrint('🔔 Triggered immediate due-date reminder for $personName (due today, id=$id)');
       }
     } catch (e) {
-      debugPrint('⚠️ Error scheduling repayment reminder: $e');
+      debugPrint('⚠️ Error scheduling due-date reminder: $e');
     }
   }
 

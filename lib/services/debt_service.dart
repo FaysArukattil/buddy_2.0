@@ -138,6 +138,7 @@ class DebtService {
     // Reschedule reminder if needed
     if (debt.notificationId != null) {
       await NotificationHelper.cancelNotification(debt.notificationId!);
+      await NotificationHelper.cancelNotification(debt.notificationId! + 50000);
       if (debt.remindOnDueDate && !debt.isRepaid) {
         await NotificationHelper.scheduleRepaymentReminder(
           id: debt.notificationId!,
@@ -168,6 +169,7 @@ class DebtService {
       // Cancel reminder notification when settled
       if (debt.notificationId != null) {
         await NotificationHelper.cancelNotification(debt.notificationId!);
+        await NotificationHelper.cancelNotification(debt.notificationId! + 50000);
       }
 
       // Record repayment transaction if chosen

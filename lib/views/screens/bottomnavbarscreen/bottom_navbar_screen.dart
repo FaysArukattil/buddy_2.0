@@ -29,7 +29,6 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
 
   late final PageController _pageController;
   int _currentIndex = 0;
-  double _page = 0;
   bool _dragging = false;
   double _dragIndicatorPage = 0;
   double _dragStartPage = 0;
@@ -50,10 +49,6 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     AppInitHelper.initialize();
     AppInitHelper.seedCategoriesIfNeeded();
     _pageController = PageController(initialPage: _currentIndex);
-    _pageController.addListener(() {
-      final p = _pageController.page ?? _currentIndex.toDouble();
-      if (p != _page) setState(() => _page = p);
-    });
     _fabController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -84,12 +79,6 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             physics: const ClampingScrollPhysics(),
             onPageChanged: (i) {
               setState(() => _currentIndex = i);
-              // Refresh screens when navigating to them
-              if (i == 1) {
-                _statisticsKey.currentState?.refreshData();
-              } else if (i == 2) {
-                _borrowLendKey.currentState?.refreshData();
-              }
             },
             children: [
               HomeScreen(key: _homeKey),
@@ -137,149 +126,165 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                         horizontal: 6,
                         vertical: 6,
                       ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final totalWidth = constraints.maxWidth;
-                          const itemCount = 4;
-                          final itemWidth = totalWidth / itemCount;
-                          final indicatorWidth = itemWidth - 8;
+                      child: AnimatedBuilder(
+                        animation: _pageController,
+                        builder: (context, _) {
+                          final double currentPage = _pageController.hasClients &&
+                                  _pageController.position.haveDimensions
+                              ? (_pageController.page ?? _currentIndex.toDouble())
+                              : _currentIndex.toDouble();
 
-                          final animatedLeft =
-                              (_dragging
-                                  ? (_dragIndicatorPage.clamp(
-                                          0,
-                                          itemCount - 1,
-                                        ) *
-                                        itemWidth)
-                                  : (_page.clamp(0, itemCount - 1) *
-                                        itemWidth)) +
-                              4;
+                          return LayoutBuilder(
+                            builder: (context, constraints) {
+                              final totalWidth = constraints.maxWidth;
+                              const itemCount = 4;
+                              final itemWidth = totalWidth / itemCount;
+                              final indicatorWidth = itemWidth - 8;
 
-                          return GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onPanStart: (details) {
-                              _dragAccumX = 0;
-                              setState(() {
-                                _dragging = true;
-                                _dragStartPage = _page;
-                                _dragIndicatorPage = _page;
-                              });
-                            },
-                            onPanUpdate: (details) {
-                              _dragAccumX += details.delta.dx;
-                              final deltaPages = _dragAccumX / itemWidth;
-                              final double newPage =
-                                  (_dragStartPage + deltaPages).clamp(
+                              final animatedLeft = (_dragging
+                                      ? (_dragIndicatorPage.clamp(
+                                              0,
+                                              itemCount - 1,
+                                            ) *
+                                          itemWidth)
+                                      : (currentPage.clamp(
+                                              0,
+                                              itemCount - 1,
+                                            ) *
+                                          itemWidth)) +
+                                  4;
+
+                              return GestureDetector(
+                                behavior: HitTestBehavior.translucent,
+                                onPanStart: (details) {
+                                  _dragAccumX = 0;
+                                  setState(() {
+                                    _dragging = true;
+                                    _dragStartPage = currentPage;
+                                    _dragIndicatorPage = currentPage;
+                                  });
+                                },
+                                onPanUpdate: (details) {
+                                  _dragAccumX += details.delta.dx;
+                                  final deltaPages = _dragAccumX / itemWidth;
+                                  final double newPage =
+                                      (_dragStartPage + deltaPages).clamp(
                                     0.0,
                                     (itemCount - 1).toDouble(),
                                   );
-                              setState(() {
-                                _dragIndicatorPage = newPage;
-                              });
-                              if (_pageController.hasClients &&
-                                  _pageController.position.haveDimensions) {
-                                final w =
-                                    _pageController.position.viewportDimension;
-                                _pageController.position.jumpTo(newPage * w);
-                              }
-                            },
-                            onPanEnd: (details) {
-                              final target = _dragIndicatorPage.round();
-                              setState(() {
-                                _dragging = false;
-                              });
-                              _goTo(target);
-                            },
-                            child: SizedBox(
-                              height: 48,
-                              child: Stack(
-                                children: [
-                                  // Animated pill indicator behind icons
-                                  Positioned(
-                                    left: animatedLeft,
-                                    top: 4,
-                                    width: indicatorWidth,
-                                    height: 40,
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 120,
-                                      ),
-                                      curve: Curves.easeOut,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(14),
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            AppColors.primary.withValues(
-                                              alpha: 0.38,
-                                            ),
-                                            AppColors.secondary.withValues(
-                                              alpha: 0.30,
-                                            ),
-                                          ],
-                                        ),
-                                        border: Border.all(
-                                          color: AppColors.secondary.withValues(
-                                            alpha: 0.35,
-                                          ),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Icons row (equal width slots, strictly centered)
-                                  Row(
+                                  setState(() {
+                                    _dragIndicatorPage = newPage;
+                                  });
+                                  if (_pageController.hasClients &&
+                                      _pageController.position.haveDimensions) {
+                                    final w = _pageController
+                                        .position.viewportDimension;
+                                    _pageController.position.jumpTo(newPage * w);
+                                  }
+                                },
+                                onPanEnd: (details) {
+                                  final target = _dragIndicatorPage.round();
+                                  setState(() {
+                                    _dragging = false;
+                                  });
+                                  _goTo(target);
+                                },
+                                child: SizedBox(
+                                  height: 48,
+                                  child: Stack(
                                     children: [
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: _NavIcon(
-                                            icon: Icons.home_rounded,
-                                            outline: Icons.home_outlined,
-                                            selected: (_page.round() == 0),
-                                            onTap: () => _goTo(0),
+                                      // Indicator pill behind icons
+                                      Positioned(
+                                        left: animatedLeft,
+                                        top: 4,
+                                        width: indicatorWidth,
+                                        height: 40,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                AppColors.primary.withValues(
+                                                  alpha: 0.38,
+                                                ),
+                                                AppColors.secondary.withValues(
+                                                  alpha: 0.30,
+                                                ),
+                                              ],
+                                            ),
+                                            border: Border.all(
+                                              color: AppColors.secondary
+                                                  .withValues(
+                                                alpha: 0.35,
+                                              ),
+                                              width: 1,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: _NavIcon(
-                                            icon: Icons.bar_chart_rounded,
-                                            outline: Icons.bar_chart_rounded,
-                                            selected: (_page.round() == 1),
-                                            onTap: () => _goTo(1),
+
+                                      // Icons row (equal width slots, strictly centered)
+                                      Row(
+                                        children: [
+                                          SizedBox(
+                                            width: itemWidth,
+                                            child: Center(
+                                              child: _NavIcon(
+                                                icon: Icons.home_rounded,
+                                                outline: Icons.home_outlined,
+                                                selected:
+                                                    (currentPage.round() == 0),
+                                                onTap: () => _goTo(0),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: _NavIcon(
-                                            icon: Icons.handshake_rounded,
-                                            outline: Icons.handshake_outlined,
-                                            selected: (_page.round() == 2),
-                                            onTap: () => _goTo(2),
+                                          SizedBox(
+                                            width: itemWidth,
+                                            child: Center(
+                                              child: _NavIcon(
+                                                icon: Icons.bar_chart_rounded,
+                                                outline:
+                                                    Icons.bar_chart_rounded,
+                                                selected:
+                                                    (currentPage.round() == 1),
+                                                onTap: () => _goTo(1),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: _NavIcon(
-                                            icon: Icons.person_rounded,
-                                            outline:
-                                                Icons.person_outline_rounded,
-                                            selected: (_page.round() == 3),
-                                            onTap: () => _goTo(3),
+                                          SizedBox(
+                                            width: itemWidth,
+                                            child: Center(
+                                              child: _NavIcon(
+                                                icon: Icons.handshake_rounded,
+                                                outline:
+                                                    Icons.handshake_outlined,
+                                                selected:
+                                                    (currentPage.round() == 2),
+                                                onTap: () => _goTo(2),
+                                              ),
+                                            ),
                                           ),
-                                        ),
+                                          SizedBox(
+                                            width: itemWidth,
+                                            child: Center(
+                                              child: _NavIcon(
+                                                icon: Icons.person_rounded,
+                                                outline: Icons
+                                                    .person_outline_rounded,
+                                                selected:
+                                                    (currentPage.round() == 3),
+                                                onTap: () => _goTo(3),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -407,16 +412,6 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       duration: const Duration(milliseconds: 260),
       curve: Curves.easeOut,
     );
-    // Refresh screens when navigating to them
-    if (index == 1) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        _statisticsKey.currentState?.refreshData();
-      });
-    } else if (index == 2) {
-      Future.delayed(const Duration(milliseconds: 300), () {
-        _borrowLendKey.currentState?.refreshData();
-      });
-    }
   }
 }
 

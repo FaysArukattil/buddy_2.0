@@ -67,6 +67,10 @@ class MainActivity : FlutterActivity() {
                     val enabled = isNotificationListenerEnabled()
                     result.success(enabled)
                 }
+                "openNotificationListenerSettings" -> {
+                    openNotificationListenerSettings()
+                    result.success(true)
+                }
                 "getUnsyncedTransactionCount" -> {
                     // Return count of unsynced transactions in SharedPreferences
                     val count = getUnsyncedTransactionCount()
@@ -119,6 +123,25 @@ class MainActivity : FlutterActivity() {
             "enabled_notification_listeners"
         )
         return flat != null && flat.contains(applicationContext.packageName)
+    }
+
+    private fun openNotificationListenerSettings() {
+        try {
+            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open notification listener settings: ${e.message}")
+            try {
+                val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                startActivity(intent)
+            } catch (e2: Exception) {
+                Log.e(TAG, "Failed to open general settings: ${e2.message}")
+            }
+        }
     }
 
     private fun getUnsyncedTransactionCount(): Int {
