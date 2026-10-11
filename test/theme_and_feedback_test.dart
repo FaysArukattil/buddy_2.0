@@ -58,5 +58,17 @@ void main() {
       expect(uri.queryParameters['subject'], '[Bug Report] Test issue');
       expect(uri.queryParameters['body'], 'Here are the details');
     });
+
+    test('getAppInfo returns map containing version and os info', () async {
+      final info = await FeedbackService.getAppInfo();
+      expect(info.containsKey('version'), isTrue);
+      expect(info.containsKey('os'), isTrue);
+      expect(info['version'], isNotEmpty);
+    });
+
+    test('getAppVersionDisplay returns formatted version string starting with v', () async {
+      final display = await FeedbackService.getAppVersionDisplay();
+      expect(display.startsWith('v'), isTrue);
+    });
   });
 }

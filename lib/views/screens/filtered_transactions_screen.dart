@@ -8,7 +8,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 
 class FilteredTransactionsScreen extends StatefulWidget {
-  final String type; // 'income', 'expense', or 'All'
+  final String type; // 'Income', 'Expense', or 'All'
 
   const FilteredTransactionsScreen({super.key, required this.type});
 
@@ -17,87 +17,71 @@ class FilteredTransactionsScreen extends StatefulWidget {
       _FilteredTransactionsScreenState();
 }
 
-class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
-    with TickerProviderStateMixin {
+class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen> {
   final FirestoreService _firestore = FirestoreService.instance;
   List<Map<String, dynamic>> _allRows = [];
-  List<Map<String, dynamic>> _displayedTransactions = [];
-  List<Map<String, dynamic>> _nextTransactions = [];
-  DateTime _currentMonth = DateTime.now();
-  DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
-  double _total = 0;
   bool _showingToday = true;
+  double _total = 0;
 
-  // Drag state for real-time preview
-  double _dragOffset = 0.0;
-  bool _isDragging = false;
-  DateTime? _previewDate;
-  DateTime? _previewMonth;
-  bool _previewLoaded = false;
+  // Base anchors for infinite smooth swiping
+  static const int _baseIndex = 5000;
+  late final DateTime _anchorDate;
+  late final DateTime _anchorMonth;
 
-  // Animation controllers
-  late AnimationController _slideController;
-  late Animation<Offset> _currentSlideAnimation;
-  late Animation<Offset> _nextSlideAnimation;
-  bool _isTransitioning = false;
-  bool _isSwipingNext = true;
+  DateTime _selectedDate = DateTime.now();
+  DateTime _currentMonth = DateTime.now();
 
-  // Toggle animation properties
+  late final PageController _dayController;
+  late final PageController _monthController;
+
+  // Toggle animation properties for Today / This Month pill
   double _togglePage = 0.0;
   bool _toggleDragging = false;
   double _toggleDragStartPage = 0.0;
   double _toggleAccumX = 0.0;
 
-  // Page indicator animation
-  late AnimationController _indicatorController;
-  late Animation<double> _indicatorAnimation;
-
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _anchorDate = DateTime(now.year, now.month, now.day);
+    _anchorMonth = DateTime(now.year, now.month, 1);
+    _selectedDate = _anchorDate;
+    _currentMonth = _anchorMonth;
+
+    _dayController = PageController(initialPage: _baseIndex);
+    _monthController = PageController(initialPage: _baseIndex);
+
     _load();
-
-    _slideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 350),
-    );
-
-    _indicatorController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-
-    _indicatorAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _indicatorController, curve: Curves.easeInOut),
-    );
-
-    _updateSlideAnimations(true);
-  }
-
-  void _updateSlideAnimations(bool isNext) {
-    _currentSlideAnimation =
-        Tween<Offset>(
-          begin: Offset.zero,
-          end: Offset(isNext ? -1.0 : 1.0, 0),
-        ).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
-
-    _nextSlideAnimation =
-        Tween<Offset>(
-          begin: Offset(isNext ? 1.0 : -1.0, 0),
-          end: Offset.zero,
-        ).animate(
-          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
-        );
   }
 
   @override
   void dispose() {
-    _slideController.dispose();
-    _indicatorController.dispose();
+    _dayController.dispose();
+    _monthController.dispose();
     super.dispose();
+  }
+
+  DateTime _getDateForIndex(int index) {
+    final offset = index - _baseIndex;
+    return DateTime(_anchorDate.year, _anchorDate.month, _anchorDate.day + offset);
+  }
+
+  int _getIndexForDate(DateTime dt) {
+    final d1 = DateTime(dt.year, dt.month, dt.day);
+    final d2 = _anchorDate;
+    return _baseIndex + d1.difference(d2).inDays;
+  }
+
+  DateTime _getMonthForIndex(int index) {
+    final offset = index - _baseIndex;
+    return DateTime(_anchorMonth.year, _anchorMonth.month + offset, 1);
+  }
+
+  int _getIndexForMonth(DateTime dt) {
+    final offset = (dt.year - _anchorMonth.year) * 12 + (dt.month - _anchorMonth.month);
+    return _baseIndex + offset;
   }
 
   Future<void> _load() async {
@@ -114,12 +98,15 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
         'note': t.note,
         'id': t.id,
         'autoDetected': t.autoDetected,
+        'auto_detected': t.autoDetected,
+        'notificationSource': t.notificationSource,
       }).toList();
+
       setState(() {
         _allRows = rows;
         _isLoading = false;
+        _updateTotal();
       });
-      _filterByMonth();
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -129,13 +116,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   }
 
   List<Map<String, dynamic>> _getFilteredTransactions(
-    DateTime date,
+    DateTime target,
     bool isToday,
   ) {
+    final targetType = widget.type.toLowerCase().trim();
     final filtered = _allRows.where((r) {
       final type = (r['type'] as String?)?.toLowerCase().trim() ?? '';
-      if (widget.type.toLowerCase().trim() != 'all' &&
-          widget.type.toLowerCase().trim() != type) {
+      if (targetType != 'all' && targetType != type) {
         return false;
       }
 
@@ -146,11 +133,11 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
       if (dt == null) return false;
 
       if (isToday) {
-        return dt.year == date.year &&
-            dt.month == date.month &&
-            dt.day == date.day;
+        return dt.year == target.year &&
+            dt.month == target.month &&
+            dt.day == target.day;
       } else {
-        return dt.year == date.year && dt.month == date.month;
+        return dt.year == target.year && dt.month == target.month;
       }
     }).toList();
 
@@ -164,21 +151,23 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     return filtered.map((r) {
       final dt = DateTime.tryParse(r['date'] as String) ?? DateTime.now();
       final amt = (r['amount'] as num).toDouble();
+      final note = (r['note'] as String?)?.trim();
+      final category = (r['category'] as String?) ?? 'Other';
       return {
         'type': r['type'],
-        'title': (r['note'] as String?)?.isNotEmpty == true
-            ? r['note']
-            : r['category'],
-        'subtitle': r['category'],
+        'title': (note != null && note.isNotEmpty) ? note : category,
+        'subtitle': category,
         'amount': amt,
         'time': _formatTime(dt),
         'date': dt,
-        'category': r['category'],
+        'category': category,
         'note': r['note'],
-        'avatarText': (r['category'] as String?)?.substring(0, 1) ?? '?',
+        'avatarText': category.isNotEmpty ? category.substring(0, 1) : '?',
         'icon': r['icon'],
         'id': r['id'],
         'autoDetected': r['autoDetected'] as bool? ?? false,
+        'auto_detected': r['autoDetected'] as bool? ?? false,
+        'notificationSource': r['notificationSource'],
       };
     }).toList();
   }
@@ -187,7 +176,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     double total = 0;
     for (var tx in transactions) {
       final type = (tx['type'] as String).toLowerCase().trim();
-      final amt = tx['amount'] as double;
+      final amt = (tx['amount'] as num).toDouble();
       if (type == 'income') {
         total += amt;
       } else if (type == 'expense') {
@@ -197,215 +186,68 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     return total;
   }
 
-  void _filterByMonth() {
-    final transactions = _getFilteredTransactions(
+  void _updateTotal() {
+    final list = _getFilteredTransactions(
       _showingToday ? _selectedDate : _currentMonth,
       _showingToday,
     );
-
-    setState(() {
-      _displayedTransactions = transactions;
-      _total = _calculateTotal(transactions);
-    });
-  }
-
-  void _resetDragState() {
-    _dragOffset = 0.0;
-    _isDragging = false;
-    _nextTransactions = [];
-    _previewDate = null;
-    _previewMonth = null;
-    _previewLoaded = false;
-  }
-
-  // Real-time drag preview handlers
-  void _onHorizontalDragStart(DragStartDetails details) {
-    if (_isTransitioning) return;
-    setState(() {
-      _isDragging = true;
-      _dragOffset = 0.0;
-      _previewLoaded = false;
-    });
-  }
-
-  void _onHorizontalDragUpdate(DragUpdateDetails details) {
-    if (_isTransitioning) return;
-
-    setState(() {
-      _dragOffset += details.delta.dx;
-
-      // Load preview data when drag exceeds threshold
-      if (_dragOffset.abs() > 30 && !_previewLoaded) {
-        final isNext = _dragOffset < 0;
-
-        if (_showingToday) {
-          _previewDate = DateTime(
-            _selectedDate.year,
-            _selectedDate.month,
-            _selectedDate.day + (isNext ? 1 : -1),
-          );
-          _nextTransactions = _getFilteredTransactions(_previewDate!, true);
-        } else {
-          _previewMonth = DateTime(
-            _currentMonth.year,
-            _currentMonth.month + (isNext ? 1 : -1),
-          );
-          _nextTransactions = _getFilteredTransactions(_previewMonth!, false);
-        }
-        _previewLoaded = true;
-      }
-    });
-  }
-
-  void _onHorizontalDragEnd(DragEndDetails details) {
-    if (_isTransitioning) return;
-
-    final screenWidth = MediaQuery.of(context).size.width;
-    final threshold = screenWidth * 0.25;
-    final velocity = details.primaryVelocity ?? 0;
-    final velocityThreshold = 800;
-
-    // Determine if swipe should complete
-    final shouldComplete =
-        _dragOffset.abs() > threshold || velocity.abs() > velocityThreshold;
-
-    if (shouldComplete && _previewLoaded) {
-      // Determine direction
-      final isNext =
-          _dragOffset < 0 ||
-          (velocity.abs() > velocityThreshold && velocity < 0);
-      _completeSwipeWithAnimation(isNext);
-    } else {
-      // Cancel the swipe
-      setState(() {
-        _resetDragState();
-      });
-    }
-  }
-
-  void _completeSwipeWithAnimation(bool isNext) {
-    if (!_previewLoaded) return;
-
-    HapticFeedback.mediumImpact();
-    _indicatorController.forward(from: 0);
-
-    // Recalculate target date/month and data to ensure correctness
-    final DateTime? targetDate;
-    final DateTime? targetMonth;
-    final List<Map<String, dynamic>> targetTransactions;
-
-    if (_showingToday) {
-      targetDate = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day + (isNext ? 1 : -1),
-      );
-      targetMonth = null;
-      targetTransactions = _getFilteredTransactions(targetDate, true);
-    } else {
-      targetDate = null;
-      targetMonth = DateTime(
-        _currentMonth.year,
-        _currentMonth.month + (isNext ? 1 : -1),
-      );
-      targetTransactions = _getFilteredTransactions(targetMonth, false);
-    }
-
-    setState(() {
-      _isTransitioning = true;
-      _isSwipingNext = isNext;
-      _isDragging = false;
-      _nextTransactions = targetTransactions;
-    });
-
-    _updateSlideAnimations(isNext);
-    _slideController.reset();
-    _slideController.forward().then((_) {
-      if (!mounted) return;
-
-      setState(() {
-        if (_showingToday && targetDate != null) {
-          _selectedDate = targetDate;
-        } else if (!_showingToday && targetMonth != null) {
-          _currentMonth = targetMonth;
-        }
-
-        _displayedTransactions = targetTransactions;
-        _total = _calculateTotal(targetTransactions);
-        _isTransitioning = false;
-        _resetDragState();
-      });
-      _slideController.reset();
-    });
-  }
-
-  // Arrow button handlers (uses animation)
-  void _changeMonth(bool isNext) {
-    if (_isTransitioning || _isDragging) return;
-
-    HapticFeedback.mediumImpact();
-    _indicatorController.forward(from: 0);
-
-    final nextMonth = DateTime(
-      _currentMonth.year,
-      _currentMonth.month + (isNext ? 1 : -1),
-    );
-
-    final nextTransactions = _getFilteredTransactions(nextMonth, false);
-
-    setState(() {
-      _isTransitioning = true;
-      _isSwipingNext = isNext;
-      _nextTransactions = nextTransactions;
-    });
-
-    _updateSlideAnimations(isNext);
-    _slideController.reset();
-    _slideController.forward().then((_) {
-      if (!mounted) return;
-      setState(() {
-        _currentMonth = nextMonth;
-        _displayedTransactions = nextTransactions;
-        _total = _calculateTotal(nextTransactions);
-        _isTransitioning = false;
-        _resetDragState();
-      });
-      _slideController.reset();
-    });
+    _total = _calculateTotal(list);
   }
 
   void _changeDate(bool isNext) {
-    if (_isTransitioning || _isDragging) return;
+    if (!_dayController.hasClients) return;
+    HapticFeedback.selectionClick();
+    if (isNext) {
+      _dayController.nextPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
+    } else {
+      _dayController.previousPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _changeMonth(bool isNext) {
+    if (!_monthController.hasClients) return;
+    HapticFeedback.selectionClick();
+    if (isNext) {
+      _monthController.nextPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
+    } else {
+      _monthController.previousPage(
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeInOutCubic,
+      );
+    }
+  }
+
+  void _toggleView(int index) {
+    if ((_showingToday && index == 0) || (!_showingToday && index == 1)) {
+      return;
+    }
 
     HapticFeedback.mediumImpact();
-    _indicatorController.forward(from: 0);
-
-    final nextDate = DateTime(
-      _selectedDate.year,
-      _selectedDate.month,
-      _selectedDate.day + (isNext ? 1 : -1),
-    );
-
-    final nextTransactions = _getFilteredTransactions(nextDate, true);
 
     setState(() {
-      _isTransitioning = true;
-      _isSwipingNext = isNext;
-      _nextTransactions = nextTransactions;
-    });
-
-    _updateSlideAnimations(isNext);
-    _slideController.reset();
-    _slideController.forward().then((_) {
-      if (!mounted) return;
-      setState(() {
-        _selectedDate = nextDate;
-        _displayedTransactions = nextTransactions;
-        _total = _calculateTotal(nextTransactions);
-        _isTransitioning = false;
-        _resetDragState();
-      });
-      _slideController.reset();
+      _showingToday = (index == 0);
+      _togglePage = index.toDouble();
+      if (_showingToday) {
+        _selectedDate = _anchorDate;
+        if (_dayController.hasClients) {
+          _dayController.jumpToPage(_baseIndex);
+        }
+      } else {
+        _currentMonth = _anchorMonth;
+        if (_monthController.hasClients) {
+          _monthController.jumpToPage(_baseIndex);
+        }
+      }
+      _updateTotal();
     });
   }
 
@@ -441,14 +283,19 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                         setState(() {
                           if (_showingToday) {
                             _selectedDate = tempDate;
+                            final idx = _getIndexForDate(tempDate);
+                            if (_dayController.hasClients) {
+                              _dayController.jumpToPage(idx);
+                            }
                           } else {
-                            _currentMonth = DateTime(
-                              tempDate.year,
-                              tempDate.month,
-                            );
+                            _currentMonth = DateTime(tempDate.year, tempDate.month, 1);
+                            final idx = _getIndexForMonth(_currentMonth);
+                            if (_monthController.hasClients) {
+                              _monthController.jumpToPage(idx);
+                            }
                           }
+                          _updateTotal();
                         });
-                        _filterByMonth();
                       },
                       child: const Text('Done'),
                     ),
@@ -461,7 +308,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                       ? CupertinoDatePickerMode.date
                       : CupertinoDatePickerMode.monthYear,
                   initialDateTime: tempDate,
-                  maximumDate: DateTime.now(),
+                  maximumDate: DateTime.now().add(const Duration(days: 365)),
                   onDateTimeChanged: (DateTime newDate) {
                     HapticFeedback.selectionClick();
                     tempDate = newDate;
@@ -475,26 +322,6 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     );
   }
 
-  void _toggleView(int index) {
-    if ((_showingToday && index == 0) || (!_showingToday && index == 1)) {
-      return;
-    }
-
-    HapticFeedback.mediumImpact();
-
-    setState(() {
-      _showingToday = (index == 0);
-      _togglePage = index.toDouble();
-      if (_showingToday) {
-        _selectedDate = DateTime.now();
-      } else {
-        _currentMonth = DateTime.now();
-      }
-      _resetDragState();
-    });
-    _filterByMonth();
-  }
-
   String _formatTime(DateTime d) {
     final hour = d.hour;
     final minute = d.minute.toString().padLeft(2, '0');
@@ -506,42 +333,20 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
   String _formatCurrency(double v) =>
       FormatUtils.formatCurrency(v, compact: true);
 
-
-
-  String _monthYearLabel() {
+  String _formatMonthYear(DateTime dt) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
-    return '${months[_currentMonth.month - 1]} ${_currentMonth.year}';
+    return '${months[dt.month - 1]} ${dt.year}';
   }
 
-  String _fullDateLabel() {
+  String _formatFullDate(DateTime dt) {
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
-    return '${months[_selectedDate.month - 1]} ${_selectedDate.day}, ${_selectedDate.year}';
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
   IconData _iconForNote(String? note) {
@@ -611,12 +416,15 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     return Icons.receipt_long_rounded;
   }
 
-  Widget _buildTransactionCard(Map<String, dynamic> tx, bool isAll) {
-    final txType = (tx['type'] as String).toLowerCase();
+  Widget _buildTransactionCard(Map<String, dynamic> tx) {
+    final txType = (tx['type'] as String).toLowerCase().trim();
     final isTxIncome = txType == 'income';
     final category = (tx['category'] as String?) ?? 'Other';
     final catColor = AppColors.getCategoryColor(category);
     final isAutoDetected = tx['autoDetected'] as bool? ?? false;
+    final title = (tx['title'] as String?)?.isNotEmpty == true
+        ? tx['title'] as String
+        : category;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
@@ -625,7 +433,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
           color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.borderOf(context),
+            color: AppColors.borderOf(context).withValues(alpha: 0.5),
             width: 1,
           ),
           boxShadow: AppColors.cardShadowOf(context),
@@ -658,42 +466,20 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
                         child: Row(
                           children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: catColor.withValues(alpha: 0.12),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    tx['icon'] != null
-                                        ? IconHelper.getIcon(tx['icon'])
-                                        : _iconForNote(tx['note'] as String?),
-                                    color: catColor,
-                                    size: 20,
-                                  ),
-                                ),
-                                if (isAutoDetected)
-                                  Positioned(
-                                    right: -2,
-                                    bottom: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: AppColors.cardOf(context), width: 1.5),
-                                      ),
-                                      child: const Icon(
-                                        Icons.auto_awesome,
-                                        size: 8,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: catColor.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                tx['icon'] != null
+                                    ? IconHelper.getIcon(tx['icon'])
+                                    : _iconForNote(tx['note'] as String?),
+                                color: catColor,
+                                size: 22,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -702,43 +488,53 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    (tx['title'] as String?)?.isNotEmpty == true ? tx['title'] as String : category,
+                                    title,
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14.5,
                                       color: AppColors.textPrimaryOf(context),
+                                      letterSpacing: -0.2,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 4),
                                   Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppColors.surfaceOf(context),
+                                          color: catColor.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           category,
                                           style: TextStyle(
-                                            color: AppColors.textSecondaryOf(context),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
+                                            color: catColor,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
                                           ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        tx['time'] as String? ?? '',
+                                        style: TextStyle(
+                                          color: AppColors.textLightOf(context),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                       if (isAutoDetected) ...[
                                         const SizedBox(width: 6),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFF2196F3).withValues(alpha: 0.1),
                                             borderRadius: BorderRadius.circular(6),
                                             border: Border.all(
                                               color: const Color(0xFF2196F3).withValues(alpha: 0.3),
-                                              width: 0.5,
+                                              width: 0.8,
                                             ),
                                           ),
                                           child: Row(
@@ -747,14 +543,14 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                               Icon(
                                                 Icons.auto_awesome,
                                                 size: 9,
-                                                color: Colors.blue.shade400,
+                                                color: Colors.blue.shade600,
                                               ),
-                                              const SizedBox(width: 2),
+                                              const SizedBox(width: 2.5),
                                               Text(
                                                 'Auto',
                                                 style: TextStyle(
-                                                  color: Colors.blue.shade400,
-                                                  fontSize: 9,
+                                                  color: Colors.blue.shade600,
+                                                  fontSize: 9.5,
                                                   fontWeight: FontWeight.w700,
                                                 ),
                                               ),
@@ -767,26 +563,29 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  '${isTxIncome ? '+' : '-'}${_formatCurrency(tx['amount'] as double)}',
+                                  '${isTxIncome ? '+' : '-'}${_formatCurrency((tx['amount'] as num).toDouble())}',
                                   style: TextStyle(
-                                    color: isTxIncome ? AppColors.income : AppColors.textPrimaryOf(context),
+                                    color: isTxIncome ? AppColors.income : AppColors.expense,
                                     fontWeight: FontWeight.w800,
-                                    fontSize: 14,
+                                    fontSize: 15.5,
+                                    letterSpacing: -0.3,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                const SizedBox(height: 2),
                                 Text(
-                                  _formatTime(tx['date'] as DateTime),
+                                  isTxIncome ? 'Income' : 'Expense',
                                   style: TextStyle(
-                                    color: AppColors.textSecondaryOf(context),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
+                                    color: isTxIncome
+                                        ? AppColors.income.withValues(alpha: 0.85)
+                                        : AppColors.textLightOf(context),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ],
@@ -805,11 +604,78 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     );
   }
 
+  Widget _buildPageContent(
+    List<Map<String, dynamic>> transactions,
+    DateTime pageTarget, {
+    required bool isToday,
+  }) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
+    }
+
+    if (transactions.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                widget.type.toLowerCase() == 'income'
+                    ? Icons.trending_up_rounded
+                    : (widget.type.toLowerCase() == 'expense'
+                        ? Icons.trending_down_rounded
+                        : Icons.receipt_long_rounded),
+                size: 72,
+                color: AppColors.isDark(context)
+                    ? AppColors.textMutedOf(context).withValues(alpha: 0.35)
+                    : Colors.grey.shade300,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                widget.type.toLowerCase() == 'all'
+                    ? 'No transactions'
+                    : 'No ${widget.type.toLowerCase()} transactions',
+                style: TextStyle(
+                  fontSize: 17,
+                  color: AppColors.textPrimaryOf(context),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                isToday
+                    ? 'for ${_formatFullDate(pageTarget)}'
+                    : 'for ${_formatMonthYear(pageTarget)}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondaryOf(context),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      physics: const BouncingScrollPhysics(),
+      itemCount: transactions.length,
+      itemBuilder: (context, index) {
+        final tx = transactions[index];
+        return _buildTransactionCard(tx);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isIncome = widget.type.toLowerCase() == 'income';
     final isAll = widget.type.toLowerCase() == 'all';
-    final screenWidth = MediaQuery.of(context).size.width;
 
     final accentColor = isAll
         ? AppColors.primary
@@ -855,436 +721,273 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
           ),
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              // Filter controls & Summary card
-              Container(
-                color: AppColors.cardOf(context),
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    // Toggle View (Today / Month)
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        final totalWidth = constraints.maxWidth * 0.7;
-                        const itemCount = 2;
-                        final itemWidth = totalWidth / itemCount;
-                        final indicatorWidth = itemWidth - 4;
+          // Filter controls & Summary card
+          Container(
+            color: AppColors.cardOf(context),
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                // Toggle View (Today / Month)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final totalWidth = constraints.maxWidth * 0.7;
+                    const itemCount = 2;
+                    final itemWidth = totalWidth / itemCount;
+                    final indicatorWidth = itemWidth - 4;
 
-                        final animatedLeft =
-                            (_toggleDragging
-                                    ? _togglePage.clamp(0, itemCount - 1)
-                                    : (_showingToday ? 0.0 : 1.0)) *
-                                itemWidth +
-                            2;
+                    final animatedLeft =
+                        (_toggleDragging
+                                ? _togglePage.clamp(0, itemCount - 1)
+                                : (_showingToday ? 0.0 : 1.0)) *
+                            itemWidth +
+                        2;
 
-                        return Center(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onPanStart: (details) {
-                              _toggleAccumX = 0;
-                              setState(() {
-                                _toggleDragging = true;
-                                _toggleDragStartPage = _showingToday
-                                    ? 0.0
-                                    : 1.0;
-                                _togglePage = _toggleDragStartPage;
-                              });
-                            },
-                            onPanUpdate: (details) {
-                              _toggleAccumX += details.delta.dx;
-                              final deltaPages = _toggleAccumX / itemWidth;
-                              final double newPage =
-                                  (_toggleDragStartPage + deltaPages).clamp(
-                                    0.0,
-                                    1.0,
-                                  );
-                              setState(() {
-                                _togglePage = newPage;
-                              });
-                            },
-                            onPanEnd: (details) {
-                              final target = _togglePage.round();
-                              setState(() {
-                                _toggleDragging = false;
-                              });
-                              _toggleView(target);
-                            },
-                            child: Container(
-                              width: totalWidth,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceOf(context),
-                                borderRadius: BorderRadius.circular(12),
+                    return Center(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onPanStart: (details) {
+                          _toggleAccumX = 0;
+                          setState(() {
+                            _toggleDragging = true;
+                            _toggleDragStartPage = _showingToday ? 0.0 : 1.0;
+                            _togglePage = _toggleDragStartPage;
+                          });
+                        },
+                        onPanUpdate: (details) {
+                          _toggleAccumX += details.delta.dx;
+                          final deltaPages = _toggleAccumX / itemWidth;
+                          final double newPage =
+                              (_toggleDragStartPage + deltaPages).clamp(0.0, 1.0);
+                          setState(() {
+                            _togglePage = newPage;
+                          });
+                        },
+                        onPanEnd: (details) {
+                          final target = _togglePage.round();
+                          setState(() {
+                            _toggleDragging = false;
+                          });
+                          _toggleView(target);
+                        },
+                        child: Container(
+                          width: totalWidth,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceOf(context),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                left: animatedLeft,
+                                top: 2,
+                                width: indicatorWidth,
+                                height: 36,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 120),
+                                  curve: Curves.easeOut,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.cardOf(context),
+                                    borderRadius: BorderRadius.circular(10),
+                                    boxShadow: AppColors.cardShadowOf(context),
+                                  ),
+                                ),
                               ),
-                              child: Stack(
+                              Row(
                                 children: [
-                                  Positioned(
-                                    left: animatedLeft,
-                                    top: 2,
-                                    width: indicatorWidth,
-                                    height: 36,
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 120,
-                                      ),
-                                      curve: Curves.easeOut,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.cardOf(context),
-                                        borderRadius: BorderRadius.circular(10),
-                                        boxShadow: AppColors.cardShadowOf(context),
+                                  SizedBox(
+                                    width: itemWidth,
+                                    child: Center(
+                                      child: GestureDetector(
+                                        onTap: () => _toggleView(0),
+                                        child: Text(
+                                          'Today',
+                                          style: TextStyle(
+                                            color: _showingToday
+                                                ? accentColor
+                                                : AppColors.textSecondaryOf(context),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  Row(
-                                    children: [
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: GestureDetector(
-                                            onTap: () => _toggleView(0),
-                                            child: Text(
-                                              'Today',
-                                              style: TextStyle(
-                                                color: _showingToday
-                                                    ? accentColor
-                                                    : AppColors.textSecondaryOf(context),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                  SizedBox(
+                                    width: itemWidth,
+                                    child: Center(
+                                      child: GestureDetector(
+                                        onTap: () => _toggleView(1),
+                                        child: Text(
+                                          'This Month',
+                                          style: TextStyle(
+                                            color: !_showingToday
+                                                ? accentColor
+                                                : AppColors.textSecondaryOf(context),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
-                                      SizedBox(
-                                        width: itemWidth,
-                                        child: Center(
-                                          child: GestureDetector(
-                                            onTap: () => _toggleView(1),
-                                            child: Text(
-                                              'This Month',
-                                              style: TextStyle(
-                                                color: !_showingToday
-                                                    ? accentColor
-                                                    : AppColors.textSecondaryOf(context),
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
+                            ],
                           ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    // Date/Month navigation
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          onPressed: (_isTransitioning || _isDragging)
-                              ? null
-                              : () => _showingToday
-                                    ? _changeDate(false)
-                                    : _changeMonth(false),
-                          icon: Icon(
-                            Icons.chevron_left_rounded,
-                            color: (_isTransitioning || _isDragging)
-                                ? AppColors.textLightOf(context)
-                                : AppColors.textPrimaryOf(context),
-                            size: 32,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: _showMonthPicker,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceOf(context),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: AppColors.borderOf(context),
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _showingToday
-                                      ? _fullDateLabel()
-                                      : _monthYearLabel(),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimaryOf(context),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.calendar_today_rounded,
-                                  color: AppColors.textSecondaryOf(context),
-                                  size: 14,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: (_isTransitioning || _isDragging)
-                              ? null
-                              : () => _showingToday
-                                    ? _changeDate(true)
-                                    : _changeMonth(true),
-                          icon: Icon(
-                            Icons.chevron_right_rounded,
-                            color: (_isTransitioning || _isDragging)
-                                ? AppColors.textLightOf(context)
-                                : AppColors.textPrimaryOf(context),
-                            size: 32,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    // Total Summary
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: cardBgColor,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: accentColor.withValues(alpha: 0.15),
-                          width: 1,
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Total',
-                            style: TextStyle(
-                              color: AppColors.textSecondaryOf(context),
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.2,
-                            ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                // Date/Month navigation with chevron buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      onPressed: () => _showingToday ? _changeDate(false) : _changeMonth(false),
+                      icon: Icon(
+                        Icons.chevron_left_rounded,
+                        color: AppColors.textPrimaryOf(context),
+                        size: 32,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _showMonthPicker,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceOf(context),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.borderOf(context),
+                            width: 1,
                           ),
-                          Flexible(
-                            child: Text(
-                              _formatCurrency(_total),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _showingToday
+                                  ? _formatFullDate(_selectedDate)
+                                  : _formatMonthYear(_currentMonth),
                               style: TextStyle(
-                                color: textTotalColor,
-                                fontSize: 24,
+                                color: AppColors.textPrimaryOf(context),
+                                fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                letterSpacing: -0.5,
                               ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              color: AppColors.textSecondaryOf(context),
+                              size: 14,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => _showingToday ? _changeDate(true) : _changeMonth(true),
+                      icon: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.textPrimaryOf(context),
+                        size: 32,
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              // Swipable transactions list with real-time preview
-              Expanded(
-                child: GestureDetector(
-                  onHorizontalDragStart: _onHorizontalDragStart,
-                  onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                  onHorizontalDragEnd: _onHorizontalDragEnd,
-                  child: Stack(
+                const SizedBox(height: 16),
+                // Total Summary Card
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: cardBgColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.15),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Current transactions (with drag offset or animation)
-                      if (!_isTransitioning)
-                        Transform.translate(
-                          offset: Offset(_dragOffset, 0),
-                          child: _buildContentView(
-                            isAll,
-                            isIncome,
-                            _displayedTransactions,
-                          ),
-                        )
-                      else
-                        SlideTransition(
-                          position: _currentSlideAnimation,
-                          child: _buildContentView(
-                            isAll,
-                            isIncome,
-                            _displayedTransactions,
-                          ),
+                      Text(
+                        'Total',
+                        style: TextStyle(
+                          color: AppColors.textSecondaryOf(context),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.2,
                         ),
-
-                      // Next/Previous transactions preview
-                      if (_isDragging && _previewLoaded)
-                        Transform.translate(
-                          offset: Offset(
-                            _dragOffset < 0
-                                ? screenWidth + _dragOffset
-                                : -screenWidth + _dragOffset,
-                            0,
+                      ),
+                      Flexible(
+                        child: Text(
+                          _formatCurrency(_total),
+                          style: TextStyle(
+                            color: textTotalColor,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
                           ),
-                          child: _buildContentView(
-                            isAll,
-                            isIncome,
-                            _nextTransactions,
-                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
                         ),
-
-                      // Next content sliding in during animation
-                      if (_isTransitioning)
-                        SlideTransition(
-                          position: _nextSlideAnimation,
-                          child: _buildContentView(
-                            isAll,
-                            isIncome,
-                            _nextTransactions,
-                          ),
-                        ),
+                      ),
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
 
-          // Page indicator overlay
-          AnimatedBuilder(
-            animation: _indicatorAnimation,
-            builder: (context, child) {
-              if (_indicatorAnimation.value == 0) {
-                return const SizedBox.shrink();
-              }
-
-              return Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Opacity(
-                    opacity: 1.0 - _indicatorAnimation.value,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: accentColor.withValues(alpha: 0.9),
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            _isSwipingNext
-                                ? Icons.arrow_forward_rounded
-                                : Icons.arrow_back_rounded,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            _showingToday
-                                ? _fullDateLabel()
-                                : _monthYearLabel(),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+          // High-performance, buttery-smooth swipable PageView
+          Expanded(
+            child: _showingToday
+                ? PageView.builder(
+                    controller: _dayController,
+                    physics: const BouncingScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      final pageDate = _getDateForIndex(index);
+                      final txns = _getFilteredTransactions(pageDate, true);
+                      return _buildPageContent(txns, pageDate, isToday: true);
+                    },
+                    onPageChanged: (index) {
+                      final newDate = _getDateForIndex(index);
+                      setState(() {
+                        _selectedDate = newDate;
+                        _total = _calculateTotal(_getFilteredTransactions(newDate, true));
+                      });
+                    },
+                  )
+                : PageView.builder(
+                    controller: _monthController,
+                    physics: const BouncingScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      final pageMonth = _getMonthForIndex(index);
+                      final txns = _getFilteredTransactions(pageMonth, false);
+                      return _buildPageContent(txns, pageMonth, isToday: false);
+                    },
+                    onPageChanged: (index) {
+                      final newMonth = _getMonthForIndex(index);
+                      setState(() {
+                        _currentMonth = newMonth;
+                        _total = _calculateTotal(_getFilteredTransactions(newMonth, false));
+                      });
+                    },
                   ),
-                ),
-              );
-            },
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildContentView(
-    bool isAll,
-    bool isIncome,
-    List<Map<String, dynamic>> transactions,
-  ) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
-    }
-
-    if (transactions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              isAll
-                  ? Icons.receipt_long_rounded
-                  : (isIncome
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded),
-              size: 80,
-              color: AppColors.textLightOf(context),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No ${widget.type.toLowerCase()} transactions',
-              style: TextStyle(
-                fontSize: 18,
-                color: AppColors.textSecondaryOf(context),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _showingToday
-                  ? 'for ${_fullDateLabel()}'
-                  : 'for ${_monthYearLabel()}',
-              style: TextStyle(fontSize: 14, color: AppColors.textLightOf(context)),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      physics: const BouncingScrollPhysics(),
-      itemCount: transactions.length,
-      itemBuilder: (context, index) {
-        final tx = transactions[index];
-        return _buildTransactionCard(tx, isAll);
-      },
     );
   }
 }

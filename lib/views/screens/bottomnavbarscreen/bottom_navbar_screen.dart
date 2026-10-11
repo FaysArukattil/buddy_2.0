@@ -7,6 +7,7 @@ import 'package:buddy/views/screens/bottomnavbarscreen/borrow_lend_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/profile_screen.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/app_init_helper.dart';
+import 'package:buddy/services/support_service.dart';
 import 'package:buddy/views/widgets/offline_banner.dart';
 
 class BottomNavbarScreen extends StatefulWidget {
@@ -64,6 +65,12 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       end: 6.0,
     ).animate(CurvedAnimation(parent: _fabController, curve: Curves.easeInOut));
     _fabController.repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        SupportService.checkAndShowMonthlySupportPrompt(context);
+      }
+    });
   }
 
   @override

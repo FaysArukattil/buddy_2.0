@@ -598,12 +598,18 @@ class HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Filter display transactions based on debt separation setting
-    final displayTransactions = _includeDebtsInBalance
+    // Filter display transactions based on debt separation setting and balance view mode
+    final baseTransactions = _includeDebtsInBalance
         ? _transactions
         : _transactions
             .where((txn) => txn.category != 'Lending' && txn.category != 'Borrowing')
             .toList();
+
+    final displayTransactions = _balanceViewMode == 1
+        ? baseTransactions.where((txn) => txn.type.toLowerCase().trim() == 'income').toList()
+        : _balanceViewMode == 2
+            ? baseTransactions.where((txn) => txn.type.toLowerCase().trim() == 'expense').toList()
+            : baseTransactions;
 
     // Group transactions by date
     final grouped = <String, List<TransactionModel>>{};
@@ -1025,7 +1031,9 @@ class HomeScreenState extends State<HomeScreen>
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Recent Transactions',
+                            _balanceViewMode == 1
+                                ? 'Recent Income'
+                                : (_balanceViewMode == 2 ? 'Recent Expenses' : 'Recent Transactions'),
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
@@ -1035,11 +1043,13 @@ class HomeScreenState extends State<HomeScreen>
                           if (displayTransactions.isNotEmpty)
                             TextButton(
                               onPressed: () {
+                                final seeAllType = _balanceViewMode == 1
+                                    ? 'Income'
+                                    : (_balanceViewMode == 2 ? 'Expense' : 'All');
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) =>
-                                        const FilteredTransactionsScreen(type: 'All'),
+                                    builder: (_) => FilteredTransactionsScreen(type: seeAllType),
                                   ),
                                 ).then((_) => refreshData());
                               },
@@ -1076,7 +1086,11 @@ class HomeScreenState extends State<HomeScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.receipt_long_rounded,
+                            _balanceViewMode == 1
+                                ? Icons.trending_up_rounded
+                                : (_balanceViewMode == 2
+                                    ? Icons.trending_down_rounded
+                                    : Icons.receipt_long_rounded),
                             size: 64,
                             color: AppColors.isDark(context)
                                 ? AppColors.textMutedOf(context).withValues(alpha: 0.4)
@@ -1084,7 +1098,11 @@ class HomeScreenState extends State<HomeScreen>
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No transactions yet',
+                            _balanceViewMode == 1
+                                ? 'No income transactions'
+                                : (_balanceViewMode == 2
+                                    ? 'No expense transactions'
+                                    : 'No transactions yet'),
                             style: TextStyle(
                               fontSize: 16,
                               color: AppColors.textPrimaryOf(context),
@@ -1093,7 +1111,11 @@ class HomeScreenState extends State<HomeScreen>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Tap + to add your first transaction',
+                            _balanceViewMode == 1
+                                ? 'Tap + to add an income transaction'
+                                : (_balanceViewMode == 2
+                                    ? 'Tap + to add an expense transaction'
+                                    : 'Tap + to add your first transaction'),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
@@ -1282,9 +1304,10 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildTransactionTile(TransactionModel txn) {
-    final isIncome = txn.type.toLowerCase() == 'income';
+    final isIncome = txn.type.toLowerCase().trim() == 'income';
     final catColor = AppColors.getCategoryColor(txn.category);
     final isAutoDetected = txn.autoDetected;
+    final title = (txn.note?.trim().isNotEmpty == true) ? txn.note!.trim() : txn.category;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
@@ -1316,7 +1339,7 @@ class HomeScreenState extends State<HomeScreen>
                       onTap: () {
                         final displayMap = txn.toDisplayMap();
                         Navigator.push(
-                           context,
+                          context,
                           MaterialPageRoute(
                             builder: (_) => TransactionDetailScreen(data: displayMap),
                           ),
@@ -1326,40 +1349,18 @@ class HomeScreenState extends State<HomeScreen>
                         padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
                         child: Row(
                           children: [
-                            Stack(
-                              children: [
-                                Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: catColor.withValues(alpha: 0.1),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    IconHelper.getIcon(txn.icon),
-                                    color: catColor,
-                                    size: 20,
-                                  ),
-                                ),
-                                if (isAutoDetected)
-                                  Positioned(
-                                    right: -2,
-                                    bottom: -2,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF2196F3),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(color: AppColors.cardOf(context), width: 1.5),
-                                      ),
-                                      child: const Icon(
-                                        Icons.auto_awesome,
-                                        size: 8,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: catColor.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                IconHelper.getIcon(txn.icon),
+                                color: catColor,
+                                size: 22,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -1368,30 +1369,31 @@ class HomeScreenState extends State<HomeScreen>
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text(
-                                    txn.note?.isNotEmpty == true ? txn.note! : txn.category,
+                                    title,
                                     style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14.5,
                                       color: AppColors.textPrimaryOf(context),
+                                      letterSpacing: -0.2,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 3),
+                                  const SizedBox(height: 4),
                                   Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppColors.surfaceOf(context),
+                                          color: catColor.withValues(alpha: 0.12),
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           txn.category,
                                           style: TextStyle(
-                                            color: AppColors.textSecondaryOf(context),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
+                                            color: catColor,
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),
@@ -1399,24 +1401,75 @@ class HomeScreenState extends State<HomeScreen>
                                       Text(
                                         _formatTime(txn.date),
                                         style: TextStyle(
-                                          color: AppColors.textMutedOf(context),
-                                          fontSize: 10,
+                                          color: AppColors.textLightOf(context),
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
+                                      if (isAutoDetected) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF2196F3).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(6),
+                                            border: Border.all(
+                                              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.auto_awesome,
+                                                size: 9,
+                                                color: Colors.blue.shade600,
+                                              ),
+                                              const SizedBox(width: 2.5),
+                                              Text(
+                                                'Auto',
+                                                style: TextStyle(
+                                                  color: Colors.blue.shade600,
+                                                  fontSize: 9.5,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
-                              style: TextStyle(
-                                color: isIncome ? AppColors.income : AppColors.expense,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                              ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
+                                  style: TextStyle(
+                                    color: isIncome ? AppColors.income : AppColors.expense,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15.5,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isIncome ? 'Income' : 'Expense',
+                                  style: TextStyle(
+                                    color: isIncome
+                                        ? AppColors.income.withValues(alpha: 0.85)
+                                        : AppColors.textLightOf(context),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

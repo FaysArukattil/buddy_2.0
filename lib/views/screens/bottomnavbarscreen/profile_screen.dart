@@ -14,6 +14,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/feedback_service.dart';
+import 'package:buddy/services/support_service.dart';
 import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
 import 'package:buddy/utils/app_snackbar.dart';
@@ -865,6 +866,15 @@ class ProfileScreenState extends State<ProfileScreen>
                             subtitle: 'Suggest features to faysarukattil@gmail.com',
                             color: const Color(0xFF7C4DFF),
                             onTap: () => FeedbackService.requestFeature(context),
+                          ),
+                          const SizedBox(height: 10),
+                          // Buy Me a Chai Tile
+                          _buildProfileFeedbackTile(
+                            icon: Icons.local_cafe_rounded,
+                            title: 'Buy Me a Chai ☕',
+                            subtitle: 'Support the developer at buymeachai.in',
+                            color: const Color(0xFFFF9800),
+                            onTap: () => SupportService.openBuyMeChai(context),
                           ),
                         ],
                       ),

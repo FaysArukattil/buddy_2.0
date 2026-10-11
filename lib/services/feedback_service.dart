@@ -1,5 +1,7 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/app_snackbar.dart';
 
@@ -13,10 +15,60 @@ class FeedbackService {
         .join('&');
   }
 
-  /// Opens the user's email client to report a bug.
+  /// Retrieves current installed app version information dynamically.
+  static Future<Map<String, String>> getAppInfo() async {
+    String version = '1.0.0';
+    String buildNumber = '';
+    String appName = 'Buddy';
+
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) {
+        version = info.version;
+      }
+      buildNumber = info.buildNumber;
+      if (info.appName.isNotEmpty) {
+        appName = info.appName;
+      }
+    } catch (e) {
+      debugPrint('Notice: package_info_plus fallback: $e');
+    }
+
+    String osInfo = 'Unknown';
+    try {
+      osInfo = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+    } catch (_) {}
+
+    return {
+      'version': version,
+      'buildNumber': buildNumber,
+      'appName': appName,
+      'os': osInfo,
+    };
+  }
+
+  /// Returns a clean display string for the app version (e.g. "v12.0.0" or "v12.0.0 (Build 12)")
+  static Future<String> getAppVersionDisplay({bool includeBuild = false}) async {
+    final info = await getAppInfo();
+    final version = info['version'] ?? '1.0.0';
+    final buildNumber = info['buildNumber'] ?? '';
+    if (includeBuild && buildNumber.isNotEmpty) {
+      return 'v$version+$buildNumber';
+    }
+    return 'v$version';
+  }
+
+  /// Opens the user's email client to report a bug with the current installed version and device specs.
   static Future<void> reportBug(BuildContext context) async {
-    const String subject = '[Bug Report] Buddy App v1.0.0';
-    const String body = '''Hi Developer,
+    final info = await getAppInfo();
+    final version = info['version']!;
+    final buildNumber = info['buildNumber']!;
+    final os = info['os']!;
+
+    final versionLabel =
+        buildNumber.isNotEmpty ? 'v$version (Build $buildNumber)' : 'v$version';
+    final subject = '[Bug Report] Buddy App $versionLabel';
+    final body = '''Hi Developer,
 
 I found a bug in Buddy App:
 
@@ -27,10 +79,11 @@ Steps to reproduce:
 2. 
 3. 
 
-Device / Android Version: 
-App Version: 1.0.0
+Device / OS: $os
+App Version: $version${buildNumber.isNotEmpty ? '+$buildNumber' : ''}
 ''';
 
+    if (!context.mounted) return;
     await _sendEmail(
       context: context,
       subject: subject,
@@ -41,8 +94,14 @@ App Version: 1.0.0
 
   /// Opens the user's email client to request a new feature.
   static Future<void> requestFeature(BuildContext context) async {
-    const String subject = '[Feature Request] Buddy App';
-    const String body = '''Hi Developer,
+    final info = await getAppInfo();
+    final version = info['version']!;
+    final buildNumber = info['buildNumber']!;
+
+    final versionLabel =
+        buildNumber.isNotEmpty ? 'v$version (Build $buildNumber)' : 'v$version';
+    final subject = '[Feature Request] Buddy App $versionLabel';
+    final body = '''Hi Developer,
 
 I would love to see a new feature in Buddy App:
 
@@ -50,8 +109,11 @@ I would love to see a new feature in Buddy App:
 
 Why it would be helpful:
 [Explain how it will improve your experience]
+
+App Version: $version${buildNumber.isNotEmpty ? '+$buildNumber' : ''}
 ''';
 
+    if (!context.mounted) return;
     await _sendEmail(
       context: context,
       subject: subject,

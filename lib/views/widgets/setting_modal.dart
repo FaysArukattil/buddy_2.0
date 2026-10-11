@@ -7,6 +7,7 @@ import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/feedback_service.dart';
+import 'package:buddy/services/support_service.dart';
 import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
@@ -27,6 +28,7 @@ class _SettingsModalState extends State<SettingsModal> {
   bool _isLoading = true;
   bool _isToggling = false; // Prevents rapid-fire toggle spam
   bool _isAccountActionLoading = false;
+  String _appVersion = 'v1.0.0';
   final AuthService _authService = AuthService();
 
   @override
@@ -41,10 +43,12 @@ class _SettingsModalState extends State<SettingsModal> {
       final hasAccess = await NotificationService.isNotificationAccessGranted();
       final prefs = await SharedPreferences.getInstance();
       final includeDebts = prefs.getBool('include_debts_in_balance') ?? true;
+      final versionStr = await FeedbackService.getAppVersionDisplay();
       if (mounted) {
         setState(() {
           _autoDetectionEnabled = enabled && hasAccess;
           _includeDebtsInBalance = includeDebts;
+          _appVersion = versionStr;
           _isLoading = false;
         });
       }
@@ -971,6 +975,16 @@ class _SettingsModalState extends State<SettingsModal> {
                   color: const Color(0xFF7C4DFF),
                   onTap: () => FeedbackService.requestFeature(context),
                 ),
+                const SizedBox(height: 12),
+
+                // Buy Me a Chai
+                _buildActionTile(
+                  icon: Icons.local_cafe_rounded,
+                  title: 'Buy Me a Chai ☕',
+                  subtitle: 'Support the developer at buymeachai.in/faysarukattil',
+                  color: const Color(0xFFFF9800),
+                  onTap: () => SupportService.openBuyMeChai(context),
+                ),
 
                 const SizedBox(height: 28),
 
@@ -1093,7 +1107,7 @@ class _SettingsModalState extends State<SettingsModal> {
                 // ── App Version ──
                 Center(
                   child: Text(
-                    'Buddy v1.0.0',
+                    'Buddy $_appVersion',
                     style: TextStyle(
                       fontSize: 12,
                       color: textSecondary.withValues(alpha: 0.6),
