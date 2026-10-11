@@ -91,10 +91,23 @@ class NotificationTestHelper extends StatelessWidget {
                 onPressed: () => _testSbiUpiDebit(context),
                 color: Colors.blue.shade900,
               ),
+              _TestButton(
+                label: 'ATM Card ₹3000',
+                onPressed: () => _testAtmWithdrawal(context),
+                color: Colors.teal.shade800,
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _testAtmWithdrawal(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Rs 3000 withdrawn@ DAHISAR  on 03OCT26 10:34 Bal Rs 32839.08 Ref 627610749779. Not you? Call 18004251199/ SMS NO 1549 to 9895088888 -Federal Bank.',
+      packageName: 'com.google.android.apps.messaging',
     );
   }
 
@@ -278,10 +291,19 @@ class NotificationTestHelper extends StatelessWidget {
     final category = _detectCategory(text, type);
     final icon = _getIconForCategory(category);
 
+    String note = 'Test: $text';
+    final atmMatch = RegExp(r'withdrawn\s*[@at]\s*([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)', caseSensitive: false).firstMatch(text);
+    if (atmMatch != null) {
+      final loc = atmMatch.group(1)?.trim();
+      if (loc != null && loc.isNotEmpty) {
+        note = 'Cash Withdrawal ($loc)';
+      }
+    }
+
     return {
       'amount': amount,
       'type': type,
-      'note': 'Test: $text',
+      'note': note,
       'category': category,
       'icon': icon,
     };
@@ -291,6 +313,11 @@ class NotificationTestHelper extends StatelessWidget {
     final lowerText = text.toLowerCase();
 
     if (type == 'expense') {
+      if (lowerText.contains('atm') ||
+          lowerText.contains('cash') ||
+          lowerText.contains('withdrawn')) {
+        return 'Cash & ATM';
+      }
       if (lowerText.contains('swiggy') ||
           lowerText.contains('zomato') ||
           lowerText.contains('restaurant') ||

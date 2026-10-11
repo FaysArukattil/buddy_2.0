@@ -1,6 +1,7 @@
 // lib/views/widgets/settings_modal.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
@@ -21,6 +22,7 @@ class SettingsModal extends StatefulWidget {
 
 class _SettingsModalState extends State<SettingsModal> {
   bool _autoDetectionEnabled = false;
+  bool _includeDebtsInBalance = true;
   bool _isLoading = true;
   bool _isToggling = false; // Prevents rapid-fire toggle spam
   bool _isAccountActionLoading = false;
@@ -36,9 +38,12 @@ class _SettingsModalState extends State<SettingsModal> {
     try {
       final enabled = await NotificationService.isAutoDetectionEnabled();
       final hasAccess = await NotificationService.isNotificationAccessGranted();
+      final prefs = await SharedPreferences.getInstance();
+      final includeDebts = prefs.getBool('include_debts_in_balance') ?? true;
       if (mounted) {
         setState(() {
           _autoDetectionEnabled = enabled && hasAccess;
+          _includeDebtsInBalance = includeDebts;
           _isLoading = false;
         });
       }
@@ -47,6 +52,15 @@ class _SettingsModalState extends State<SettingsModal> {
       if (mounted) {
         setState(() => _isLoading = false);
       }
+    }
+  }
+
+  Future<void> _toggleIncludeDebts(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('include_debts_in_balance', value);
+    if (mounted) {
+      setState(() => _includeDebtsInBalance = value);
+      widget.onDataCleared();
     }
   }
 
@@ -995,6 +1009,65 @@ class _SettingsModalState extends State<SettingsModal> {
                     ),
                   ),
                 ],
+
+                const SizedBox(height: 14),
+
+                // ── Reflect Debts in Home Screen Toggle ──
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    border: Border.all(color: borderColor, width: 1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00897B).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.account_balance_wallet_outlined,
+                          color: Color(0xFF00897B),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Reflect Debts in Home Screen',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              _includeDebtsInBalance
+                                  ? 'Borrow & Lend included in main balance and transactions'
+                                  : 'Tracked separately (excluded from main balance)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _includeDebtsInBalance,
+                        onChanged: _toggleIncludeDebts,
+                        activeThumbColor: AppColors.primary,
+                      ),
+                    ],
+                  ),
+                ),
 
                 const SizedBox(height: 28),
 

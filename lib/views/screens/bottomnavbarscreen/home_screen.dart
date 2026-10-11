@@ -8,6 +8,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/views/widgets/setting_modal.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
@@ -30,6 +31,8 @@ class HomeScreenState extends State<HomeScreen>
   double _totalBalance = 0;
   double _income = 0;
   double _expenses = 0;
+  int _balanceViewMode = 0; // 0 = Net Balance, 1 = Income only, 2 = Expense only
+  bool _includeDebtsInBalance = true;
   late final AnimationController _controller;
   late final Animation<double> _bobAnimation;
   final ScrollController _scrollController = ScrollController();
@@ -87,25 +90,9 @@ class HomeScreenState extends State<HomeScreen>
         (transactions) {
           if (!mounted) return;
 
-          final now = DateTime.now();
-          double monthIncome = 0;
-          double monthExpense = 0;
-
-          for (final txn in transactions) {
-            if (txn.date.year == now.year && txn.date.month == now.month) {
-              if (txn.type == 'income') {
-                monthIncome += txn.amount;
-              } else {
-                monthExpense += txn.amount;
-              }
-            }
-          }
-
+          _transactions = transactions;
+          _recalculateTotals(transactions);
           setState(() {
-            _transactions = transactions;
-            _income = monthIncome;
-            _expenses = monthExpense;
-            _totalBalance = monthIncome - monthExpense;
             _isLoading = false;
           });
         },
@@ -120,9 +107,37 @@ class HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _recalculateTotals(List<TransactionModel> transactions) {
+    final now = DateTime.now();
+    double monthIncome = 0;
+    double monthExpense = 0;
+
+    for (final txn in transactions) {
+      final isDebt = txn.category == 'Lending' || txn.category == 'Borrowing';
+      if (!_includeDebtsInBalance && isDebt) {
+        continue;
+      }
+      if (txn.date.year == now.year && txn.date.month == now.month) {
+        if (txn.type == 'income') {
+          monthIncome += txn.amount;
+        } else {
+          monthExpense += txn.amount;
+        }
+      }
+    }
+
+    setState(() {
+      _income = monthIncome;
+      _expenses = monthExpense;
+      _totalBalance = monthIncome - monthExpense;
+    });
+  }
+
   Future<void> refreshData() async {
-    _loadUser();
-    // Stream auto-refreshes, but we can restart it
+    await _loadUser();
+    if (_transactions.isNotEmpty) {
+      _recalculateTotals(_transactions);
+    }
     _startListening();
   }
 
@@ -132,6 +147,7 @@ class HomeScreenState extends State<HomeScreen>
 
     final savedName = prefs.getString('name')?.trim() ?? '';
     final email = user?.email ?? prefs.getString('email')?.trim() ?? '';
+    final savedIncludeDebts = prefs.getBool('include_debts_in_balance') ?? true;
 
     String displayName = savedName;
     if (displayName.isEmpty && user?.displayName != null) {
@@ -146,7 +162,13 @@ class HomeScreenState extends State<HomeScreen>
     if (displayName.isEmpty) displayName = 'Guest';
 
     if (mounted) {
-      setState(() => _displayName = displayName);
+      setState(() {
+        _displayName = displayName;
+        _includeDebtsInBalance = savedIncludeDebts;
+      });
+      if (_transactions.isNotEmpty) {
+        _recalculateTotals(_transactions);
+      }
     }
   }
 
@@ -268,9 +290,16 @@ class HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
+    // Filter display transactions based on debt separation setting
+    final displayTransactions = _includeDebtsInBalance
+        ? _transactions
+        : _transactions
+            .where((txn) => txn.category != 'Lending' && txn.category != 'Borrowing')
+            .toList();
+
     // Group transactions by date
     final grouped = <String, List<TransactionModel>>{};
-    for (final txn in _transactions) {
+    for (final txn in displayTransactions) {
       final header = _getDateHeader(txn.date);
       grouped.putIfAbsent(header, () => []).add(txn);
     }
@@ -430,62 +459,117 @@ class HomeScreenState extends State<HomeScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Top Row: Toggles + Card Chip & Debts badge
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
-                                    'CURRENT BALANCE',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1.2,
+                                  // Toggles: Balance | Income | Expense
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.28),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(alpha: 0.15),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        _buildCardTogglePill(0, 'Balance'),
+                                        const SizedBox(width: 3),
+                                        _buildCardTogglePill(1, 'Income'),
+                                        const SizedBox(width: 3),
+                                        _buildCardTogglePill(2, 'Expense'),
+                                      ],
                                     ),
                                   ),
-                                  // Gold card chip
-                                  Container(
-                                    width: 38,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                      ),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                        color: Colors.white.withValues(alpha: 0.2),
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(4.0),
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                            children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+
+                                  Row(
+                                    children: [
+                                      if (!_includeDebtsInBalance) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withValues(alpha: 0.25),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.white24),
                                           ),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                            children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+                                          child: const Text(
+                                            'Debts Excl.',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
-                                        ],
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      // Gold card chip
+                                      Container(
+                                        width: 38,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            colors: [Color(0xFFFFD54F), Color(0xFFFFB300)],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.2),
+                                          ),
+                                        ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(4.0),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+                                              ),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                children: List.generate(3, (_) => Container(width: 4, height: 4, color: Colors.black26)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 14),
+                              Text(
+                                _balanceViewMode == 0
+                                    ? 'CURRENT BALANCE'
+                                    : (_balanceViewMode == 1 ? 'TOTAL MONTHLY INCOME' : 'TOTAL MONTHLY EXPENSES'),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
                               const SizedBox(height: 2),
                               Text(
-                                FormatUtils.formatCurrency(
-                                  _totalBalance,
-                                  compact: false,
-                                ),
+                                _balanceViewMode == 0
+                                    ? FormatUtils.formatCurrency(
+                                        _totalBalance,
+                                        compact: false,
+                                      )
+                                    : (_balanceViewMode == 1
+                                        ? '+${FormatUtils.formatCurrency(_income, compact: false)}'
+                                        : '-${FormatUtils.formatCurrency(_expenses, compact: false)}'),
                                 style: TextStyle(
-                                  color: _totalBalance >= 0
-                                      ? Colors.white
-                                      : Colors.red.shade300,
+                                  color: _balanceViewMode == 0
+                                      ? (_totalBalance >= 0 ? Colors.white : Colors.red.shade300)
+                                      : (_balanceViewMode == 1
+                                          ? const Color(0xFF69F0AE)
+                                          : const Color(0xFFFF8A80)),
                                   fontSize: 34,
                                   fontWeight: FontWeight.bold,
                                   letterSpacing: -0.5,
@@ -554,6 +638,7 @@ class HomeScreenState extends State<HomeScreen>
                                       value: _income,
                                       icon: Icons.arrow_upward_rounded,
                                       color: AppColors.income,
+                                      mode: 1,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -563,6 +648,7 @@ class HomeScreenState extends State<HomeScreen>
                                       value: _expenses,
                                       icon: Icons.arrow_downward_rounded,
                                       color: AppColors.expense,
+                                      mode: 2,
                                     ),
                                   ),
                                 ],
@@ -638,7 +724,7 @@ class HomeScreenState extends State<HomeScreen>
                               color: AppColors.textPrimaryOf(context),
                             ),
                           ),
-                          if (_transactions.isNotEmpty)
+                          if (displayTransactions.isNotEmpty)
                             TextButton(
                               onPressed: () {
                                 Navigator.push(
@@ -672,7 +758,7 @@ class HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 )
-              else if (_transactions.isEmpty)
+              else if (displayTransactions.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
@@ -775,14 +861,56 @@ class HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildCardTogglePill(int mode, String label) {
+    final isSelected = _balanceViewMode == mode;
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _balanceViewMode = mode);
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (mode == 1
+                  ? AppColors.income
+                  : mode == 2
+                      ? AppColors.expense
+                      : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? (mode == 0 ? Colors.black87 : Colors.white)
+                : Colors.white.withValues(alpha: 0.7),
+            fontSize: 10,
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStatTile({
     required String label,
     required double value,
     required IconData icon,
     required Color color,
+    required int mode,
   }) {
+    final isSelected = _balanceViewMode == mode;
     return GestureDetector(
       onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() {
+          _balanceViewMode = isSelected ? 0 : mode;
+        });
+      },
+      onLongPress: () {
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -795,11 +923,13 @@ class HomeScreenState extends State<HomeScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: isSelected
+              ? Colors.white.withValues(alpha: 0.24)
+              : Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.15),
-            width: 1,
+            color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.15),
+            width: isSelected ? 1.5 : 1,
           ),
         ),
         child: Row(

@@ -262,7 +262,7 @@ class NotificationListener : NotificationListenerService() {
 
         // Explicit debit patterns in bank SMS / UPI text
         private val DEBIT_ACTION_PATTERN = Regex(
-            """(?:debited\s*(?:(?:from|for|with|by|towards|on)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?debited|(?:debit|debiting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:spent|paid|withdrawn|transferred|sent|deducted|charged|utilized)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
+            """(?:debited\s*(?:(?:from|for|with|by|towards|on)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s*(?:has been\s+|is\s+|was\s+|got\s+)?(?:debited|withdrawn|spent|paid|transferred|sent|deducted|charged|utilized)|(?:debit|debiting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:spent|paid|withdrawn|transferred|sent|deducted|charged|utilized)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)?\s*[0-9,.]+\s*withdrawn\s*[@]?)""",
             RegexOption.IGNORE_CASE
         )
 
@@ -691,7 +691,11 @@ class NotificationListener : NotificationListenerService() {
             lowerText.contains("has a debit") ||
             lowerText.contains("withdrawn from") ||
             lowerText.contains("withdrawn at") ||
+            lowerText.contains("withdrawn@") ||
+            lowerText.contains("withdrawn @") ||
             lowerText.contains("cash withdrawn") ||
+            lowerText.contains("card withdrawn") ||
+            Regex("""\bwithdrawn\b""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
             lowerText.contains("you paid") ||
             lowerText.contains("paid to") ||
             lowerText.contains("paid at") ||
@@ -900,7 +904,17 @@ class NotificationListener : NotificationListenerService() {
         val type = if (isDebit) "expense" else "income"
         val (category, icon) = detectCategory(lowerText, type)
 
-        return Transaction(amount, type, category, icon, text.take(100))
+        // Generate clean note for ATM/cash withdrawals (e.g. "withdrawn@ DAHISAR" -> "Cash Withdrawal (DAHISAR)")
+        var note = text.take(100)
+        val atmMatch = Regex("""withdrawn\s*[@at]\s*([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+        if (atmMatch != null) {
+            val location = atmMatch.groupValues[1].trim()
+            if (location.isNotEmpty()) {
+                note = "Cash Withdrawal ($location)"
+            }
+        }
+
+        return Transaction(amount, type, category, icon, note)
     }
 
     /**

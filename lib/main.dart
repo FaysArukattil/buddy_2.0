@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:buddy/views/screens/onboarding/splashscreen/splash_screen.dart';
 import 'package:buddy/utils/colors.dart';
-import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/app_init_helper.dart';
 import 'package:buddy/services/theme_service.dart';
 import 'firebase_options.dart';
@@ -10,52 +9,27 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  debugPrint('🚀 APP: Starting initialization...');
+  debugPrint('🚀 APP: Starting lightning-fast initialization...');
 
-  // Initialize Theme Service
+  // Initialize essential services in parallel
   try {
-    await ThemeService.initialize();
-    debugPrint('✅ APP: ThemeService initialized');
+    await Future.wait([
+      ThemeService.initialize().catchError((e) {
+        debugPrint('⚠️ APP: ThemeService init error: $e');
+      }),
+      Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).catchError((e) {
+        debugPrint('❌ APP: Firebase init error: $e');
+        return Firebase.app();
+      }),
+    ]);
+    debugPrint('✅ APP: Core services initialized in parallel');
   } catch (e) {
-    debugPrint('⚠️ APP: ThemeService initialization failed: $e');
+    debugPrint('⚠️ APP: Init error (continuing to render): $e');
   }
 
-  // 0. Initialize Firebase
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    debugPrint('✅ APP: Firebase initialized');
-  } catch (e) {
-    debugPrint('❌ APP: Firebase initialization failed: $e');
-  }
-
-  // 1. Initialize the app (Firestore persistence, categories, sync transactions)
-  try {
-    await AppInitHelper.initialize();
-    debugPrint('✅ APP: AppInitHelper initialized');
-  } catch (e) {
-    debugPrint('⚠️ APP: AppInitHelper initialization failed: $e');
-  }
-
-  // 2. Initialize Notification Helper (for showing in-app notifications)
-  try {
-    await NotificationHelper.initialize();
-    debugPrint('✅ APP: Notification helper initialized');
-  } catch (e) {
-    debugPrint('❌ APP: Notification helper initialization failed: $e');
-  }
-
-  // 3. Request notification permission (Android 13+ dialog, NOT listener access)
-  try {
-    await NotificationHelper.requestNotificationPermission();
-    debugPrint('✅ APP: Notification permissions requested');
-  } catch (e) {
-    debugPrint('⚠️ APP: Notification permission request failed: $e');
-  }
-
-  debugPrint('🎉 APP: Initialization complete\n');
-
+  // Render UI immediately without waiting for heavy sync/network tasks!
   runApp(const MyApp());
 }
 

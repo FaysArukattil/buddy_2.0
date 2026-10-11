@@ -1,9 +1,9 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
 import 'package:buddy/views/screens/onboarding/onborading_screen.dart';
+import 'package:buddy/services/app_init_helper.dart';
+import 'package:buddy/services/notification_helper.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,24 +17,46 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  bool _hasNavigated = false;
 
   @override
   void initState() {
     super.initState();
 
-    _controller = AnimationController(vsync: this);
-    _controller.addStatusListener((status) async {
+    // Trigger non-blocking background initializations in parallel with splash animation
+    _triggerBackgroundInit();
+
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
-        await navigateToNext();
+        navigateToNext();
       }
     });
   }
 
-  Future<void> navigateToNext() async {
-    // Add a slight fade transition for smoothness
-    await Future.delayed(const Duration(milliseconds: 300));
+  void _triggerBackgroundInit() {
+    // 1. AppInitHelper (Firestore persistence, categories, offline sync)
+    AppInitHelper.initialize().catchError((e) {
+      debugPrint('⚠️ SPLASH: AppInitHelper background init failed: $e');
+    });
 
-    if (!mounted) return;
+    // 2. Notification Helper (in-app alerts and permission request)
+    NotificationHelper.initialize().then((_) {
+      NotificationHelper.requestNotificationPermission().catchError((e) {
+        debugPrint('⚠️ SPLASH: Notification permission request failed: $e');
+        return false;
+      });
+    }).catchError((e) {
+      debugPrint('⚠️ SPLASH: NotificationHelper background init failed: $e');
+    });
+  }
+
+  Future<void> navigateToNext() async {
+    if (_hasNavigated || !mounted) return;
+    _hasNavigated = true;
 
     // Check if user has seen onboarding
     final prefs = await SharedPreferences.getInstance();
@@ -47,9 +69,11 @@ class _SplashScreenState extends State<SplashScreen>
 
     debugPrint('🚀 SPLASH: hasSeenOnboarding=$hasSeenOnboarding, navigating to ${hasSeenOnboarding ? "AuthWrapper" : "OnboardingScreen"}');
 
+    if (!mounted) return;
+
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
+        transitionDuration: const Duration(milliseconds: 300),
         pageBuilder: (_, __, ___) => nextScreen,
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
@@ -80,8 +104,11 @@ class _SplashScreenState extends State<SplashScreen>
                 height: 250,
                 fit: BoxFit.contain,
                 onLoaded: (composition) {
+                  final cappedDuration = composition.duration > const Duration(milliseconds: 1200)
+                      ? const Duration(milliseconds: 1200)
+                      : composition.duration;
                   _controller
-                    ..duration = composition.duration
+                    ..duration = cappedDuration
                     ..forward();
                 },
               ),

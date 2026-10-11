@@ -1,4 +1,5 @@
 // lib/models/debt.dart
+import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// A single partial payment event stored inside a debt record
@@ -56,6 +57,7 @@ class DebtModel {
   final int? notificationId;
   final DateTime? createdAt;
   final List<DebtSettlement> settlements; // history of partial payments
+  final String urgency; // 'low' (lenient / no rush), 'medium' (moderate / on date), 'high' (urgent / strict)
 
   DebtModel({
     this.id,
@@ -74,11 +76,29 @@ class DebtModel {
     this.notificationId,
     this.createdAt,
     List<DebtSettlement>? settlements,
+    this.urgency = 'medium',
   })  : originalAmount = originalAmount ?? amount,
         settlements = settlements ?? [];
 
   bool get isLend => type.toLowerCase() == 'lend';
   bool get isBorrow => type.toLowerCase() == 'borrow';
+
+  bool get isUrgent => urgency.toLowerCase() == 'high';
+  bool get isLenient => urgency.toLowerCase() == 'low';
+  bool get isNormalUrgency => !isUrgent && !isLenient;
+
+  Color get urgencyColor {
+    if (isRepaid) return const Color(0xFF1EBE5D);
+    if (isUrgent) return const Color(0xFFE53935); // Strict Red
+    if (isLenient) return const Color(0xFF2E7D32); // Friendly Forest Green
+    return const Color(0xFFF57C00); // Amber Orange
+  }
+
+  String get urgencyLabel {
+    if (isUrgent) return 'Strict';
+    if (isLenient) return 'Lenient';
+    return 'Normal';
+  }
 
   bool get isDueToday {
     if (isRepaid) return false;
@@ -172,6 +192,7 @@ class DebtModel {
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'settlements': settlements.map((s) => s.toMap()).toList(),
+      'urgency': urgency,
     };
   }
 
@@ -199,6 +220,7 @@ class DebtModel {
       settlements: rawSettlements
           .map((e) => DebtSettlement.fromMap(e as Map<String, dynamic>))
           .toList(),
+      urgency: data['urgency'] as String? ?? 'medium',
     );
   }
 
@@ -219,6 +241,7 @@ class DebtModel {
       'remindOnDueDate': remindOnDueDate,
       'notificationId': notificationId,
       'settlements': settlements.map((s) => s.toMap()).toList(),
+      'urgency': urgency,
     };
   }
 
@@ -245,6 +268,7 @@ class DebtModel {
       settlements: rawSettlements
           .map((e) => DebtSettlement.fromMap(e as Map<String, dynamic>))
           .toList(),
+      urgency: map['urgency'] as String? ?? 'medium',
     );
   }
 
@@ -265,6 +289,7 @@ class DebtModel {
     int? notificationId,
     DateTime? createdAt,
     List<DebtSettlement>? settlements,
+    String? urgency,
   }) {
     return DebtModel(
       id: id ?? this.id,
@@ -284,6 +309,7 @@ class DebtModel {
       notificationId: notificationId ?? this.notificationId,
       createdAt: createdAt ?? this.createdAt,
       settlements: settlements ?? this.settlements,
+      urgency: urgency ?? this.urgency,
     );
   }
 }
