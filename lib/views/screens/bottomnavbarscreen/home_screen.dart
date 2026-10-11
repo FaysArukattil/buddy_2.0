@@ -1,3 +1,6 @@
+import 'package:buddy/services/notification_service.dart';
+import 'package:buddy/services/notification_helper.dart';
+import 'package:buddy/services/app_init_helper.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/utils/icon_helper.dart';
@@ -32,6 +35,7 @@ class HomeScreenState extends State<HomeScreen>
   double _expenses = 0;
   int _balanceViewMode = 0; // 0 = Net Balance, 1 = Income only, 2 = Expense only
   bool _includeDebtsInBalance = true;
+  bool _notifiedGranted = false;
   late final AnimationController _controller;
   late final Animation<double> _bobAnimation;
   final ScrollController _scrollController = ScrollController();
@@ -57,9 +61,10 @@ class HomeScreenState extends State<HomeScreen>
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
 
-    // Listen to Firestore transactions in real-time
+    // Listen to Firestore transactions in real-time and check auto-tracking prompt
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startListening();
+      _checkAndPromptAutoTracking();
     });
   }
 
@@ -77,6 +82,8 @@ class HomeScreenState extends State<HomeScreen>
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.resumed) {
       _loadUser();
+      AppInitHelper.syncNow();
+      _checkAccessGrantedAfterReturn();
     }
   }
 
@@ -203,6 +210,343 @@ class HomeScreenState extends State<HomeScreen>
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _checkAndPromptAutoTracking() async {
+    if (!NotificationService.isSupportedPlatform) return;
+
+    try {
+      final isGranted = await NotificationService.isNotificationAccessGranted();
+      if (isGranted) return; // Already enabled
+
+      final prefs = await SharedPreferences.getInstance();
+      final hasPrompted = prefs.getBool('prompted_auto_tracking_popup') ?? false;
+      if (hasPrompted) return; // User already chose earlier
+
+      if (!mounted) return;
+
+      // Gentle delay so home screen finishes loading and animating in
+      await Future.delayed(const Duration(milliseconds: 650));
+      if (!mounted) return;
+
+      _showAutoTrackingPromptSheet();
+    } catch (e) {
+      debugPrint('⚠️ Error checking auto tracking status: $e');
+    }
+  }
+
+  Future<void> _checkAccessGrantedAfterReturn() async {
+    if (_notifiedGranted) return;
+    try {
+      final isGranted = await NotificationService.isNotificationAccessGranted();
+      if (isGranted && mounted) {
+        _notifiedGranted = true;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '🎉 Auto-tracking is active! Bank & UPI SMS will log automatically.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: const Color(0xFF2E7D32),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error checking access after return: $e');
+    }
+  }
+
+  void _showAutoTrackingPromptSheet() {
+    final isDark = AppColors.isDark(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, -8),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.fromLTRB(
+            24,
+            12,
+            24,
+            MediaQuery.of(ctx).padding.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderOf(context),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Glowing Icon Badge
+              Container(
+                width: 68,
+                height: 68,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF69AEA9), Color(0xFF3F8782)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Title
+              Text(
+                'Turn On Auto-Tracking?',
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimaryOf(context),
+                  letterSpacing: -0.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+
+              // Description
+              Text(
+                'Buddy can automatically track your expenses by securely reading bank & UPI notifications so you never have to log them manually.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: AppColors.textSecondaryOf(context),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+
+              // Benefits Card
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    _buildPromptFeatureRow(
+                      context,
+                      icon: Icons.flash_on_rounded,
+                      iconColor: const Color(0xFFFFB300),
+                      title: 'Instant & Hands-Free',
+                      desc: 'Auto-logs expenses from GPay, PhonePe, Paytm & SMS',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPromptFeatureRow(
+                      context,
+                      icon: Icons.security_rounded,
+                      iconColor: const Color(0xFF4CAF50),
+                      title: '100% Private & On-Device',
+                      desc: 'Notifications are read locally. No SMS data ever leaves your device',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildPromptFeatureRow(
+                      context,
+                      icon: Icons.tune_rounded,
+                      iconColor: const Color(0xFF2196F3),
+                      title: 'Full Control Anytime',
+                      desc: 'Pause or turn it off whenever you want in Settings',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Turn On Button
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    HapticFeedback.mediumImpact();
+                    Navigator.pop(ctx);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('prompted_auto_tracking_popup', true);
+                    await NotificationService.setAutoDetectionEnabled(true);
+                    await NotificationHelper.requestNotificationPermission();
+                    await NotificationService.requestNotificationAccess();
+
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Row(
+                          children: [
+                            Icon(Icons.touch_app_rounded, color: Colors.white, size: 20),
+                            SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '👉 Enable "Buddy" in Notification Access settings to start auto-tracking!',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                        backgroundColor: AppColors.primary,
+                        behavior: SnackBarBehavior.floating,
+                        duration: const Duration(seconds: 5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    elevation: 3,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.bolt_rounded, size: 22),
+                      SizedBox(width: 8),
+                      Text(
+                        'Turn On Auto-Tracking',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Maybe Later Button
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: TextButton(
+                  onPressed: () async {
+                    HapticFeedback.lightImpact();
+                    Navigator.pop(ctx);
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setBool('prompted_auto_tracking_popup', true);
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondaryOf(context),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'Maybe Later',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildPromptFeatureRow(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String desc,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: iconColor, size: 16),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                desc,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: AppColors.textSecondaryOf(context),
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
   void _showSettings() {
     showModalBottomSheet(

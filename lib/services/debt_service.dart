@@ -380,11 +380,25 @@ class DebtService {
         );
   }
 
-  /// Get list of debts (one-time fetch)
+  /// Get list of debts (one-time fetch) with offline cache fallback
   Future<List<DebtModel>> getAllDebts() async {
-    final snapshot =
-        await _debtCol.orderBy('dueDate', descending: false).get();
-    return snapshot.docs.map((doc) => DebtModel.fromFirestore(doc)).toList();
+    try {
+      final snapshot = await _debtCol
+          .orderBy('dueDate', descending: false)
+          .get()
+          .timeout(const Duration(seconds: 4));
+      return snapshot.docs.map((doc) => DebtModel.fromFirestore(doc)).toList();
+    } catch (_) {
+      try {
+        final snapshot = await _debtCol
+            .orderBy('dueDate', descending: false)
+            .get(const GetOptions(source: Source.cache));
+        return snapshot.docs.map((doc) => DebtModel.fromFirestore(doc)).toList();
+      } catch (cacheErr) {
+        debugPrint('⚠️ DEBT: getAllDebts cache fallback error: $cacheErr');
+        return [];
+      }
+    }
   }
 
   /// Get distinct contact names from previous debts for autocomplete

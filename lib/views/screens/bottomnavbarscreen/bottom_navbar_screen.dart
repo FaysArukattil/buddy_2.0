@@ -7,6 +7,7 @@ import 'package:buddy/views/screens/bottomnavbarscreen/borrow_lend_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/profile_screen.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/app_init_helper.dart';
+import 'package:buddy/views/widgets/offline_banner.dart';
 
 class BottomNavbarScreen extends StatefulWidget {
   const BottomNavbarScreen({super.key});
@@ -29,10 +30,9 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
 
   late final PageController _pageController;
   int _currentIndex = 0;
-  bool _dragging = false;
-  double _dragIndicatorPage = 0;
   double _dragStartPage = 0;
   double _dragAccumX = 0;
+  late final List<Widget> _pages;
   late final AnimationController _fabController;
   late final Animation<double> _fabBob;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
@@ -49,6 +49,12 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     AppInitHelper.initialize();
     AppInitHelper.seedCategoriesIfNeeded();
     _pageController = PageController(initialPage: _currentIndex);
+    _pages = [
+      HomeScreen(key: _homeKey),
+      StatisticsScreen(key: _statisticsKey),
+      BorrowLendScreen(key: _borrowLendKey),
+      ProfileScreen(key: _profileKey),
+    ];
     _fabController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -76,16 +82,21 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
         children: [
           PageView(
             controller: _pageController,
-            physics: const ClampingScrollPhysics(),
+            physics: const PageScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
             onPageChanged: (i) {
-              setState(() => _currentIndex = i);
+              _currentIndex = i;
             },
-            children: [
-              HomeScreen(key: _homeKey),
-              StatisticsScreen(key: _statisticsKey),
-              BorrowLendScreen(key: _borrowLendKey),
-              ProfileScreen(key: _profileKey),
-            ],
+            children: _pages,
+          ),
+
+          // Global offline status indicator banner
+          const Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: OfflineBanner(),
           ),
 
           // Glassmorphic bottom bar
@@ -141,28 +152,16 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                               final itemWidth = totalWidth / itemCount;
                               final indicatorWidth = itemWidth - 8;
 
-                              final animatedLeft = (_dragging
-                                      ? (_dragIndicatorPage.clamp(
-                                              0,
-                                              itemCount - 1,
-                                            ) *
-                                          itemWidth)
-                                      : (currentPage.clamp(
-                                              0,
-                                              itemCount - 1,
-                                            ) *
-                                          itemWidth)) +
-                                  4;
+                              final animatedLeft =
+                                  (currentPage.clamp(0.0, (itemCount - 1).toDouble()) *
+                                          itemWidth) +
+                                      4;
 
                               return GestureDetector(
                                 behavior: HitTestBehavior.translucent,
                                 onPanStart: (details) {
                                   _dragAccumX = 0;
-                                  setState(() {
-                                    _dragging = true;
-                                    _dragStartPage = currentPage;
-                                    _dragIndicatorPage = currentPage;
-                                  });
+                                  _dragStartPage = currentPage;
                                 },
                                 onPanUpdate: (details) {
                                   _dragAccumX += details.delta.dx;
@@ -172,9 +171,6 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                     0.0,
                                     (itemCount - 1).toDouble(),
                                   );
-                                  setState(() {
-                                    _dragIndicatorPage = newPage;
-                                  });
                                   if (_pageController.hasClients &&
                                       _pageController.position.haveDimensions) {
                                     final w = _pageController
@@ -183,10 +179,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                   }
                                 },
                                 onPanEnd: (details) {
-                                  final target = _dragIndicatorPage.round();
-                                  setState(() {
-                                    _dragging = false;
-                                  });
+                                  final target =
+                                      (_pageController.page ?? currentPage).round();
                                   _goTo(target);
                                 },
                                 child: SizedBox(
@@ -405,12 +399,16 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   }
 
   void _goTo(int index) {
-    if (index == _currentIndex) return;
-    setState(() => _currentIndex = index);
+    if (index == _currentIndex &&
+        _pageController.hasClients &&
+        _pageController.page?.round() == index) {
+      return;
+    }
+    _currentIndex = index;
     _pageController.animateToPage(
       index,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 320),
+      curve: Curves.easeOutCubic,
     );
   }
 }

@@ -4,12 +4,17 @@ import 'package:buddy/views/screens/onboarding/splashscreen/splash_screen.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/services/app_init_helper.dart';
 import 'package:buddy/services/theme_service.dart';
+import 'package:buddy/services/Network_services.dart';
+import 'package:buddy/services/firestore_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   debugPrint('🚀 APP: Starting lightning-fast initialization...');
+
+  // Start network monitoring immediately
+  NetworkHelper.startMonitoring();
 
   // Initialize essential services in parallel
   try {
@@ -19,9 +24,11 @@ void main() async {
       }),
       Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
-      ).catchError((e) {
+      ).then((_) {
+        // Enable offline persistence as soon as Firebase is initialized
+        FirestoreService.enableOfflinePersistence();
+      }).catchError((e) {
         debugPrint('❌ APP: Firebase init error: $e');
-        return Firebase.app();
       }),
     ]);
     debugPrint('✅ APP: Core services initialized in parallel');

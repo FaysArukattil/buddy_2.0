@@ -6,6 +6,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/models/category.dart' as cat;
 import 'package:buddy/utils/icon_helper.dart';
+import 'package:buddy/services/Network_services.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -990,7 +991,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           'icon': iconCodePoint,
         });
         if (!mounted) return;
-        _showSuccess('Transaction updated!');
+        final isOnline = NetworkHelper.isOnline.value;
+        _showSuccess(isOnline ? 'Transaction updated!' : 'Transaction updated locally! (Will sync when online)');
       } else {
         final txn = TransactionModel(
           amount: amount.abs(),
@@ -1002,7 +1004,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         );
         await firestore.addTransaction(txn);
         if (!mounted) return;
-        _showSuccess('Transaction saved!');
+        final isOnline = NetworkHelper.isOnline.value;
+        _showSuccess(isOnline ? 'Transaction saved!' : 'Transaction saved locally! (Will sync when online)');
       }
 
       await Future.delayed(const Duration(milliseconds: 400));

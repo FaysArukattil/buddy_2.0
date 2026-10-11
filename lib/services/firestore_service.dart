@@ -70,12 +70,29 @@ class FirestoreService {
     debugPrint('✅ FIRESTORE: Transaction $id deleted');
   }
 
-  /// Get all transactions (one-time fetch), sorted by date DESC
+  /// Get all transactions (one-time fetch), sorted by date DESC with offline cache fallback
   Future<List<TransactionModel>> getAllTransactions() async {
-    final snapshot = await _txnCol.orderBy('date', descending: true).get();
-    return snapshot.docs
-        .map((doc) => TransactionModel.fromFirestore(doc))
-        .toList();
+    try {
+      final snapshot = await _txnCol
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 4));
+      return snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .orderBy('date', descending: true)
+            .get(const GetOptions(source: Source.cache));
+        return snapshot.docs
+            .map((doc) => TransactionModel.fromFirestore(doc))
+            .toList();
+      } catch (e) {
+        debugPrint('⚠️ FIRESTORE: getAllTransactions cache fallback error: $e');
+        return [];
+      }
+    }
   }
 
   /// Get transactions as a real-time stream
@@ -88,7 +105,7 @@ class FirestoreService {
             .toList());
   }
 
-  /// Get transactions for a specific month
+  /// Get transactions for a specific month with offline cache fallback
   Future<List<TransactionModel>> getTransactionsForMonth(
     int year,
     int month,
@@ -96,43 +113,101 @@ class FirestoreService {
     final start = DateTime(year, month, 1);
     final end = DateTime(year, month + 1, 0, 23, 59, 59);
 
-    final snapshot = await _txnCol
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
-        .orderBy('date', descending: true)
-        .get();
+    try {
+      final snapshot = await _txnCol
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 4));
 
-    return snapshot.docs
-        .map((doc) => TransactionModel.fromFirestore(doc))
-        .toList();
+      return snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+            .where('date', isLessThanOrEqualTo: Timestamp.fromDate(end))
+            .orderBy('date', descending: true)
+            .get(const GetOptions(source: Source.cache));
+
+        return snapshot.docs
+            .map((doc) => TransactionModel.fromFirestore(doc))
+            .toList();
+      } catch (e) {
+        debugPrint('⚠️ FIRESTORE: getTransactionsForMonth cache fallback error: $e');
+        return [];
+      }
+    }
   }
 
-  /// Get transactions filtered by type
+  /// Get transactions filtered by type with offline cache fallback
   Future<List<TransactionModel>> getTransactionsByType(String type) async {
-    final snapshot = await _txnCol
-        .where('type', isEqualTo: type.toLowerCase())
-        .orderBy('date', descending: true)
-        .get();
+    try {
+      final snapshot = await _txnCol
+          .where('type', isEqualTo: type.toLowerCase())
+          .orderBy('date', descending: true)
+          .get()
+          .timeout(const Duration(seconds: 4));
 
-    return snapshot.docs
-        .map((doc) => TransactionModel.fromFirestore(doc))
-        .toList();
+      return snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .where('type', isEqualTo: type.toLowerCase())
+            .orderBy('date', descending: true)
+            .get(const GetOptions(source: Source.cache));
+
+        return snapshot.docs
+            .map((doc) => TransactionModel.fromFirestore(doc))
+            .toList();
+      } catch (e) {
+        debugPrint('⚠️ FIRESTORE: getTransactionsByType cache error: $e');
+        return [];
+      }
+    }
   }
 
-  /// Get a single transaction by ID
+  /// Get a single transaction by ID with offline cache fallback
   Future<TransactionModel?> getTransactionById(String id) async {
-    final doc = await _txnCol.doc(id).get();
-    if (!doc.exists) return null;
-    return TransactionModel.fromFirestore(doc);
+    try {
+      final doc = await _txnCol.doc(id).get().timeout(const Duration(seconds: 3));
+      if (!doc.exists) return null;
+      return TransactionModel.fromFirestore(doc);
+    } catch (_) {
+      try {
+        final doc = await _txnCol.doc(id).get(const GetOptions(source: Source.cache));
+        if (!doc.exists) return null;
+        return TransactionModel.fromFirestore(doc);
+      } catch (_) {
+        return null;
+      }
+    }
   }
 
-  /// Check for duplicate notification hash
+  /// Check for duplicate notification hash with offline cache fallback
   Future<bool> isDuplicateTransaction(String hash) async {
-    final snapshot = await _txnCol
-        .where('notificationHash', isEqualTo: hash)
-        .limit(1)
-        .get();
-    return snapshot.docs.isNotEmpty;
+    try {
+      final snapshot = await _txnCol
+          .where('notificationHash', isEqualTo: hash)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 3));
+      return snapshot.docs.isNotEmpty;
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .where('notificationHash', isEqualTo: hash)
+            .limit(1)
+            .get(const GetOptions(source: Source.cache));
+        return snapshot.docs.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    }
   }
 
   /// Find transactions with the same amount and type from the last N hours
@@ -143,14 +218,30 @@ class FirestoreService {
     int withinHours = 24,
   }) async {
     final cutoff = DateTime.now().subtract(Duration(hours: withinHours));
-    final snapshot = await _txnCol
-        .where('amount', isEqualTo: amount)
-        .where('type', isEqualTo: type.toLowerCase())
-        .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
-        .get();
-    return snapshot.docs
-        .map((doc) => TransactionModel.fromFirestore(doc))
-        .toList();
+    try {
+      final snapshot = await _txnCol
+          .where('amount', isEqualTo: amount)
+          .where('type', isEqualTo: type.toLowerCase())
+          .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
+          .get()
+          .timeout(const Duration(seconds: 4));
+      return snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .where('amount', isEqualTo: amount)
+            .where('type', isEqualTo: type.toLowerCase())
+            .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
+            .get(const GetOptions(source: Source.cache));
+        return snapshot.docs
+            .map((doc) => TransactionModel.fromFirestore(doc))
+            .toList();
+      } catch (_) {
+        return [];
+      }
+    }
   }
 
   /// Add auto-detected transaction
@@ -238,25 +329,54 @@ class FirestoreService {
         .toList();
   }
 
-  /// Get recent transactions with an optional limit (faster than downloading entire history)
+  /// Get recent transactions with an optional limit with offline cache fallback
   Future<List<TransactionModel>> getRecentTransactions({int limit = 50}) async {
-    final snapshot = await _txnCol
-        .orderBy('date', descending: true)
-        .limit(limit)
-        .get();
-    return snapshot.docs
-        .map((doc) => TransactionModel.fromFirestore(doc))
-        .toList();
+    try {
+      final snapshot = await _txnCol
+          .orderBy('date', descending: true)
+          .limit(limit)
+          .get()
+          .timeout(const Duration(seconds: 4));
+      return snapshot.docs
+          .map((doc) => TransactionModel.fromFirestore(doc))
+          .toList();
+    } catch (_) {
+      try {
+        final snapshot = await _txnCol
+            .orderBy('date', descending: true)
+            .limit(limit)
+            .get(const GetOptions(source: Source.cache));
+        return snapshot.docs
+            .map((doc) => TransactionModel.fromFirestore(doc))
+            .toList();
+      } catch (e) {
+        debugPrint('⚠️ FIRESTORE: getRecentTransactions cache error: $e');
+        return [];
+      }
+    }
   }
 
   // ── Categories ──
 
-  /// Get all categories for a type (expense/income), deduplicated by name
+  /// Get all categories for a type (expense/income), deduplicated by name, with offline fallback
   Future<List<cat.Category>> getCategories(String type) async {
-    final snapshot = await _catCol
-        .where('type', isEqualTo: type.toLowerCase())
-        .orderBy('order')
-        .get();
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    try {
+      snapshot = await _catCol
+          .where('type', isEqualTo: type.toLowerCase())
+          .orderBy('order')
+          .get()
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      try {
+        snapshot = await _catCol
+            .where('type', isEqualTo: type.toLowerCase())
+            .orderBy('order')
+            .get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        return getDefaultCategories(type);
+      }
+    }
 
     // Deduplicate by name — keep the first occurrence
     final seen = <String>{};
@@ -267,6 +387,9 @@ class FirestoreService {
         seen.add(category.name);
         categories.add(category);
       }
+    }
+    if (categories.isEmpty) {
+      return getDefaultCategories(type);
     }
     if (type.toLowerCase() == 'expense') {
       _cachedExpenseCategories = categories;
@@ -302,18 +425,39 @@ class FirestoreService {
     debugPrint('✅ FIRESTORE: Category $id deleted');
   }
 
-  /// Check if default categories exist
+  /// Check if default categories exist with offline fallback
   Future<bool> hasCategories() async {
-    final snapshot = await _catCol.limit(1).get();
-    return snapshot.docs.isNotEmpty;
+    try {
+      final snapshot = await _catCol.limit(1).get().timeout(const Duration(seconds: 3));
+      return snapshot.docs.isNotEmpty;
+    } catch (_) {
+      try {
+        final snapshot = await _catCol.limit(1).get(const GetOptions(source: Source.cache));
+        return snapshot.docs.isNotEmpty;
+      } catch (_) {
+        return false;
+      }
+    }
   }
 
   /// Seed default categories (batch write for efficiency)
   Future<void> seedDefaultCategories() async {
-    final snapshot = await _catCol.get();
-    final existingNames = snapshot.docs
-        .map((doc) => doc.data()['name'] as String)
-        .toSet();
+    Set<String> existingNames = {};
+    try {
+      final snapshot = await _catCol.get().timeout(const Duration(seconds: 3));
+      existingNames = snapshot.docs
+          .map((doc) => doc.data()['name'] as String)
+          .toSet();
+    } catch (_) {
+      try {
+        final snapshot = await _catCol.get(const GetOptions(source: Source.cache));
+        existingNames = snapshot.docs
+            .map((doc) => doc.data()['name'] as String)
+            .toSet();
+      } catch (_) {
+        // Continue with empty existing set
+      }
+    }
 
     debugPrint('🌱 FIRESTORE: Seeding default categories...');
     final batch = _db.batch();

@@ -8,6 +8,7 @@ import '../../../models/debt.dart';
 import '../../../services/debt_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/format_utils.dart';
+import '../../../services/Network_services.dart';
 
 class BorrowLendScreen extends StatefulWidget {
   const BorrowLendScreen({super.key});
@@ -2653,14 +2654,19 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
       if (!mounted) return;
       Navigator.pop(context);
 
+      final isOnline = NetworkHelper.isOnline.value;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isEditing
-                ? 'Record updated!'
-                : (_typeIndex == 0
-                    ? 'Lent record saved! (Added to Expenses)'
-                    : 'Borrow record saved! (Added to Income)'),
+            !isOnline
+                ? (isEditing
+                    ? 'Record updated locally! (Will sync when online)'
+                    : 'Record saved locally! (Will sync when online)')
+                : (isEditing
+                    ? 'Record updated!'
+                    : (_typeIndex == 0
+                        ? 'Lent record saved! (Added to Expenses)'
+                        : 'Borrow record saved! (Added to Income)')),
           ),
           backgroundColor: AppColors.primary,
         ),

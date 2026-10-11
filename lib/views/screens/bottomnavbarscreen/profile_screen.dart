@@ -25,7 +25,10 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class ProfileScreenState extends State<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   void refreshData() {
     _loadProfile();
   }
@@ -288,6 +291,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final isDark = AppColors.isDark(context);
     final balance = _totalIncome - _totalExpense;
 
