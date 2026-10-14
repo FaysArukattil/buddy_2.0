@@ -62,18 +62,93 @@ class TransactionModel {
     );
   }
 
+  /// Safely strips "Auto-detected:" or similar prefixes from transaction note text
+  static String? cleanNoteText(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+
+    final regex = RegExp(
+      r'^(?:Auto[- ]?detected(?:\s*(?:from\s+)?(?:notification|sms|app))?|AutoDetection)[\s:–—\-]*',
+      caseSensitive: false,
+    );
+    final stripped = trimmed.replaceFirst(regex, '').trim();
+    return stripped.isNotEmpty ? stripped : null;
+  }
+
+  /// Note stripped of any "Auto-detected:" prefix
+  String? get cleanNote => cleanNoteText(note);
+
+  /// Clean title to display in transaction lists and cards
+  String get displayTitle => cleanNote ?? category;
+
+  /// Deduplicate a list of transactions in-memory.
+  /// Deduplicates by:
+  /// 1) Document ID (if present)
+  /// 2) Notification Hash (if present)
+  /// 3) Exact duplicate signature: amount + type + category + cleanNote + minute bucket
+  static List<TransactionModel> deduplicate(List<TransactionModel> transactions) {
+    if (transactions.isEmpty) return [];
+
+    final seenIds = <String>{};
+    final seenHashes = <String>{};
+    final seenSignatures = <String>{};
+    final result = <TransactionModel>[];
+
+    for (final txn in transactions) {
+      // 1. Doc ID deduplication
+      if (txn.id != null && txn.id!.isNotEmpty) {
+        if (seenIds.contains(txn.id)) continue;
+        seenIds.add(txn.id!);
+      }
+
+      // 2. Notification hash deduplication
+      final hash = txn.notificationHash?.trim();
+      if (hash != null && hash.isNotEmpty) {
+        if (seenHashes.contains(hash)) continue;
+        seenHashes.add(hash);
+      }
+
+      // 3. Signature deduplication for same-minute duplicate additions
+      final clean = txn.cleanNote ?? '';
+      final minuteBucket = DateTime(
+        txn.date.year,
+        txn.date.month,
+        txn.date.day,
+        txn.date.hour,
+        txn.date.minute,
+      ).millisecondsSinceEpoch;
+      final signature =
+          '${txn.type.toLowerCase().trim()}_${txn.category.toLowerCase().trim()}_${txn.amount.toStringAsFixed(2)}_${clean.toLowerCase()}_$minuteBucket';
+
+      if (seenSignatures.contains(signature)) {
+        continue;
+      }
+      seenSignatures.add(signature);
+
+      result.add(txn);
+    }
+
+    return result;
+  }
+
   /// For backward compat with screens that use `Map<String, dynamic>`
   Map<String, dynamic> toDisplayMap() {
+    final cn = cleanNote;
     return {
       'id': id,
       'amount': amount,
       'type': type,
       'date': date,
-      'note': note,
+      'note': cn ?? note,
+      'raw_note': note,
+      'title': displayTitle,
       'category': category,
       'icon': icon,
       'auto_detected': autoDetected,
+      'autoDetected': autoDetected,
       'notificationSource': notificationSource,
+      'notificationHash': notificationHash,
     };
   }
 

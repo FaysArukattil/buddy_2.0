@@ -77,17 +77,17 @@ class FirestoreService {
           .orderBy('date', descending: true)
           .get()
           .timeout(const Duration(seconds: 4));
-      return snapshot.docs
+      return TransactionModel.deduplicate(snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
-          .toList();
+          .toList());
     } catch (_) {
       try {
         final snapshot = await _txnCol
             .orderBy('date', descending: true)
             .get(const GetOptions(source: Source.cache));
-        return snapshot.docs
+        return TransactionModel.deduplicate(snapshot.docs
             .map((doc) => TransactionModel.fromFirestore(doc))
-            .toList();
+            .toList());
       } catch (e) {
         debugPrint('⚠️ FIRESTORE: getAllTransactions cache fallback error: $e');
         return [];
@@ -95,14 +95,14 @@ class FirestoreService {
     }
   }
 
-  /// Get transactions as a real-time stream
+  /// Get transactions as a real-time stream with automatic deduplication
   Stream<List<TransactionModel>> getTransactionsStream() {
     return _txnCol
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs
+        .map((snapshot) => TransactionModel.deduplicate(snapshot.docs
             .map((doc) => TransactionModel.fromFirestore(doc))
-            .toList());
+            .toList()));
   }
 
   /// Get transactions for a specific month with offline cache fallback
@@ -121,9 +121,9 @@ class FirestoreService {
           .get()
           .timeout(const Duration(seconds: 4));
 
-      return snapshot.docs
+      return TransactionModel.deduplicate(snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
-          .toList();
+          .toList());
     } catch (_) {
       try {
         final snapshot = await _txnCol
@@ -132,9 +132,9 @@ class FirestoreService {
             .orderBy('date', descending: true)
             .get(const GetOptions(source: Source.cache));
 
-        return snapshot.docs
+        return TransactionModel.deduplicate(snapshot.docs
             .map((doc) => TransactionModel.fromFirestore(doc))
-            .toList();
+            .toList());
       } catch (e) {
         debugPrint('⚠️ FIRESTORE: getTransactionsForMonth cache fallback error: $e');
         return [];
@@ -151,9 +151,9 @@ class FirestoreService {
           .get()
           .timeout(const Duration(seconds: 4));
 
-      return snapshot.docs
+      return TransactionModel.deduplicate(snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
-          .toList();
+          .toList());
     } catch (_) {
       try {
         final snapshot = await _txnCol
@@ -161,9 +161,9 @@ class FirestoreService {
             .orderBy('date', descending: true)
             .get(const GetOptions(source: Source.cache));
 
-        return snapshot.docs
+        return TransactionModel.deduplicate(snapshot.docs
             .map((doc) => TransactionModel.fromFirestore(doc))
-            .toList();
+            .toList());
       } catch (e) {
         debugPrint('⚠️ FIRESTORE: getTransactionsByType cache error: $e');
         return [];
@@ -244,16 +244,80 @@ class FirestoreService {
     }
   }
 
-  /// Add auto-detected transaction
+  /// Add auto-detected transaction with deduplication
   Future<String> addAutoDetectedTransaction(TransactionModel txn) async {
-    if (txn.notificationHash != null) {
-      final isDupe = await isDuplicateTransaction(txn.notificationHash!);
+    final hash = txn.notificationHash?.trim();
+    if (hash != null && hash.isNotEmpty) {
+      final isDupe = await isDuplicateTransaction(hash);
       if (isDupe) {
-        debugPrint('⚠️ FIRESTORE: Duplicate auto-detected transaction skipped');
+        debugPrint('⚠️ FIRESTORE: Duplicate auto-detected transaction skipped ($hash)');
         return '';
       }
     }
     return addTransaction(txn);
+  }
+
+  /// One-time / background cleanup to remove duplicate transaction documents
+  /// from Firestore for existing production users whose databases may have accumulated dupes.
+  Future<int> cleanupDuplicateTransactions() async {
+    try {
+      final uid = _uid;
+      if (uid == null) return 0;
+
+      final snapshot = await _txnCol.orderBy('date', descending: true).get();
+      if (snapshot.docs.length < 2) return 0;
+
+      final seenHashes = <String, String>{}; // hash -> firstDocId
+      final seenSignatures = <String, String>{}; // signature -> firstDocId
+      final toDeleteDocIds = <String>[];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final docId = doc.id;
+        final hash = (data['notificationHash'] as String?)?.trim();
+
+        // 1. Check duplicate notificationHash
+        if (hash != null && hash.isNotEmpty) {
+          if (seenHashes.containsKey(hash)) {
+            toDeleteDocIds.add(docId);
+            continue;
+          } else {
+            seenHashes[hash] = docId;
+          }
+        }
+
+        // 2. Check duplicate signature
+        final amt = (data['amount'] as num?)?.toDouble() ?? 0.0;
+        final type = (data['type'] as String? ?? '').toLowerCase().trim();
+        final cat = (data['category'] as String? ?? '').toLowerCase().trim();
+        final rawNote = (data['note'] as String?) ?? '';
+        final clean = TransactionModel.cleanNoteText(rawNote) ?? '';
+        final date = (data['date'] as Timestamp?)?.toDate() ?? DateTime.now();
+        final minuteBucket = DateTime(date.year, date.month, date.day, date.hour, date.minute).millisecondsSinceEpoch;
+
+        final signature = '${type}_${cat}_${amt.toStringAsFixed(2)}_${clean.toLowerCase()}_$minuteBucket';
+        if (seenSignatures.containsKey(signature)) {
+          toDeleteDocIds.add(docId);
+        } else {
+          seenSignatures[signature] = docId;
+        }
+      }
+
+      if (toDeleteDocIds.isNotEmpty) {
+        debugPrint('🧹 FIRESTORE: Cleaning up ${toDeleteDocIds.length} duplicate transactions from Firestore...');
+        final batch = _db.batch();
+        for (final id in toDeleteDocIds) {
+          batch.delete(_txnCol.doc(id));
+        }
+        await batch.commit();
+        debugPrint('✅ FIRESTORE: Removed ${toDeleteDocIds.length} duplicate transactions!');
+        return toDeleteDocIds.length;
+      }
+      return 0;
+    } catch (e) {
+      debugPrint('⚠️ FIRESTORE: cleanupDuplicateTransactions error: $e');
+      return 0;
+    }
   }
 
   /// Get monthly totals
@@ -586,7 +650,7 @@ class FirestoreService {
     {'name': 'Jio Internet', 'icon': Icons.router_rounded.codePoint},
     {'name': 'WiFi', 'icon': Icons.wifi_rounded.codePoint},
     {'name': 'Lending', 'icon': Icons.arrow_outward_rounded.codePoint},
-    {'name': 'Other', 'icon': Icons.note_rounded.codePoint},
+    {'name': 'Other', 'icon': Icons.category_rounded.codePoint},
   ];
 
   static final List<Map<String, dynamic>> _defaultIncomeCategories = [
@@ -600,6 +664,6 @@ class FirestoreService {
     {'name': 'Cashback', 'icon': Icons.currency_exchange_rounded.codePoint},
     {'name': 'Rental Income', 'icon': Icons.house_rounded.codePoint},
     {'name': 'Borrowing', 'icon': Icons.arrow_downward_rounded.codePoint},
-    {'name': 'Other', 'icon': Icons.note_rounded.codePoint},
+    {'name': 'Other', 'icon': Icons.category_rounded.codePoint},
   ];
 }

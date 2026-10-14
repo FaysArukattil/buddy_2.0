@@ -161,8 +161,10 @@ class NotificationService {
         }
 
         final txnType = data['type'] as String? ?? 'expense';
-        final noteText = data['note'] as String? ?? 'Auto-detected from notification';
-        final noteLower = noteText.toLowerCase();
+        final rawNote = data['note'] as String? ?? '';
+        final cleanNote = TransactionModel.cleanNoteText(rawNote);
+        final noteText = cleanNote ?? (data['category'] as String? ?? 'Auto-detected');
+        final noteLower = (cleanNote ?? rawNote).toLowerCase();
 
         String matchedCategory = data['category'] as String? ?? 'Other';
         int matchedIcon = (data['icon'] as num?)?.toInt() ?? 0xe8f4;
@@ -194,7 +196,7 @@ class NotificationService {
           notificationHash: hash,
         );
 
-        final docId = await firestore.addTransaction(transaction);
+        final docId = await firestore.addAutoDetectedTransaction(transaction);
 
         if (docId.isNotEmpty) {
           syncedCount++;

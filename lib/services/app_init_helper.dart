@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'firestore_service.dart';
+import 'preference_service.dart';
 
 /// Handles app initialization and transaction syncing.
 ///
@@ -13,6 +14,7 @@ import 'firestore_service.dart';
 /// - This helper reads those saved transactions and syncs them on app open/resume.
 class AppInitHelper {
   static bool _isInitialized = false;
+  static bool _isSyncing = false;
   static String? _lastUid;
 
   // Callback to notify UI when transactions are synced
@@ -38,17 +40,25 @@ class AppInitHelper {
     debugPrint('🚀 ============ APP INITIALIZATION ============');
 
     try {
+      // 0. Initialize app preferences (including debts on home setting)
+      await PreferenceService.init();
+
       // 1. Enable Firestore offline persistence
       debugPrint('📊 Enabling Firestore persistence...');
       await FirestoreService.enableOfflinePersistence();
       debugPrint('✅ Firestore persistence enabled');
 
-      // 2. Seed default categories if user is logged in
+      // 2. Seed default categories & clean duplicate transactions if user is logged in
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        debugPrint('🌱 Checking default categories...');
+        debugPrint('🌱 Checking default categories & duplicate cleanup...');
         try {
           await FirestoreService.instance.seedDefaultCategories();
+          // Clean up any historical duplicate transactions for production users
+          FirestoreService.instance.cleanupDuplicateTransactions().catchError((e) {
+            debugPrint('⚠️ Non-critical duplicate cleanup error: $e');
+            return 0;
+          });
         } catch (e) {
           debugPrint('⚠️ Failed to seed categories (non-critical): $e');
         }
@@ -95,23 +105,32 @@ class AppInitHelper {
 
   /// Manually trigger sync (useful for pull-to-refresh or on app resume)
   static Future<int> syncNow() async {
-    debugPrint('🔄 Manual sync triggered...');
-
-    // Sync from SharedPreferences to Firestore
-    final count = await NotificationService.syncSavedTransactions(
-      onTransactionDetected: (transactionMap, hash) async {
-        debugPrint('🆕 Transaction synced: $hash');
-      },
-    );
-
-    // Clean up already-synced entries
-    await NotificationService.cleanupSyncedTransactions();
-
-    if (count > 0 && onTransactionsSynced != null) {
-      onTransactionsSynced!();
+    if (_isSyncing) {
+      debugPrint('⏳ SYNC: Sync already in progress, skipping concurrent trigger.');
+      return 0;
     }
+    _isSyncing = true;
+    try {
+      debugPrint('🔄 Manual sync triggered...');
 
-    return count;
+      // Sync from SharedPreferences to Firestore
+      final count = await NotificationService.syncSavedTransactions(
+        onTransactionDetected: (transactionMap, hash) async {
+          debugPrint('🆕 Transaction synced: $hash');
+        },
+      );
+
+      // Clean up already-synced entries
+      await NotificationService.cleanupSyncedTransactions();
+
+      if (count > 0 && onTransactionsSynced != null) {
+        onTransactionsSynced!();
+      }
+
+      return count;
+    } finally {
+      _isSyncing = false;
+    }
   }
 
   /// Seed categories for current user and clean up duplicates

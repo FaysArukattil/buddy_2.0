@@ -966,7 +966,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final note = _noteController.text.trim().isEmpty
         ? null
         : _noteController.text.trim();
-    final iconCodePoint = _selectedCategoryIcon?.codePoint ?? Icons.note_rounded.codePoint;
+    final iconCodePoint = _selectedCategoryIcon?.codePoint ?? Icons.category_rounded.codePoint;
 
     final now = DateTime.now();
     final dateWithTime = DateTime(
@@ -1278,7 +1278,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         Icons.autorenew_rounded,
         Icons.pets_rounded,
         Icons.sports_esports_rounded,
-        Icons.note_rounded,
+        Icons.category_rounded,
       ];
 
   void _showError(String message) {

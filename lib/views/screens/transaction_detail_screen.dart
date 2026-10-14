@@ -8,6 +8,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:buddy/utils/app_snackbar.dart';
+import 'package:buddy/models/transaction.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -37,14 +38,18 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     return 0.0;
   }
 
-  String? get _note => (widget.data['note'] as String?)?.trim();
+  String? get _note {
+    final raw = (widget.data['note'] as String?)?.trim();
+    return TransactionModel.cleanNoteText(raw);
+  }
   String get _category =>
       (widget.data['category'] as String?)?.trim() ?? 'Other';
 
   String get _title {
     if (_note != null && _note!.isNotEmpty) return _note!;
     final customTitle = (widget.data['title'] as String?)?.trim();
-    if (customTitle != null && customTitle.isNotEmpty) return customTitle;
+    final cleanTitle = TransactionModel.cleanNoteText(customTitle);
+    if (cleanTitle != null && cleanTitle.isNotEmpty) return cleanTitle;
     return _category;
   }
 
@@ -295,7 +300,6 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 ),
                               ),
 
-                              // Auto-Detected badge
                               if (_isAutoDetected)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -303,30 +307,40 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF2196F3)
-                                        .withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: const Color(0xFF2196F3)
-                                          .withValues(alpha: 0.3),
-                                      width: 1,
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF6366F1),
+                                        Color(0xFF8B5CF6),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF6366F1)
+                                            .withValues(alpha: 0.35),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                  child: Row(
+                                  child: const Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(
                                         Icons.auto_awesome,
                                         size: 11,
-                                        color: Colors.blue.shade600,
+                                        color: Colors.white,
                                       ),
-                                      const SizedBox(width: 4),
+                                      SizedBox(width: 4),
                                       Text(
-                                        'Auto-Detected',
+                                        'AI Auto-Detected',
                                         style: TextStyle(
-                                          color: Colors.blue.shade600,
+                                          color: Colors.white,
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.4,
                                         ),
                                       ),
                                     ],

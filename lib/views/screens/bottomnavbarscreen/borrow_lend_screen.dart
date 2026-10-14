@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../../models/debt.dart';
 import '../../../services/debt_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/format_utils.dart';
 import '../../../services/Network_services.dart';
 import '../../../utils/app_snackbar.dart';
+import '../../../services/preference_service.dart';
 
 class BorrowLendScreen extends StatefulWidget {
   const BorrowLendScreen({super.key});
@@ -40,32 +40,39 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   void initState() {
     super.initState();
     _debtsStream = _debtService.getDebtsStream();
-    _loadHomeSyncPreference();
+    _includeDebtsInHome = PreferenceService.includeDebtsInHome;
+    PreferenceService.includeDebtsInHomeNotifier.addListener(_onPreferenceChanged);
+  }
+
+  void _onPreferenceChanged() {
+    if (!mounted) return;
+    final val = PreferenceService.includeDebtsInHome;
+    if (_includeDebtsInHome != val) {
+      setState(() => _includeDebtsInHome = val);
+    }
   }
 
   @override
   void dispose() {
+    PreferenceService.includeDebtsInHomeNotifier.removeListener(_onPreferenceChanged);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _loadHomeSyncPreference() async {
-    final prefs = await SharedPreferences.getInstance();
     if (mounted) {
       setState(() {
-        _includeDebtsInHome = prefs.getBool('include_debts_in_balance') ?? true;
+        _includeDebtsInHome = PreferenceService.includeDebtsInHome;
       });
     }
   }
 
   Future<void> _toggleHomeSyncPreference() async {
     HapticFeedback.lightImpact();
-    final prefs = await SharedPreferences.getInstance();
     final newVal = !_includeDebtsInHome;
-    await prefs.setBool('include_debts_in_balance', newVal);
+    await PreferenceService.setIncludeDebtsInHome(newVal);
     if (mounted) {
-      setState(() => _includeDebtsInHome = newVal);
       AppSnackbar.showInfo(
         context,
         newVal

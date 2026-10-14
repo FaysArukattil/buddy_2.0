@@ -45,7 +45,7 @@ class IconHelper {
     63609: Icons.local_pizza_rounded,
     983319: Icons.router_rounded,
     983743: Icons.wifi_rounded,
-    983074: Icons.note_rounded,
+    983074: Icons.category_rounded,
     983128: Icons.payments_rounded,
     983750: Icons.work_outline_rounded,
     62967: Icons.business_center_rounded,

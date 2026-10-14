@@ -1,6 +1,7 @@
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/app_init_helper.dart';
+import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 import 'package:buddy/utils/icon_helper.dart';
@@ -51,6 +52,9 @@ class HomeScreenState extends State<HomeScreen>
 
     WidgetsBinding.instance.addObserver(this);
 
+    _includeDebtsInBalance = PreferenceService.includeDebtsInHome;
+    PreferenceService.includeDebtsInHomeNotifier.addListener(_onDebtPreferenceChanged);
+
     _loadUser();
     _controller = AnimationController(
       vsync: this,
@@ -69,8 +73,22 @@ class HomeScreenState extends State<HomeScreen>
     });
   }
 
+  void _onDebtPreferenceChanged() {
+    if (!mounted) return;
+    final newVal = PreferenceService.includeDebtsInHome;
+    if (_includeDebtsInBalance != newVal) {
+      setState(() {
+        _includeDebtsInBalance = newVal;
+      });
+      if (_transactions.isNotEmpty) {
+        _recalculateTotals(_transactions);
+      }
+    }
+  }
+
   @override
   void dispose() {
+    PreferenceService.includeDebtsInHomeNotifier.removeListener(_onDebtPreferenceChanged);
     _txnSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
@@ -153,7 +171,7 @@ class HomeScreenState extends State<HomeScreen>
 
     final savedName = prefs.getString('name')?.trim() ?? '';
     final email = user?.email ?? prefs.getString('email')?.trim() ?? '';
-    final savedIncludeDebts = prefs.getBool('include_debts_in_balance') ?? true;
+    final savedIncludeDebts = PreferenceService.includeDebtsInHome;
 
     String displayName = savedName;
     if (displayName.isEmpty && user?.displayName != null) {
@@ -599,9 +617,10 @@ class HomeScreenState extends State<HomeScreen>
     super.build(context);
 
     // Filter display transactions based on debt separation setting and balance view mode
+    final dedupedTransactions = TransactionModel.deduplicate(_transactions);
     final baseTransactions = _includeDebtsInBalance
-        ? _transactions
-        : _transactions
+        ? dedupedTransactions
+        : dedupedTransactions
             .where((txn) => txn.category != 'Lending' && txn.category != 'Borrowing')
             .toList();
 
@@ -1307,178 +1326,214 @@ class HomeScreenState extends State<HomeScreen>
     final isIncome = txn.type.toLowerCase().trim() == 'income';
     final catColor = AppColors.getCategoryColor(txn.category);
     final isAutoDetected = txn.autoDetected;
-    final title = (txn.note?.trim().isNotEmpty == true) ? txn.note!.trim() : txn.category;
+    final title = txn.displayTitle;
+    final isDark = AppColors.isDark(context);
+
+    final cardBg = isAutoDetected
+        ? (isDark ? const Color(0xFF191830) : const Color(0xFFF7F6FE))
+        : AppColors.cardOf(context);
+    final cardBorder = isAutoDetected
+        ? (isDark
+            ? const Color(0xFF7C4DFF).withValues(alpha: 0.42)
+            : const Color(0xFF673AB7).withValues(alpha: 0.28))
+        : AppColors.borderOf(context).withValues(alpha: 0.5);
+    final cardShadow = isAutoDetected
+        ? [
+            BoxShadow(
+              color: const Color(0xFF7C4DFF).withValues(alpha: isDark ? 0.16 : 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ]
+        : AppColors.cardShadowOf(context);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.cardOf(context),
+          color: cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: AppColors.borderOf(context).withValues(alpha: 0.5),
-            width: 1,
+            color: cardBorder,
+            width: isAutoDetected ? 1.2 : 1.0,
           ),
-          boxShadow: AppColors.cardShadowOf(context),
+          boxShadow: cardShadow,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                // Category-specific brand color vertical stripe on the left edge
-                Container(
-                  width: 4.5,
-                  color: catColor,
-                ),
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () {
-                        final displayMap = txn.toDisplayMap();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => TransactionDetailScreen(data: displayMap),
-                          ),
-                        ).then((_) => refreshData());
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: catColor.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
+          child: Stack(
+            children: [
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    // Category-specific brand color vertical stripe on the left edge
+                    Container(
+                      width: 4.5,
+                      color: catColor,
+                    ),
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () {
+                            final displayMap = txn.toDisplayMap();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TransactionDetailScreen(data: displayMap),
                               ),
-                              child: Icon(
-                                IconHelper.getIcon(txn.icon),
-                                color: catColor,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    title,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14.5,
-                                      color: AppColors.textPrimaryOf(context),
-                                      letterSpacing: -0.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: catColor.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          txn.category,
-                                          style: TextStyle(
-                                            color: catColor,
-                                            fontSize: 10.5,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _formatTime(txn.date),
-                                        style: TextStyle(
-                                          color: AppColors.textLightOf(context),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                      if (isAutoDetected) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFF2196F3).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(
-                                              color: const Color(0xFF2196F3).withValues(alpha: 0.3),
-                                              width: 0.8,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.auto_awesome,
-                                                size: 9,
-                                                color: Colors.blue.shade600,
-                                              ),
-                                              const SizedBox(width: 2.5),
-                                              Text(
-                                                'Auto',
-                                                style: TextStyle(
-                                                  color: Colors.blue.shade600,
-                                                  fontSize: 9.5,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              mainAxisAlignment: MainAxisAlignment.center,
+                            ).then((_) => refreshData());
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+                            child: Row(
                               children: [
-                                Text(
-                                  '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
-                                  style: TextStyle(
-                                    color: isIncome ? AppColors.income : AppColors.expense,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15.5,
-                                    letterSpacing: -0.3,
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: catColor.withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    IconHelper.getIcon(txn.icon),
+                                    color: catColor,
+                                    size: 22,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isIncome ? 'Income' : 'Expense',
-                                  style: TextStyle(
-                                    color: isIncome
-                                        ? AppColors.income.withValues(alpha: 0.85)
-                                        : AppColors.textLightOf(context),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        title,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14.5,
+                                          color: AppColors.textPrimaryOf(context),
+                                          letterSpacing: -0.2,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: catColor.withValues(alpha: 0.12),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Text(
+                                              txn.category,
+                                              style: TextStyle(
+                                                color: catColor,
+                                                fontSize: 10.5,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _formatTime(txn.date),
+                                            style: TextStyle(
+                                              color: AppColors.textLightOf(context),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                const SizedBox(width: 10),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount, compact: false)}',
+                                      style: TextStyle(
+                                        color: isIncome ? AppColors.income : AppColors.expense,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15.5,
+                                        letterSpacing: -0.3,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isIncome ? 'Income' : 'Expense',
+                                      style: TextStyle(
+                                        color: isIncome
+                                            ? AppColors.income.withValues(alpha: 0.85)
+                                            : AppColors.textLightOf(context),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              if (isAutoDetected)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF7C4DFF), Color(0xFF536DFE)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        bottomRight: Radius.circular(8),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Color(0x357C4DFF),
+                          blurRadius: 4,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome,
+                          size: 9.5,
+                          color: Colors.white,
+                        ),
+                        SizedBox(width: 3),
+                        Text(
+                          'AI',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.6,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
         ),
       ),

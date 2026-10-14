@@ -1,7 +1,6 @@
 // lib/views/widgets/settings_modal.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
@@ -12,6 +11,7 @@ import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
 import 'package:buddy/utils/app_snackbar.dart';
+import 'package:buddy/services/preference_service.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -41,8 +41,7 @@ class _SettingsModalState extends State<SettingsModal> {
     try {
       final enabled = await NotificationService.isAutoDetectionEnabled();
       final hasAccess = await NotificationService.isNotificationAccessGranted();
-      final prefs = await SharedPreferences.getInstance();
-      final includeDebts = prefs.getBool('include_debts_in_balance') ?? true;
+      final includeDebts = PreferenceService.includeDebtsInHome;
       final versionStr = await FeedbackService.getAppVersionDisplay();
       if (mounted) {
         setState(() {
@@ -61,8 +60,7 @@ class _SettingsModalState extends State<SettingsModal> {
   }
 
   Future<void> _toggleIncludeDebts(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('include_debts_in_balance', value);
+    await PreferenceService.setIncludeDebtsInHome(value);
     if (mounted) {
       setState(() => _includeDebtsInBalance = value);
       widget.onDataCleared();
