@@ -113,10 +113,10 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     final double labelSize = (13 * s).clamp(11.0, 15.0);
     const double pillRadius = 100.0; // Clean capsule pill shape, not squircle
 
-    // FAB sizing (Circular Lottie Action Button)
-    final double fabSize = (64 * s).clamp(56.0, 76.0);
-    final double fabBottom = (110 * sh).clamp(90.0, 140.0);
-    final double fabRight = (20 * s).clamp(14.0, 28.0);
+    // FAB sizing (Floating Lottie Action Button)
+    final double fabSize = (78 * s).clamp(70.0, 94.0);
+    final double fabBottom = (108 * sh).clamp(88.0, 138.0);
+    final double fabRight = (18 * s).clamp(12.0, 26.0);
     final double fabIconSize = (28 * s).clamp(22.0, 34.0);
 
     return Scaffold(
@@ -514,109 +514,82 @@ class _LiquidGlassFabState extends State<_LiquidGlassFab> {
         scale: _isPressed ? 0.92 : 1.0,
         duration: const Duration(milliseconds: 120),
         curve: Curves.easeOutCubic,
-        child: Container(
+        child: SizedBox(
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: isDark
-                ? const LinearGradient(
-                    colors: [
-                      Color(0xFF287A70),
-                      Color(0xFF1B554E),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : const LinearGradient(
-                    colors: [
-                      Color(0xFF38B2A6),
-                      Color(0xFF228277),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          child: Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none,
+            children: [
+              // Animated Money Lottie (freely floating without background container)
+              Transform.scale(
+                scale: 1.15,
+                child: SizedBox(
+                  width: size,
+                  height: size,
+                  child: Lottie.asset(
+                    'assets/lottie/jsonlottie/Moneylottie.json',
+                    fit: BoxFit.contain,
+                    repeat: true,
                   ),
-            border: Border.all(
-              color: Colors.white.withValues(
-                alpha: isDark ? 0.35 : 0.70,
+                ),
               ),
-              width: 1.2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isDark
-                    ? const Color(0xFF1E5D57).withValues(alpha: 0.40)
-                    : const Color(0xFF38B2A6).withValues(alpha: 0.55),
-                blurRadius: isDark ? 14 : 16,
-                offset: const Offset(0, 4),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.12),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+              // '+' symbol badge with the signature emerald pill gradient & glow
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(4.5),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: isDark
+                        ? const LinearGradient(
+                            colors: [
+                              Color(0xFF287A70),
+                              Color(0xFF1B554E),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : const LinearGradient(
+                            colors: [
+                              Color(0xFF38B2A6),
+                              Color(0xFF228277),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                    border: Border.all(
+                      color: Colors.white.withValues(
+                        alpha: isDark ? 0.40 : 0.75,
+                      ),
+                      width: 1.4,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark
+                            ? const Color(0xFF1E5D57).withValues(alpha: 0.50)
+                            : const Color(0xFF38B2A6).withValues(alpha: 0.60),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                      BoxShadow(
+                        color: Colors.black.withValues(
+                          alpha: isDark ? 0.35 : 0.20,
+                        ),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.add_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ],
-          ),
-          child: Center(
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Animated Money Lottie (enlarged to fill button)
-                  SizedBox(
-                    width: size * 0.95,
-                    height: size * 0.95,
-                    child: Lottie.asset(
-                      'assets/lottie/jsonlottie/Moneylottie.json',
-                      fit: BoxFit.contain,
-                      repeat: true,
-                    ),
-                  ),
-                  // Blended '+' symbol badge (matching signature emerald & glass aesthetic)
-                  Positioned(
-                    right: 1,
-                    bottom: 1,
-                    child: Container(
-                      padding: const EdgeInsets.all(3.0),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? const Color(0xFF0F2624)
-                            : const Color(0xFF0F3632),
-                        border: Border.all(
-                          color: Colors.white.withValues(
-                            alpha: isDark ? 0.60 : 0.80,
-                          ),
-                          width: 1.2,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                          BoxShadow(
-                            color: (isDark
-                                    ? const Color(0xFF1E5D57)
-                                    : const Color(0xFF38B2A6))
-                                .withValues(alpha: 0.50),
-                            blurRadius: 6,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
