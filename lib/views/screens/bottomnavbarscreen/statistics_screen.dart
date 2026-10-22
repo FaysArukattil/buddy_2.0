@@ -12,6 +12,7 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:intl/intl.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -887,10 +888,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
               _buildAppBar(),
               const Expanded(
                 child: Center(
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                    strokeWidth: 3,
-                  ),
+                  child: BuddyLoadingIndicator(size: 56),
                 ),
               ),
             ],
@@ -1033,14 +1031,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ],
               ),
               child: _isDownloading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
+                  ? const BuddyLoadingIndicator(size: 18)
                   : const Icon(
                       Icons.download_rounded,
                       color: Colors.white,

@@ -10,6 +10,8 @@ import '../../../utils/format_utils.dart';
 import '../../../services/Network_services.dart';
 import '../../../utils/app_snackbar.dart';
 import '../../../services/preference_service.dart';
+import '../../widgets/buddy_loading_indicator.dart';
+import '../../widgets/buddy_refresh_control.dart';
 
 class BorrowLendScreen extends StatefulWidget {
   const BorrowLendScreen({super.key});
@@ -197,35 +199,41 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                 Expanded(
                   child: isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primary,
-                          ),
+                          child: BuddyLoadingIndicator(size: 56),
                         )
-                      : RefreshIndicator(
-                          onRefresh: refreshData,
-                          color: AppColors.primary,
-                          child: ListView.builder(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(
-                              parent: BouncingScrollPhysics(),
-                            ),
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                            itemCount: totalCount,
-                            itemBuilder: (context, index) {
-                              if (index < headerCount) {
-                                return headerWidgets[index];
-                              }
-                              final debtIndex = index - headerCount;
-                              if (debtCount == 0) {
-                                return _buildEmptyState(context);
-                              }
-                              return _buildDebtCard(
-                                context,
-                                filteredDebts[debtIndex],
-                                isDark,
-                              );
-                            },
+                      : CustomScrollView(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
                           ),
+                          slivers: [
+                            BuddyRefreshControl(
+                              onRefresh: refreshData,
+                              backgroundColor: AppColors.backgroundOf(context),
+                            ),
+                            SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                              sliver: SliverList(
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) {
+                                    if (index < headerCount) {
+                                      return headerWidgets[index];
+                                    }
+                                    final debtIndex = index - headerCount;
+                                    if (debtCount == 0) {
+                                      return _buildEmptyState(context);
+                                    }
+                                    return _buildDebtCard(
+                                      context,
+                                      filteredDebts[debtIndex],
+                                      isDark,
+                                    );
+                                  },
+                                  childCount: totalCount,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ],
@@ -3328,14 +3336,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                           ),
                         ),
                         child: _isSaving
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
+                            ? const BuddyLoadingIndicator(size: 24)
                             : Text(
                                 isEditing ? 'Update Record' : 'Save Record',
                                 style: const TextStyle(

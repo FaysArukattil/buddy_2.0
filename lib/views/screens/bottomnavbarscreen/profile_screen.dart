@@ -18,6 +18,7 @@ import 'package:buddy/services/support_service.dart';
 import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
 import 'package:buddy/utils/app_snackbar.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -1287,14 +1288,7 @@ class ProfileScreenState extends State<ProfileScreen>
               ),
               child: Row(
                 children: [
-                  const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.orange,
-                    ),
-                  ),
+                  const BuddyLoadingIndicator(size: 18),
                   const SizedBox(width: 12),
                   Text(
                     'Processing... Please wait.',

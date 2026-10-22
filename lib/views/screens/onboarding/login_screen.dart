@@ -8,6 +8,7 @@ import 'package:buddy/views/widgets/custom_button_filled.dart';
 import 'package:buddy/views/widgets/custom_button_outlined.dart';
 import 'package:buddy/views/widgets/auth_textfield.dart';
 import 'package:buddy/utils/app_snackbar.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -305,32 +306,21 @@ class _LoginScreenState extends State<LoginScreen> {
                             color: AppColors.primary.withValues(alpha: 0.7),
                             borderRadius: BorderRadius.circular(16),
                           ),
-                          child: const Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  BuddyLoadingIndicator(size: 24),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    'Logging in...',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Logging in...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                                ],
+                              ),
                         )
                       : CustomButtonFilled(
                           text: "Log In",

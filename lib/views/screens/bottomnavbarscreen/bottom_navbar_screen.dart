@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:math' as math;
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/home_screen.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/statistics_screen.dart';
@@ -44,6 +45,13 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   final GlobalKey<ProfileScreenState> _profileKey =
       GlobalKey<ProfileScreenState>();
 
+  static const _navItems = [
+    _NavItemData(icon: Icons.home_rounded, outline: Icons.home_outlined, label: 'Home'),
+    _NavItemData(icon: Icons.bar_chart_rounded, outline: Icons.bar_chart_rounded, label: 'Stats'),
+    _NavItemData(icon: Icons.handshake_rounded, outline: Icons.handshake_outlined, label: 'Debts'),
+    _NavItemData(icon: Icons.person_rounded, outline: Icons.person_outline_rounded, label: 'Profile'),
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +90,33 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    final screenW = mq.size.width;
+    final screenH = mq.size.height;
+    final bottomSafe = mq.padding.bottom;
+
+    // ── Responsive scaling factors ──
+    // Base design: 390pt wide (iPhone 14). Scale relative to that.
+    final double sw = screenW / 390.0;
+    final double sh = screenH / 844.0;
+    // Clamp scale so nothing gets absurdly large on tablets or tiny on SE
+    final double s = sw.clamp(0.8, 1.3);
+
+    final double navBarH = (52 * s).clamp(44.0, 64.0);
+    final double navRadius = (28 * s).clamp(22.0, 36.0);
+    final double hPad = (16 * s).clamp(12.0, 24.0);
+    final double vPad = (6 * s).clamp(4.0, 10.0);
+    final double iconSize = (22 * s).clamp(18.0, 26.0);
+    final double labelSize = (13 * s).clamp(11.0, 15.0);
+    final double pillRadius = (18 * s).clamp(14.0, 22.0);
+
+    // FAB sizing
+    final double fabSize = (60 * s).clamp(50.0, 72.0);
+    final double fabRadius = (20 * s).clamp(16.0, 26.0);
+    final double fabBottom = (110 * sh).clamp(90.0, 140.0);
+    final double fabRight = (20 * s).clamp(14.0, 28.0);
+    final double fabIconSize = (28 * s).clamp(22.0, 34.0);
+
     return Scaffold(
       extendBody: true,
       backgroundColor: AppColors.backgroundOf(context),
@@ -114,35 +149,53 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                padding: EdgeInsets.fromLTRB(hPad, 0, hPad, math.max(bottomSafe > 0 ? 0 : 6, 6 * s)),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(navRadius),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                    filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.isDark(context)
-                            ? const Color(0xFF161D26).withValues(alpha: 0.92)
-                            : AppColors.primary.withValues(alpha: 0.14),
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: AppColors.isDark(context)
+                              ? [
+                                  const Color(0xFF0F2624).withValues(alpha: 0.90),
+                                  const Color(0xFF081615).withValues(alpha: 0.96),
+                                ]
+                              : [
+                                  const Color(0xFF0F3632).withValues(alpha: 0.92),
+                                  const Color(0xFF14423E).withValues(alpha: 0.96),
+                                ],
+                        ),
+                        borderRadius: BorderRadius.circular(navRadius),
                         border: Border.all(
-                          color: AppColors.isDark(context)
-                              ? AppColors.borderOf(context)
-                              : AppColors.secondary.withValues(alpha: 0.24),
-                          width: 1,
+                          color: Colors.white.withValues(
+                            alpha: AppColors.isDark(context) ? 0.18 : 0.24,
+                          ),
+                          width: 1.0,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(
                               alpha: AppColors.isDark(context) ? 0.45 : 0.08,
                             ),
-                            blurRadius: 20,
-                            offset: const Offset(0, -4),
+                            blurRadius: 28,
+                            offset: const Offset(0, 6),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF1E5D57).withValues(
+                              alpha: AppColors.isDark(context) ? 0.25 : 0.10,
+                            ),
+                            blurRadius: 16,
+                            offset: const Offset(0, -1),
                           ),
                         ],
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 6,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: vPad,
+                        vertical: vPad,
                       ),
                       child: AnimatedBuilder(
                         animation: _pageController,
@@ -152,17 +205,17 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                               ? (_pageController.page ?? _currentIndex.toDouble())
                               : _currentIndex.toDouble();
 
+                          final int selectedIndex = currentPage.round().clamp(0, 3);
+
                           return LayoutBuilder(
                             builder: (context, constraints) {
                               final totalWidth = constraints.maxWidth;
                               const itemCount = 4;
                               final itemWidth = totalWidth / itemCount;
-                              final indicatorWidth = itemWidth - 8;
-
-                              final animatedLeft =
-                                  (currentPage.clamp(0.0, (itemCount - 1).toDouble()) *
-                                          itemWidth) +
-                                      4;
+                              const double pillInset = 2.5;
+                              final double pillWidth = itemWidth - 2 * pillInset;
+                              final double leftOffset = (currentPage * itemWidth + pillInset)
+                                  .clamp(pillInset, totalWidth - itemWidth + pillInset);
 
                               return GestureDetector(
                                 behavior: HitTestBehavior.translucent,
@@ -191,95 +244,112 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                   _goTo(target);
                                 },
                                 child: SizedBox(
-                                  height: 48,
+                                  height: navBarH,
                                   child: Stack(
                                     children: [
-                                      // Indicator pill behind icons
+                                      // ── Seamless Physical Sliding Pill (glides smoothly across tabs) ──
                                       Positioned(
-                                        left: animatedLeft,
-                                        top: 4,
-                                        width: indicatorWidth,
-                                        height: 40,
+                                        left: leftOffset,
+                                        width: pillWidth,
+                                        top: 2,
+                                        bottom: 2,
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                AppColors.primary.withValues(
-                                                  alpha: 0.38,
-                                                ),
-                                                AppColors.secondary.withValues(
-                                                  alpha: 0.30,
-                                                ),
-                                              ],
-                                            ),
+                                            borderRadius: BorderRadius.circular(pillRadius),
+                                            gradient: AppColors.isDark(context)
+                                                ? const LinearGradient(
+                                                    colors: [
+                                                      Color(0xFF26736A),
+                                                      Color(0xFF1B534D),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  )
+                                                : const LinearGradient(
+                                                    colors: [
+                                                      Color(0xFF236C64),
+                                                      Color(0xFF194F48),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
                                             border: Border.all(
-                                              color: AppColors.secondary
-                                                  .withValues(
-                                                alpha: 0.35,
+                                              color: Colors.white.withValues(
+                                                alpha: AppColors.isDark(context) ? 0.35 : 0.40,
                                               ),
-                                              width: 1,
+                                              width: 1.0,
                                             ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0xFF1E5D57).withValues(
+                                                  alpha: AppColors.isDark(context) ? 0.40 : 0.28,
+                                                ),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 3),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
 
-                                      // Icons row (equal width slots, strictly centered)
+                                      // ── Tab items row (positioned over the sliding pill) ──
                                       Row(
-                                        children: [
-                                          SizedBox(
-                                            width: itemWidth,
-                                            child: Center(
-                                              child: _NavIcon(
-                                                icon: Icons.home_rounded,
-                                                outline: Icons.home_outlined,
-                                                selected:
-                                                    (currentPage.round() == 0),
-                                                onTap: () => _goTo(0),
+                                        children: List.generate(itemCount, (i) {
+                                          final double dist = (currentPage - i).abs();
+                                          final double rawFactor = (1.0 - (dist / 0.75)).clamp(0.0, 1.0);
+                                          final double growFactor = Curves.easeInOutCubic.transform(rawFactor);
+                                          final bool isSelected = selectedIndex == i;
+
+                                          return Expanded(
+                                            child: GestureDetector(
+                                              onTap: () => _goTo(i),
+                                              behavior: HitTestBehavior.opaque,
+                                              child: Center(
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      isSelected
+                                                          ? _navItems[i].icon
+                                                          : _navItems[i].outline,
+                                                      size: iconSize,
+                                                      color: Color.lerp(
+                                                        Colors.white.withValues(alpha: 0.50),
+                                                        Colors.white,
+                                                        growFactor,
+                                                      ),
+                                                    ),
+                                                    ClipRect(
+                                                      child: Align(
+                                                        alignment: Alignment.centerLeft,
+                                                        widthFactor: growFactor,
+                                                        child: Opacity(
+                                                          opacity: growFactor,
+                                                          child: Padding(
+                                                            padding: EdgeInsets.only(left: 4.5 * s),
+                                                            child: Text(
+                                                              _navItems[i].label,
+                                                              style: TextStyle(
+                                                                color: Colors.white,
+                                                                fontSize: labelSize,
+                                                                fontWeight: FontWeight.w800,
+                                                                letterSpacing: -0.2,
+                                                              ),
+                                                              maxLines: 1,
+                                                              softWrap: false,
+                                                              overflow: TextOverflow.clip,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          SizedBox(
-                                            width: itemWidth,
-                                            child: Center(
-                                              child: _NavIcon(
-                                                icon: Icons.bar_chart_rounded,
-                                                outline:
-                                                    Icons.bar_chart_rounded,
-                                                selected:
-                                                    (currentPage.round() == 1),
-                                                onTap: () => _goTo(1),
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: itemWidth,
-                                            child: Center(
-                                              child: _NavIcon(
-                                                icon: Icons.handshake_rounded,
-                                                outline:
-                                                    Icons.handshake_outlined,
-                                                selected:
-                                                    (currentPage.round() == 2),
-                                                onTap: () => _goTo(2),
-                                              ),
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            width: itemWidth,
-                                            child: Center(
-                                              child: _NavIcon(
-                                                icon: Icons.person_rounded,
-                                                outline: Icons
-                                                    .person_outline_rounded,
-                                                selected:
-                                                    (currentPage.round() == 3),
-                                                onTap: () => _goTo(3),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                          );
+                                        }),
                                       ),
                                     ],
                                   ),
@@ -301,7 +371,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             child: Align(
               alignment: Alignment.bottomRight,
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 110, right: 20),
+                padding: EdgeInsets.only(bottom: fabBottom, right: fabRight),
                 child: AnimatedBuilder(
                   animation: _fabBob,
                   builder: (context, child) => Transform.translate(
@@ -378,21 +448,28 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                       }
                     },
                     child: Container(
-                      width: 64,
-                      height: 64,
+                      width: fabSize,
+                      height: fabSize,
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.88),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: const [
+                        gradient: const LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            AppColors.secondary,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(fabRadius),
+                        boxShadow: [
                           BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 16,
-                            offset: Offset(0, 8),
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 20,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                      child: const Center(
-                        child: Icon(Icons.add, size: 28, color: Colors.white),
+                      child: Center(
+                        child: Icon(Icons.add_rounded, size: fabIconSize, color: Colors.white),
                       ),
                     ),
                   ),
@@ -420,41 +497,9 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   }
 }
 
-class _NavIcon extends StatelessWidget {
+class _NavItemData {
   final IconData icon;
   final IconData outline;
-  final bool selected;
-  final VoidCallback onTap;
-  const _NavIcon({
-    required this.icon,
-    required this.outline,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = AppColors.isDark(context);
-    final activeColor = isDark ? Colors.white : AppColors.secondary;
-    final inactiveColor = isDark ? Colors.white60 : Colors.black54;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          transitionBuilder: (child, anim) =>
-              ScaleTransition(scale: anim, child: child),
-          child: Icon(
-            selected ? icon : outline,
-            key: ValueKey<bool>(selected),
-            size: selected ? 24 : 22,
-            color: selected ? activeColor : inactiveColor,
-          ),
-        ),
-      ),
-    );
-  }
+  final String label;
+  const _NavItemData({required this.icon, required this.outline, required this.label});
 }

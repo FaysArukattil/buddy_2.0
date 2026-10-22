@@ -12,6 +12,7 @@ import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/preference_service.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -807,11 +808,7 @@ class _SettingsModalState extends State<SettingsModal> {
                         ),
                       ),
                       if (_isLoading)
-                        const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                        const BuddyLoadingIndicator(size: 24)
                       else
                         Switch(
                           value: _autoDetectionEnabled,
@@ -1076,14 +1073,7 @@ class _SettingsModalState extends State<SettingsModal> {
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.orange,
-                          ),
-                        ),
+                        const BuddyLoadingIndicator(size: 24),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Text(

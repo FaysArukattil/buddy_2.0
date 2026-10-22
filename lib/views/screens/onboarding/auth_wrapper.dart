@@ -4,6 +4,8 @@ import 'package:buddy/services/auth_service.dart';
 import 'package:buddy/views/screens/bottomnavbarscreen/bottom_navbar_screen.dart';
 import 'package:buddy/views/screens/onboarding/login_screen.dart';
 
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -22,8 +24,8 @@ class AuthWrapper extends StatelessWidget {
         // Show loading while checking auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
           debugPrint('⏳ AUTH WRAPPER: Waiting for auth state...');
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            body: BuddyLoadingIndicator.centered(),
           );
         }
 

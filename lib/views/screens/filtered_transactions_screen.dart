@@ -7,6 +7,7 @@ import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 import 'package:buddy/models/transaction.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class FilteredTransactionsScreen extends StatefulWidget {
   final String type; // 'Income', 'Expense', or 'All'
@@ -651,9 +652,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     required bool isToday,
   }) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primary),
-      );
+      return BuddyLoadingIndicator.centered();
     }
 
     if (transactions.isEmpty) {

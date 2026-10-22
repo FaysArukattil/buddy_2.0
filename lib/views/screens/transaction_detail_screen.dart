@@ -9,6 +9,7 @@ import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/models/transaction.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -616,14 +617,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                   ),
                   onPressed: _isDownloading ? null : _downloadPdf,
                   child: _isDownloading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                      ? const BuddyLoadingIndicator(size: 24)
                       : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [

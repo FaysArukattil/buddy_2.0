@@ -8,6 +8,7 @@ import 'package:buddy/models/category.dart' as cat;
 import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/utils/app_snackbar.dart';
+import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -922,14 +923,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         ),
         onPressed: _isSaving ? null : _saveTransaction,
         child: _isSaving
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
+            ? const BuddyLoadingIndicator(size: 24)
             : Text(
                 _isEditing
                     ? 'Update ${_typeIndex == 0 ? 'Expense' : 'Income'}'
