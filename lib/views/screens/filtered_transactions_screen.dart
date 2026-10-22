@@ -434,17 +434,17 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
 
     final isDark = AppColors.isDark(context);
     final cardBg = isAutoDetected
-        ? (isDark ? const Color(0xFF191830) : const Color(0xFFF7F6FE))
+        ? (isDark ? const Color(0xFF102825) : const Color(0xFFEEF6F5))
         : AppColors.cardOf(context);
     final cardBorder = isAutoDetected
         ? (isDark
-            ? const Color(0xFF7C4DFF).withValues(alpha: 0.42)
-            : const Color(0xFF673AB7).withValues(alpha: 0.28))
+            ? const Color(0xFF1E5D57).withValues(alpha: 0.55)
+            : const Color(0xFF0F3632).withValues(alpha: 0.25))
         : AppColors.borderOf(context).withValues(alpha: 0.5);
     final cardShadow = isAutoDetected
         ? [
             BoxShadow(
-              color: const Color(0xFF7C4DFF).withValues(alpha: isDark ? 0.16 : 0.08),
+              color: const Color(0xFF0F3632).withValues(alpha: isDark ? 0.25 : 0.08),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -599,21 +599,23 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                   left: 0,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF7C4DFF), Color(0xFF536DFE)],
+                        colors: isDark
+                            ? const [Color(0xFF163E3B), Color(0xFF2C7A72)]
+                            : const [Color(0xFF0F3632), Color(0xFF1E5D57)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.only(
+                      borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomRight: Radius.circular(8),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x357C4DFF),
+                          color: const Color(0xFF0F3632).withValues(alpha: 0.25),
                           blurRadius: 4,
-                          offset: Offset(0, 1),
+                          offset: const Offset(0, 1),
                         ),
                       ],
                     ),

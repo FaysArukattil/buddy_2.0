@@ -39,10 +39,17 @@ class HomeScreenState extends State<HomeScreen>
   double _expenses = 0;
   int _balanceViewMode = 0; // 0 = Net Balance, 1 = Income only, 2 = Expense only
   late final PageController _balancePageController;
+  Timer? _autoCycleTimer;
+  bool _userInteractedWithMode = false;
   bool _includeDebtsInBalance = true;
   bool _notifiedGranted = false;
-  bool _hideBalance = false;
   final ScrollController _scrollController = ScrollController();
+  double _segDragAccumX = 0;
+  double _segDragStartPage = 0;
+  int _lastSegHapticIndex = 0;
+  double _headerDragAccumX = 0;
+  double _headerDragStartPage = 0;
+  int _lastHeaderHapticIndex = 0;
   List<TransactionModel> _transactions = [];
   bool _isLoading = true;
   StreamSubscription? _txnSubscription;
@@ -64,7 +71,33 @@ class HomeScreenState extends State<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startListening();
       _checkAndPromptAutoTracking();
+      _startAutoCycleTimer();
     });
+  }
+
+  void _startAutoCycleTimer() {
+    _autoCycleTimer?.cancel();
+    if (_userInteractedWithMode) return;
+    _autoCycleTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted || _userInteractedWithMode) {
+        timer.cancel();
+        return;
+      }
+      if (_balancePageController.hasClients &&
+          _balancePageController.positions.length == 1 &&
+          _balancePageController.position.haveDimensions) {
+        final int nextMode = (_balanceViewMode + 1) % 3;
+        _onToggleMode(nextMode, isUserAction: false);
+      }
+    });
+  }
+
+  void _stopAutoCycle() {
+    if (!_userInteractedWithMode) {
+      _userInteractedWithMode = true;
+      _autoCycleTimer?.cancel();
+      _autoCycleTimer = null;
+    }
   }
 
   void _onDebtPreferenceChanged() {
@@ -82,6 +115,7 @@ class HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    _autoCycleTimer?.cancel();
     PreferenceService.includeDebtsInHomeNotifier.removeListener(_onDebtPreferenceChanged);
     _txnSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
@@ -90,14 +124,30 @@ class HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  void _onToggleMode(int mode) {
-    if (_balanceViewMode == mode) return;
-    HapticFeedback.selectionClick();
-    setState(() => _balanceViewMode = mode);
-    if (_balancePageController.hasClients) {
+  void _onToggleMode(int mode, {bool isUserAction = true}) {
+    if (isUserAction) {
+      _stopAutoCycle();
+    }
+    final double currentPage = (_balancePageController.hasClients &&
+            _balancePageController.positions.length == 1 &&
+            _balancePageController.position.haveDimensions)
+        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+        : _balanceViewMode.toDouble();
+
+    final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
+    if (_balanceViewMode == mode && pageAlreadyThere) return;
+    if (_balanceViewMode != mode) {
+      if (isUserAction) {
+        HapticFeedback.selectionClick();
+      }
+      setState(() => _balanceViewMode = mode);
+    }
+    if (_balancePageController.hasClients &&
+        _balancePageController.positions.length == 1 &&
+        _balancePageController.position.haveDimensions) {
       _balancePageController.animateToPage(
         mode,
-        duration: const Duration(milliseconds: 280),
+        duration: const Duration(milliseconds: 380),
         curve: Curves.easeOutCubic,
       );
     }
@@ -110,6 +160,11 @@ class HomeScreenState extends State<HomeScreen>
       _loadUser();
       AppInitHelper.syncNow();
       _checkAccessGrantedAfterReturn();
+      if (!_userInteractedWithMode) {
+        _startAutoCycleTimer();
+      }
+    } else if (state == AppLifecycleState.paused) {
+      _autoCycleTimer?.cancel();
     }
   }
 
@@ -607,41 +662,110 @@ class HomeScreenState extends State<HomeScreen>
     final topPadding = mq.padding.top;
     final double s = (screenW / 390.0).clamp(0.85, 1.25);
     final double headerBtnSize = (44 * s).clamp(40.0, 48.0);
+    final topHeaderColor = AppColors.isDark(context)
+        ? const Color(0xFF0F2624)
+        : const Color(0xFF0F3632);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
-      body: CustomScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
-        ),
-        slivers: [
-          // ── Dynamic Pull-To-Refresh with Coin & Matching Accent ──
-          BuddyRefreshControl(
-            onRefresh: refreshData,
-            backgroundColor: Colors.transparent,
-          ),
-
-          // ── Seamless Unified Hero Header (Signature Teal App Theme) ──
-          SliverToBoxAdapter(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onHorizontalDragEnd: (DragEndDetails details) {
-                final velocity = details.primaryVelocity ?? 0;
-                if (velocity < -150) {
-                  // Swiped Left -> go to next mode (0 -> 1 -> 2)
-                  if (_balanceViewMode < 2) {
-                    _onToggleMode(_balanceViewMode + 1);
-                  }
-                } else if (velocity > 150) {
-                  // Swiped Right -> go to previous mode (2 -> 1 -> 0)
-                  if (_balanceViewMode > 0) {
-                    _onToggleMode(_balanceViewMode - 1);
-                  }
-                }
+      body: Stack(
+        children: [
+          // Dynamic overscroll header backdrop: ONLY visible when pulling down past top
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedBuilder(
+              animation: _scrollController,
+              builder: (context, _) {
+                final offset =
+                    _scrollController.hasClients ? _scrollController.offset : 0.0;
+                final overscroll = offset < 0 ? -offset : 0.0;
+                if (overscroll <= 0) return const SizedBox.shrink();
+                return Container(
+                  height: topPadding + overscroll + 40,
+                  color: topHeaderColor,
+                );
               },
-              child: Container(
-                decoration: BoxDecoration(
+            ),
+          ),
+          CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics(),
+            ),
+            slivers: [
+              // ── Dynamic Pull-To-Refresh with Coin & Matching Accent ──
+              BuddyRefreshControl(
+                onRefresh: refreshData,
+                backgroundColor: topHeaderColor,
+                topPadding: topPadding,
+              ),
+
+              // ── Seamless Unified Hero Header & Swipe Indicator (Swipable Top Portion) ──
+              SliverToBoxAdapter(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onHorizontalDragStart: (details) {
+                    _stopAutoCycle();
+                    _headerDragAccumX = 0;
+                    _headerDragStartPage = (_balancePageController.hasClients &&
+                            _balancePageController.positions.length == 1 &&
+                            _balancePageController.position.haveDimensions)
+                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                        : _balanceViewMode.toDouble();
+                    _lastHeaderHapticIndex = _headerDragStartPage.round();
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    _headerDragAccumX += details.delta.dx;
+                    final double w = (_balancePageController.hasClients &&
+                            _balancePageController.positions.length == 1 &&
+                            _balancePageController.position.haveDimensions)
+                        ? _balancePageController.position.viewportDimension
+                        : MediaQuery.of(context).size.width;
+                    final double deltaPages =
+                        -_headerDragAccumX / (w > 0 ? w : 300.0);
+                    final double newPage =
+                        (_headerDragStartPage + deltaPages).clamp(0.0, 2.0);
+                    if (_balancePageController.hasClients &&
+                        _balancePageController.positions.length == 1 &&
+                        _balancePageController.position.haveDimensions) {
+                      _balancePageController.position.jumpTo(newPage * w);
+                    }
+                    final int nearest = newPage.round().clamp(0, 2);
+                    if (nearest != _lastHeaderHapticIndex) {
+                      _lastHeaderHapticIndex = nearest;
+                      HapticFeedback.selectionClick();
+                    }
+                  },
+                  onHorizontalDragEnd: (details) {
+                    final double velocity = details.primaryVelocity ?? 0;
+                    final double currentP = (_balancePageController.hasClients &&
+                            _balancePageController.positions.length == 1 &&
+                            _balancePageController.position.haveDimensions)
+                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                        : _balanceViewMode.toDouble();
+                    int target = currentP.round();
+                    if (velocity < -250) {
+                      target = (currentP.floor() + 1).clamp(0, 2);
+                    } else if (velocity > 250) {
+                      target = (currentP.ceil() - 1).clamp(0, 2);
+                    }
+                    _onToggleMode(target.clamp(0, 2));
+                  },
+                  onHorizontalDragCancel: () {
+                    final double currentP = (_balancePageController.hasClients &&
+                            _balancePageController.positions.length == 1 &&
+                            _balancePageController.position.haveDimensions)
+                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                        : _balanceViewMode.toDouble();
+                    _onToggleMode(currentP.round().clamp(0, 2));
+                  },
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: AppColors.isDark(context)
                         ? const [
@@ -760,107 +884,97 @@ class HomeScreenState extends State<HomeScreen>
 
                       SizedBox(height: (18 * s).clamp(14.0, 24.0)),
 
-                      // ─── Center Hero: Balance Label + Eye Toggle ───
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _balanceViewMode == 1
-                                ? 'Monthly Income'
-                                : (_balanceViewMode == 2
-                                    ? 'Monthly Expenses'
-                                    : 'Balance'),
-                            style: TextStyle(
-                              fontSize: (14 * s).clamp(13.0, 16.0),
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.85),
-                              letterSpacing: 0.3,
+                      // ─── Center Hero: Balance Label (Dynamic with real-time scrub) ───
+                      AnimatedBuilder(
+                        animation: _balancePageController,
+                        builder: (context, _) {
+                          final double currentPage = (_balancePageController.hasClients &&
+                                  _balancePageController.positions.length == 1 &&
+                                  _balancePageController.position.haveDimensions)
+                              ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                              : _balanceViewMode.toDouble();
+                          final int idx = currentPage.round().clamp(0, 2);
+                          return Center(
+                            child: Text(
+                              idx == 1
+                                  ? 'Monthly Income'
+                                  : (idx == 2
+                                      ? 'Monthly Expenses'
+                                      : 'Balance'),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: (14 * s).clamp(13.0, 16.0),
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                letterSpacing: 0.3,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _hideBalance = !_hideBalance);
-                            },
-                            child: Icon(
-                              _hideBalance
-                                  ? Icons.visibility_off_rounded
-                                  : Icons.visibility_rounded,
-                              size: (18 * s).clamp(16.0, 20.0),
-                              color: Colors.white.withValues(alpha: 0.75),
-                            ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
 
                       SizedBox(height: (6 * s).clamp(4.0, 8.0)),
 
-                      // ─── Swipable Large Amount (PageView so swiping changes view mode) ───
+                      // ─── Swipable Large Amount (Controlled seamlessly via top-level drag) ───
                       SizedBox(
                         height: (52 * s).clamp(44.0, 62.0),
                         child: PageView(
                           controller: _balancePageController,
-                          physics: const PageScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
+                          physics: const NeverScrollableScrollPhysics(),
                           onPageChanged: (i) {
                             setState(() => _balanceViewMode = i);
                           },
-                          children: [
-                            // Net Balance Page
-                            Center(
-                              child: Text(
-                                _hideBalance
-                                    ? '••••••••'
-                                    : FormatUtils.formatCurrency(_totalBalance, compact: false),
-                                style: TextStyle(
-                                  color: _totalBalance >= 0
-                                      ? Colors.white
-                                      : Colors.red.shade300,
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
+                            children: [
+                              // Net Balance Page
+                              Center(
+                                child: Text(
+                                  FormatUtils.formatCurrency(_totalBalance, compact: false),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _totalBalance >= 0
+                                        ? Colors.white
+                                        : Colors.red.shade300,
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            // Income Page
-                            Center(
-                              child: Text(
-                                _hideBalance
-                                    ? '••••••••'
-                                    : '+${FormatUtils.formatCurrency(_income, compact: false)}',
-                                style: TextStyle(
-                                  color: const Color(0xFF69F0AE),
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
+                              // Income Page
+                              Center(
+                                child: Text(
+                                  '+${FormatUtils.formatCurrency(_income, compact: false)}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFF69F0AE),
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            // Expense Page
-                            Center(
-                              child: Text(
-                                _hideBalance
-                                    ? '••••••••'
-                                    : '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
-                                style: TextStyle(
-                                  color: const Color(0xFFFF8A80),
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
+                              // Expense Page
+                              Center(
+                                child: Text(
+                                  '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFFFF8A80),
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
 
                       SizedBox(height: (8 * s).clamp(6.0, 12.0)),
 
@@ -918,90 +1032,33 @@ class HomeScreenState extends State<HomeScreen>
                         ),
                       ),
 
-                      SizedBox(height: (16 * s).clamp(12.0, 22.0)),
-
-                      // ─── Sub-bar: Debts tag & Integrated History button ───
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (!_includeDebtsInBalance)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.25),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.20),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: const Text(
-                                'Debts Excluded',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-
-                          // Integrated History button
-                          GestureDetector(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      const FilteredTransactionsScreen(type: 'All'),
-                                ),
-                              ).then((_) => refreshData());
-                            },
-                            behavior: HitTestBehavior.opaque,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: (11 * s).clamp(9.0, 15.0),
-                                vertical: (5 * s).clamp(4.0, 7.0),
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.16),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.28),
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.history_rounded,
-                                    size: (14 * s).clamp(12.0, 16.0),
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'History',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: (11.5 * s).clamp(10.5, 13.0),
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: -0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                      if (!_includeDebtsInBalance) ...[
+                        SizedBox(height: (10 * s).clamp(6.0, 14.0)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.20),
+                              width: 0.8,
                             ),
                           ),
-                        ],
-                      ),
+                          child: const Text(
+                            'Debts Excluded',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
 
-                      SizedBox(height: (10 * s).clamp(8.0, 14.0)),
+                      SizedBox(height: (14 * s).clamp(10.0, 18.0)),
 
                       // ─── Seamless Switcher: Attached cleanly at bottom of hero header ───
                       _buildSegmentedToggleBar(s),
@@ -1009,8 +1066,19 @@ class HomeScreenState extends State<HomeScreen>
                   ),
                 ),
               ),
-            ),
+
+              // ── Glassy Swipe Indicator: Positioned cleanly outside the top hero container ──
+              Padding(
+                padding: EdgeInsets.only(
+                  top: (12 * s).clamp(10.0, 16.0),
+                  bottom: (2 * s).clamp(0.0, 4.0),
+                ),
+                child: _buildSwipeIndicator(s),
+              ),
+            ],
           ),
+        ),
+      ),
               // ── Recent Transactions Header (Immediately below hero card) ──
               SliverToBoxAdapter(
                 child: Padding(
@@ -1036,29 +1104,64 @@ class HomeScreenState extends State<HomeScreen>
                           letterSpacing: -0.3,
                         ),
                       ),
-                      if (displayTransactions.isNotEmpty)
-                        TextButton(
-                          onPressed: () {
-                            final seeAllType = _balanceViewMode == 1
-                                ? 'Income'
-                                : (_balanceViewMode == 2 ? 'Expense' : 'All');
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    FilteredTransactionsScreen(type: seeAllType),
-                              ),
-                            ).then((_) => refreshData());
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            textStyle: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: (13 * s).clamp(11.5, 14.5),
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          final seeAllType = _balanceViewMode == 1
+                              ? 'Income'
+                              : (_balanceViewMode == 2 ? 'Expense' : 'All');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  FilteredTransactionsScreen(type: seeAllType),
+                            ),
+                          ).then((_) => refreshData());
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: (11 * s).clamp(9.0, 15.0),
+                            vertical: (5 * s).clamp(4.0, 7.0),
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.isDark(context)
+                                ? Colors.white.withValues(alpha: 0.08)
+                                : const Color(0xFF0F3632).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.isDark(context)
+                                  ? Colors.white.withValues(alpha: 0.20)
+                                  : const Color(0xFF0F3632).withValues(alpha: 0.18),
+                              width: 1.0,
                             ),
                           ),
-                          child: const Text('See all'),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.history_rounded,
+                                size: (14 * s).clamp(12.0, 16.0),
+                                color: AppColors.isDark(context)
+                                    ? Colors.white
+                                    : const Color(0xFF0F3632),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'History',
+                                style: TextStyle(
+                                  color: AppColors.isDark(context)
+                                      ? Colors.white
+                                      : const Color(0xFF0F3632),
+                                  fontSize: (11.5 * s).clamp(10.5, 13.0),
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ),
                     ],
                   ),
                 ),
@@ -1189,6 +1292,8 @@ class HomeScreenState extends State<HomeScreen>
               ),
             ],
           ),
+        ],
+      ),
     );
   }
 
@@ -1252,15 +1357,20 @@ class HomeScreenState extends State<HomeScreen>
         animation: _balancePageController,
         builder: (context, _) {
           final double currentPage = _balancePageController.hasClients &&
+                  _balancePageController.positions.length == 1 &&
                   _balancePageController.position.haveDimensions
               ? (_balancePageController.page ?? _balanceViewMode.toDouble())
               : _balanceViewMode.toDouble();
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              final double segWidth = constraints.maxWidth / 3;
-              final double leftOffset =
-                  (currentPage * segWidth).clamp(0.0, constraints.maxWidth - segWidth);
+              final double totalWidth = constraints.maxWidth;
+              const int itemCount = 3;
+              final double segWidth = totalWidth / itemCount;
+              const double pillInset = 1.0;
+              final double pillWidth = segWidth - (2 * pillInset);
+              final double leftOffset = (currentPage * segWidth + pillInset)
+                  .clamp(pillInset, totalWidth - segWidth + pillInset);
 
               Gradient pillGradient;
               Color pillBorder;
@@ -1301,45 +1411,98 @@ class HomeScreenState extends State<HomeScreen>
                 glowColor = AppColors.expense.withValues(alpha: 0.25);
               }
 
-              return Stack(
-                children: [
-                  Positioned(
-                    left: leftOffset,
-                    width: segWidth,
-                    top: 0,
-                    bottom: 0,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: pillGradient,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: pillBorder,
-                          width: 1.1,
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (details) {
+                  _stopAutoCycle();
+                  _segDragAccumX = 0;
+                  _segDragStartPage = currentPage;
+                  _lastSegHapticIndex = currentPage.round();
+                },
+                onHorizontalDragUpdate: (details) {
+                  _segDragAccumX += details.delta.dx;
+                  final double deltaPages = _segDragAccumX / segWidth;
+                  final double newPage =
+                      (_segDragStartPage + deltaPages).clamp(0.0, 2.0);
+                  if (_balancePageController.hasClients &&
+                      _balancePageController.positions.length == 1 &&
+                      _balancePageController.position.haveDimensions) {
+                    final double w = _balancePageController
+                        .position.viewportDimension;
+                    _balancePageController.position.jumpTo(newPage * w);
+                  }
+                  final int nearest = newPage.round().clamp(0, 2);
+                  if (nearest != _lastSegHapticIndex) {
+                    _lastSegHapticIndex = nearest;
+                    HapticFeedback.selectionClick();
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  final double velocity = details.primaryVelocity ?? 0;
+                  final double currentP = (_balancePageController.hasClients &&
+                          _balancePageController.positions.length == 1 &&
+                          _balancePageController.position.haveDimensions)
+                      ? (_balancePageController.page ?? currentPage)
+                      : currentPage;
+                  int target = currentP.round();
+                  if (velocity > 250) {
+                    target = (currentP.floor() + 1).clamp(0, 2);
+                  } else if (velocity < -250) {
+                    target = (currentP.ceil() - 1).clamp(0, 2);
+                  }
+                  _onToggleMode(target.clamp(0, 2));
+                },
+                onHorizontalDragCancel: () {
+                  final int target = (_balancePageController.hasClients &&
+                          _balancePageController.positions.length == 1 &&
+                          _balancePageController.position.haveDimensions)
+                      ? (_balancePageController.page ?? currentPage).round().clamp(0, 2)
+                      : currentPage.round().clamp(0, 2);
+                  _onToggleMode(target);
+                },
+                child: SizedBox(
+                  height: barHeight,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: leftOffset,
+                        width: pillWidth,
+                        top: 1,
+                        bottom: 1,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: pillGradient,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: pillBorder,
+                              width: 1.1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: glowColor,
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: glowColor,
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildToggleTab(0, 'Balance', currentPage, s),
+                          ),
+                          Expanded(
+                            child: _buildToggleTab(1, 'Income', currentPage, s),
+                          ),
+                          Expanded(
+                            child: _buildToggleTab(2, 'Expense', currentPage, s),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildToggleTab(0, 'Balance', currentPage, s),
-                      ),
-                      Expanded(
-                        child: _buildToggleTab(1, 'Income', currentPage, s),
-                      ),
-                      Expanded(
-                        child: _buildToggleTab(2, 'Expense', currentPage, s),
-                      ),
                     ],
                   ),
-                ],
+                ),
               );
             },
           );
@@ -1349,26 +1512,127 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildToggleTab(int index, String label, double currentPage, double s) {
-    final bool isSelected = (_balancePageController.hasClients &&
-            _balancePageController.position.haveDimensions
-        ? (currentPage.round() == index)
-        : (_balanceViewMode == index));
+    final double dist = (currentPage - index).abs();
+    final double activeFactor = (1.0 - dist).clamp(0.0, 1.0);
+    final bool isSelected = currentPage.round() == index;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _onToggleMode(index),
       child: Center(
-        child: AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 180),
+        child: Text(
+          label,
           style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.65),
+            color: Color.lerp(
+              Colors.white.withValues(alpha: 0.60),
+              Colors.white,
+              activeFactor,
+            ),
             fontSize: (12.5 * s).clamp(11.0, 14.0),
             fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
             letterSpacing: -0.2,
           ),
-          child: Text(label),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwipeIndicator(double s) {
+    final isDark = AppColors.isDark(context);
+    return AnimatedBuilder(
+      animation: _balancePageController,
+      builder: (context, _) {
+        final double currentPage = _balancePageController.hasClients &&
+                _balancePageController.positions.length == 1 &&
+                _balancePageController.position.haveDimensions
+            ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+            : _balanceViewMode.toDouble();
+
+        return Center(
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: (8 * s).clamp(7.0, 11.0),
+              vertical: (3.5 * s).clamp(3.0, 5.0),
+            ),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : const Color(0xFF0F3632).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.16)
+                    : const Color(0xFF0F3632).withValues(alpha: 0.16),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (isDark ? Colors.black : const Color(0xFF0F3632))
+                      .withValues(alpha: isDark ? 0.20 : 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSwipeDot(0, currentPage, s, isDark),
+                SizedBox(width: (4.5 * s).clamp(3.5, 6.0)),
+                _buildSwipeDot(1, currentPage, s, isDark),
+                SizedBox(width: (4.5 * s).clamp(3.5, 6.0)),
+                _buildSwipeDot(2, currentPage, s, isDark),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSwipeDot(int index, double currentPage, double s, bool isDark) {
+    final double dist = (currentPage - index).abs().clamp(0.0, 1.0);
+    final double factor = 1.0 - dist;
+    final double dotWidth = (5.0 + 11.0 * factor) * s;
+    final double dotHeight = (4.5 * s).clamp(4.0, 5.5);
+
+    Color activeColor;
+    if (index == 1) {
+      activeColor = const Color(0xFF69F0AE);
+    } else if (index == 2) {
+      activeColor = const Color(0xFFFF8A80);
+    } else {
+      activeColor = isDark ? Colors.white : const Color(0xFF0F3632);
+    }
+
+    final Color inactiveColor = isDark
+        ? Colors.white.withValues(alpha: 0.22)
+        : const Color(0xFF0F3632).withValues(alpha: 0.22);
+
+    final Color dotColor = Color.lerp(
+      inactiveColor,
+      activeColor,
+      factor,
+    )!;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _onToggleMode(index),
+      child: Container(
+        width: dotWidth.clamp(5.0, 20.0),
+        height: dotHeight,
+        decoration: BoxDecoration(
+          color: dotColor,
+          borderRadius: BorderRadius.circular(dotHeight / 2),
+          boxShadow: factor > 0.3
+              ? [
+                  BoxShadow(
+                    color: activeColor.withValues(alpha: 0.35 * factor),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
         ),
       ),
     );
@@ -1384,17 +1648,17 @@ class HomeScreenState extends State<HomeScreen>
     final isDark = AppColors.isDark(context);
 
     final cardBg = isAutoDetected
-        ? (isDark ? const Color(0xFF191830) : const Color(0xFFF7F6FE))
+        ? (isDark ? const Color(0xFF102825) : const Color(0xFFEEF6F5))
         : AppColors.cardOf(context);
     final cardBorder = isAutoDetected
         ? (isDark
-            ? const Color(0xFF7C4DFF).withValues(alpha: 0.42)
-            : const Color(0xFF673AB7).withValues(alpha: 0.28))
+            ? const Color(0xFF1E5D57).withValues(alpha: 0.55)
+            : const Color(0xFF0F3632).withValues(alpha: 0.25))
         : AppColors.borderOf(context).withValues(alpha: 0.5);
     final cardShadow = isAutoDetected
         ? [
             BoxShadow(
-              color: const Color(0xFF7C4DFF).withValues(alpha: isDark ? 0.16 : 0.08),
+              color: const Color(0xFF0F3632).withValues(alpha: isDark ? 0.25 : 0.08),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -1547,21 +1811,23 @@ class HomeScreenState extends State<HomeScreen>
                   left: 0,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [Color(0xFF7C4DFF), Color(0xFF536DFE)],
+                        colors: isDark
+                            ? const [Color(0xFF163E3B), Color(0xFF2C7A72)]
+                            : const [Color(0xFF0F3632), Color(0xFF1E5D57)],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.only(
+                      borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomRight: Radius.circular(8),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Color(0x357C4DFF),
+                          color: const Color(0xFF0F3632).withValues(alpha: 0.25),
                           blurRadius: 4,
-                          offset: Offset(0, 1),
+                          offset: const Offset(0, 1),
                         ),
                       ],
                     ),

@@ -47,8 +47,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
 
   static const _navItems = [
     _NavItemData(icon: Icons.home_rounded, outline: Icons.home_outlined, label: 'Home'),
-    _NavItemData(icon: Icons.bar_chart_rounded, outline: Icons.bar_chart_rounded, label: 'Stats'),
-    _NavItemData(icon: Icons.handshake_rounded, outline: Icons.handshake_outlined, label: 'Debts'),
+    _NavItemData(icon: Icons.insights_rounded, outline: Icons.insights_outlined, label: 'Stats'),
+    _NavItemData(icon: Icons.payments_rounded, outline: Icons.payments_outlined, label: 'Debts'),
     _NavItemData(icon: Icons.person_rounded, outline: Icons.person_outline_rounded, label: 'Profile'),
   ];
 
@@ -102,13 +102,14 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     // Clamp scale so nothing gets absurdly large on tablets or tiny on SE
     final double s = sw.clamp(0.8, 1.3);
 
+    final isDark = AppColors.isDark(context);
     final double navBarH = (52 * s).clamp(44.0, 64.0);
-    final double navRadius = (28 * s).clamp(22.0, 36.0);
+    const double navRadius = 100.0; // Clean capsule pill shape
     final double hPad = (16 * s).clamp(12.0, 24.0);
     final double vPad = (6 * s).clamp(4.0, 10.0);
     final double iconSize = (22 * s).clamp(18.0, 26.0);
     final double labelSize = (13 * s).clamp(11.0, 15.0);
-    final double pillRadius = (18 * s).clamp(14.0, 22.0);
+    const double pillRadius = 100.0; // Clean capsule pill shape, not squircle
 
     // FAB sizing
     final double fabSize = (60 * s).clamp(50.0, 72.0);
@@ -159,38 +160,44 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: AppColors.isDark(context)
+                          colors: isDark
                               ? [
                                   const Color(0xFF0F2624).withValues(alpha: 0.90),
                                   const Color(0xFF081615).withValues(alpha: 0.96),
                                 ]
                               : [
-                                  const Color(0xFF0F3632).withValues(alpha: 0.92),
-                                  const Color(0xFF14423E).withValues(alpha: 0.96),
+                                  const Color(0xFF0A2421).withValues(alpha: 0.94),
+                                  const Color(0xFF113834).withValues(alpha: 0.98),
                                 ],
                         ),
                         borderRadius: BorderRadius.circular(navRadius),
                         border: Border.all(
                           color: Colors.white.withValues(
-                            alpha: AppColors.isDark(context) ? 0.18 : 0.24,
+                            alpha: isDark ? 0.20 : 0.35,
                           ),
-                          width: 1.0,
+                          width: 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(
-                              alpha: AppColors.isDark(context) ? 0.45 : 0.08,
+                              alpha: isDark ? 0.45 : 0.24,
                             ),
                             blurRadius: 28,
-                            offset: const Offset(0, 6),
+                            offset: const Offset(0, 8),
                           ),
                           BoxShadow(
-                            color: const Color(0xFF1E5D57).withValues(
-                              alpha: AppColors.isDark(context) ? 0.25 : 0.10,
+                            color: const Color(0xFF0F3632).withValues(
+                              alpha: isDark ? 0.25 : 0.22,
                             ),
                             blurRadius: 16,
-                            offset: const Offset(0, -1),
+                            offset: const Offset(0, 2),
                           ),
+                          if (!isDark)
+                            BoxShadow(
+                              color: const Color(0xFF38B2A6).withValues(alpha: 0.14),
+                              blurRadius: 8,
+                              offset: const Offset(0, -1),
+                            ),
                         ],
                       ),
                       padding: EdgeInsets.symmetric(
@@ -256,36 +263,36 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                         child: Container(
                                           decoration: BoxDecoration(
                                             borderRadius: BorderRadius.circular(pillRadius),
-                                            gradient: AppColors.isDark(context)
+                                            gradient: isDark
                                                 ? const LinearGradient(
                                                     colors: [
-                                                      Color(0xFF26736A),
-                                                      Color(0xFF1B534D),
+                                                      Color(0xFF287A70),
+                                                      Color(0xFF1B554E),
                                                     ],
                                                     begin: Alignment.topLeft,
                                                     end: Alignment.bottomRight,
                                                   )
                                                 : const LinearGradient(
                                                     colors: [
-                                                      Color(0xFF236C64),
-                                                      Color(0xFF194F48),
+                                                      Color(0xFF38B2A6),
+                                                      Color(0xFF228277),
                                                     ],
                                                     begin: Alignment.topLeft,
                                                     end: Alignment.bottomRight,
                                                   ),
                                             border: Border.all(
                                               color: Colors.white.withValues(
-                                                alpha: AppColors.isDark(context) ? 0.35 : 0.40,
+                                                alpha: isDark ? 0.35 : 0.70,
                                               ),
-                                              width: 1.0,
+                                              width: 1.2,
                                             ),
                                             boxShadow: [
                                               BoxShadow(
-                                                color: const Color(0xFF1E5D57).withValues(
-                                                  alpha: AppColors.isDark(context) ? 0.40 : 0.28,
-                                                ),
-                                                blurRadius: 12,
-                                                offset: const Offset(0, 3),
+                                                color: isDark
+                                                    ? const Color(0xFF1E5D57).withValues(alpha: 0.40)
+                                                    : const Color(0xFF38B2A6).withValues(alpha: 0.55),
+                                                blurRadius: isDark ? 12 : 14,
+                                                offset: const Offset(0, 2),
                                               ),
                                             ],
                                           ),
@@ -315,7 +322,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                                           : _navItems[i].outline,
                                                       size: iconSize,
                                                       color: Color.lerp(
-                                                        Colors.white.withValues(alpha: 0.50),
+                                                        Colors.white.withValues(alpha: isDark ? 0.55 : 0.70),
                                                         Colors.white,
                                                         growFactor,
                                                       ),

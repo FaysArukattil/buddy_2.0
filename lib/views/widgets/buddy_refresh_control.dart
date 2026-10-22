@@ -14,6 +14,8 @@ class BuddyRefreshControl extends StatefulWidget {
   final double refreshTriggerPullDistance;
   final double refreshIndicatorExtent;
 
+  final double topPadding;
+
   const BuddyRefreshControl({
     super.key,
     required this.onRefresh,
@@ -21,6 +23,7 @@ class BuddyRefreshControl extends StatefulWidget {
     this.size = 46,
     this.refreshTriggerPullDistance = 90.0,
     this.refreshIndicatorExtent = 60.0,
+    this.topPadding = 0.0,
   });
 
   @override
@@ -50,8 +53,8 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
   @override
   Widget build(BuildContext context) {
     return CupertinoSliverRefreshControl(
-      refreshTriggerPullDistance: widget.refreshTriggerPullDistance,
-      refreshIndicatorExtent: widget.refreshIndicatorExtent,
+      refreshTriggerPullDistance: widget.refreshTriggerPullDistance + widget.topPadding,
+      refreshIndicatorExtent: widget.refreshIndicatorExtent + widget.topPadding,
       onRefresh: () async {
         if (!_spinController.isAnimating) {
           _spinController.repeat();
@@ -91,8 +94,16 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
           _hasHapticTriggered = false;
         }
 
+        final double effectivePullDistance = math.max(
+          1.0,
+          refreshTriggerPullDistance - widget.topPadding,
+        );
+        final double effectivePulled = math.max(
+          0.0,
+          pulledExtent - widget.topPadding,
+        );
         final double progress =
-            (pulledExtent / refreshTriggerPullDistance).clamp(0.0, 1.0);
+            (effectivePulled / effectivePullDistance).clamp(0.0, 1.0);
         final bool isRefreshing = refreshState == RefreshIndicatorMode.refresh ||
             refreshState == RefreshIndicatorMode.armed;
         final bool isDone = refreshState == RefreshIndicatorMode.done;
@@ -100,7 +111,7 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
         return Container(
           color: widget.backgroundColor ?? Colors.transparent,
           alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: EdgeInsets.only(top: widget.topPadding, bottom: 8),
           child: AnimatedBuilder(
             animation: _spinController,
             builder: (context, child) {
