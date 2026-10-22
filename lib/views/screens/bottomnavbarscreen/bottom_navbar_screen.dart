@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lottie/lottie.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:buddy/utils/colors.dart';
@@ -112,8 +113,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     final double labelSize = (13 * s).clamp(11.0, 15.0);
     const double pillRadius = 100.0; // Clean capsule pill shape, not squircle
 
-    // FAB sizing (Circular iOS Liquid Glass)
-    final double fabSize = (60 * s).clamp(50.0, 72.0);
+    // FAB sizing (Circular Lottie Action Button)
+    final double fabSize = (64 * s).clamp(56.0, 76.0);
     final double fabBottom = (110 * sh).clamp(90.0, 140.0);
     final double fabRight = (20 * s).clamp(14.0, 28.0);
     final double fabIconSize = (28 * s).clamp(22.0, 34.0);
@@ -557,10 +558,64 @@ class _LiquidGlassFabState extends State<_LiquidGlassFab> {
             ],
           ),
           child: Center(
-            child: Icon(
-              Icons.add_rounded,
-              size: widget.iconSize,
-              color: Colors.white,
+            child: SizedBox(
+              width: size,
+              height: size,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // Animated Money Lottie (enlarged to fill button)
+                  SizedBox(
+                    width: size * 0.95,
+                    height: size * 0.95,
+                    child: Lottie.asset(
+                      'assets/lottie/jsonlottie/Moneylottie.json',
+                      fit: BoxFit.contain,
+                      repeat: true,
+                    ),
+                  ),
+                  // Blended '+' symbol badge (matching signature emerald & glass aesthetic)
+                  Positioned(
+                    right: 1,
+                    bottom: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(3.0),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark
+                            ? const Color(0xFF0F2624)
+                            : const Color(0xFF0F3632),
+                        border: Border.all(
+                          color: Colors.white.withValues(
+                            alpha: isDark ? 0.60 : 0.80,
+                          ),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                          BoxShadow(
+                            color: (isDark
+                                    ? const Color(0xFF1E5D57)
+                                    : const Color(0xFF38B2A6))
+                                .withValues(alpha: 0.50),
+                            blurRadius: 6,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
