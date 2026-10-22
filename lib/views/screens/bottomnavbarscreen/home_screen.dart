@@ -40,6 +40,7 @@ class HomeScreenState extends State<HomeScreen>
   int _balanceViewMode = 0; // 0 = Net Balance, 1 = Income only, 2 = Expense only
   late final PageController _balancePageController;
   Timer? _autoCycleTimer;
+  int _autoCycleDirection = 1; // 1 = forward (0 -> 1 -> 2), -1 = backward (2 -> 1 -> 0)
   bool _userInteractedWithMode = false;
   bool _includeDebtsInBalance = true;
   bool _notifiedGranted = false;
@@ -86,7 +87,14 @@ class HomeScreenState extends State<HomeScreen>
       if (_balancePageController.hasClients &&
           _balancePageController.positions.length == 1 &&
           _balancePageController.position.haveDimensions) {
-        final int nextMode = (_balanceViewMode + 1) % 3;
+        int nextMode = _balanceViewMode + _autoCycleDirection;
+        if (nextMode > 2) {
+          _autoCycleDirection = -1;
+          nextMode = 1;
+        } else if (nextMode < 0) {
+          _autoCycleDirection = 1;
+          nextMode = 1;
+        }
         _onToggleMode(nextMode, isUserAction: false);
       }
     });
@@ -136,10 +144,10 @@ class HomeScreenState extends State<HomeScreen>
 
     final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
     if (_balanceViewMode == mode && pageAlreadyThere) return;
+    if (isUserAction) {
+      HapticFeedback.selectionClick();
+    }
     if (_balanceViewMode != mode) {
-      if (isUserAction) {
-        HapticFeedback.selectionClick();
-      }
       setState(() => _balanceViewMode = mode);
     }
     if (_balancePageController.hasClients &&
@@ -147,8 +155,8 @@ class HomeScreenState extends State<HomeScreen>
         _balancePageController.position.haveDimensions) {
       _balancePageController.animateToPage(
         mode,
-        duration: const Duration(milliseconds: 380),
-        curve: Curves.easeOutCubic,
+        duration: Duration(milliseconds: isUserAction ? 350 : 550),
+        curve: isUserAction ? Curves.easeOutCubic : Curves.easeInOutCubic,
       );
     }
   }
@@ -689,11 +697,18 @@ class HomeScreenState extends State<HomeScreen>
               },
             ),
           ),
-          CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
+          NotificationListener<ScrollUpdateNotification>(
+            onNotification: (notification) {
+              if (notification.dragDetails != null) {
+                _stopAutoCycle();
+              }
+              return false;
+            },
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
             slivers: [
               // ── Dynamic Pull-To-Refresh with Coin & Matching Accent ──
               BuddyRefreshControl(
@@ -884,33 +899,28 @@ class HomeScreenState extends State<HomeScreen>
 
                       SizedBox(height: (18 * s).clamp(14.0, 24.0)),
 
-                      // ─── Center Hero: Balance Label (Dynamic with real-time scrub) ───
-                      AnimatedBuilder(
-                        animation: _balancePageController,
-                        builder: (context, _) {
-                          final double currentPage = (_balancePageController.hasClients &&
-                                  _balancePageController.positions.length == 1 &&
-                                  _balancePageController.position.haveDimensions)
-                              ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-                              : _balanceViewMode.toDouble();
-                          final int idx = currentPage.round().clamp(0, 2);
-                          return Center(
-                            child: Text(
-                              idx == 1
-                                  ? 'Monthly Income'
-                                  : (idx == 2
-                                      ? 'Monthly Expenses'
-                                      : 'Balance'),
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: (14 * s).clamp(13.0, 16.0),
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withValues(alpha: 0.85),
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          );
-                        },
+                      // ─── Center Hero: Balance Label (Dynamic with real-time scrub & cross-fade) ───
+                      SizedBox(
+                        height: (20 * s).clamp(18.0, 24.0),
+                        child: AnimatedBuilder(
+                          animation: _balancePageController,
+                          builder: (context, _) {
+                            final double currentPage = (_balancePageController.hasClients &&
+                                    _balancePageController.positions.length == 1 &&
+                                    _balancePageController.position.haveDimensions)
+                                ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                                : _balanceViewMode.toDouble();
+
+                            return Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _buildHeroLabel(0, 'Balance', currentPage, s),
+                                _buildHeroLabel(1, 'Monthly Income', currentPage, s),
+                                _buildHeroLabel(2, 'Monthly Expenses', currentPage, s),
+                              ],
+                            );
+                          },
+                        ),
                       ),
 
                       SizedBox(height: (6 * s).clamp(4.0, 8.0)),
@@ -922,114 +932,120 @@ class HomeScreenState extends State<HomeScreen>
                           controller: _balancePageController,
                           physics: const NeverScrollableScrollPhysics(),
                           onPageChanged: (i) {
-                            setState(() => _balanceViewMode = i);
+                            if (_balanceViewMode != i) {
+                              setState(() => _balanceViewMode = i);
+                            }
                           },
-                            children: [
-                              // Net Balance Page
-                              Center(
-                                child: Text(
-                                  FormatUtils.formatCurrency(_totalBalance, compact: false),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: _totalBalance >= 0
-                                        ? Colors.white
-                                        : Colors.red.shade300,
-                                    fontSize: (38 * s).clamp(30.0, 46.0),
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -1.0,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Income Page
-                              Center(
-                                child: Text(
-                                  '+${FormatUtils.formatCurrency(_income, compact: false)}',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: const Color(0xFF69F0AE),
-                                    fontSize: (38 * s).clamp(30.0, 46.0),
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -1.0,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              // Expense Page
-                              Center(
-                                child: Text(
-                                  '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: const Color(0xFFFF8A80),
-                                    fontSize: (38 * s).clamp(30.0, 46.0),
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -1.0,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      SizedBox(height: (8 * s).clamp(6.0, 12.0)),
-
-                      // ─── Centered Trend Capsule (Matching Reference Mockup) ───
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: (14 * s).clamp(11.0, 18.0),
-                          vertical: (6 * s).clamp(4.5, 7.5),
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              _balanceViewMode == 1
-                                  ? Icons.arrow_upward_rounded
-                                  : (_balanceViewMode == 2
-                                      ? Icons.arrow_downward_rounded
-                                      : Icons.north_east_rounded),
-                              size: (13 * s).clamp(11.0, 15.0),
-                              color: _balanceViewMode == 1
-                                  ? const Color(0xFF69F0AE)
-                                  : (_balanceViewMode == 2
-                                      ? const Color(0xFFFF8A80)
-                                      : Colors.white),
+                            // Net Balance Page
+                            Center(
+                              child: Text(
+                                FormatUtils.formatCurrency(_totalBalance, compact: false),
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: _totalBalance >= 0
+                                      ? Colors.white
+                                      : Colors.red.shade300,
+                                  fontSize: (38 * s).clamp(30.0, 46.0),
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              _balanceViewMode == 1
-                                  ? 'Total Received this month'
-                                  : (_balanceViewMode == 2
-                                      ? 'Total Spent this month'
-                                      : (_totalBalance >= 0
-                                          ? 'Net Available'
-                                          : 'Deficit this month')),
-                              style: TextStyle(
-                                color: _balanceViewMode == 1
-                                    ? const Color(0xFF69F0AE)
-                                    : (_balanceViewMode == 2
-                                        ? const Color(0xFFFF8A80)
-                                        : Colors.white),
-                                fontSize: (11.5 * s).clamp(10.5, 13.0),
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.1,
+                            // Income Page
+                            Center(
+                              child: Text(
+                                '+${FormatUtils.formatCurrency(_income, compact: false)}',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: const Color(0xFF69F0AE),
+                                  fontSize: (38 * s).clamp(30.0, 46.0),
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // Expense Page
+                            Center(
+                              child: Text(
+                                '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: const Color(0xFFFF8A80),
+                                  fontSize: (38 * s).clamp(30.0, 46.0),
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -1.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
+                      ),
+
+                      SizedBox(height: (8 * s).clamp(6.0, 12.0)),
+
+                      // ─── Centered Trend Capsule (Matching Reference Mockup & Cross-fading) ───
+                      AnimatedBuilder(
+                        animation: _balancePageController,
+                        builder: (context, _) {
+                          final double currentPage = (_balancePageController.hasClients &&
+                                  _balancePageController.positions.length == 1 &&
+                                  _balancePageController.position.haveDimensions)
+                              ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                              : _balanceViewMode.toDouble();
+
+                          return Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: (14 * s).clamp(11.0, 18.0),
+                              vertical: (6 * s).clamp(4.5, 7.5),
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.22),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                _buildMiniBadge(
+                                  0,
+                                  Icons.north_east_rounded,
+                                  _totalBalance >= 0
+                                      ? 'Net Available'
+                                      : 'Deficit this month',
+                                  Colors.white,
+                                  currentPage,
+                                  s,
+                                ),
+                                _buildMiniBadge(
+                                  1,
+                                  Icons.arrow_upward_rounded,
+                                  'Total Received this month',
+                                  const Color(0xFF69F0AE),
+                                  currentPage,
+                                  s,
+                                ),
+                                _buildMiniBadge(
+                                  2,
+                                  Icons.arrow_downward_rounded,
+                                  'Total Spent this month',
+                                  const Color(0xFFFF8A80),
+                                  currentPage,
+                                  s,
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
 
                       if (!_includeDebtsInBalance) ...[
@@ -1091,17 +1107,34 @@ class HomeScreenState extends State<HomeScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        _balanceViewMode == 1
-                            ? 'Recent Income'
-                            : (_balanceViewMode == 2
-                                ? 'Recent Expenses'
-                                : 'Recent Transactions'),
-                        style: TextStyle(
-                          fontSize: (17 * s).clamp(15.0, 19.0),
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimaryOf(context),
-                          letterSpacing: -0.3,
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        transitionBuilder: (child, anim) => FadeTransition(
+                          opacity: anim,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, 0.25),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: anim,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
+                          ),
+                        ),
+                        child: Text(
+                          _balanceViewMode == 1
+                              ? 'Recent Income'
+                              : (_balanceViewMode == 2
+                                  ? 'Recent Expenses'
+                                  : 'Recent Transactions'),
+                          key: ValueKey<int>(_balanceViewMode),
+                          style: TextStyle(
+                            fontSize: (17 * s).clamp(15.0, 19.0),
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimaryOf(context),
+                            letterSpacing: -0.3,
+                          ),
                         ),
                       ),
                       GestureDetector(
@@ -1167,131 +1200,66 @@ class HomeScreenState extends State<HomeScreen>
                 ),
               ),
 
-            // Transaction List
-            if (_isLoading)
-              const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(40.0),
-                    child: BuddyLoadingIndicator(size: 56),
+              // Transaction List (Smoothly animated into place via AnimatedSwitcher + AnimatedSize)
+              if (_isLoading)
+                const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40.0),
+                      child: BuddyLoadingIndicator(size: 56),
+                    ),
                   ),
-                ),
-              )
-            else if (displayTransactions.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(40.0),
-                    child: GestureDetector(
-                      onTap: _showAddTransactionSheet,
-                      behavior: HitTestBehavior.opaque,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _balanceViewMode == 1
-                                ? Icons.trending_up_rounded
-                                : (_balanceViewMode == 2
-                                    ? Icons.trending_down_rounded
-                                    : Icons.receipt_long_rounded),
-                            size: 64,
-                            color: AppColors.isDark(context)
-                                ? AppColors.textMutedOf(context).withValues(alpha: 0.4)
-                                : Colors.grey.shade300,
+                )
+              else
+                SliverToBoxAdapter(
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 380),
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.topCenter,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: [
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
+                        );
+                      },
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.0, 0.04),
+                              end: Offset.zero,
+                            ).animate(CurvedAnimation(
+                              parent: animation,
+                              curve: Curves.easeOutCubic,
+                            )),
+                            child: child,
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _balanceViewMode == 1
-                                ? 'No income transactions'
-                                : (_balanceViewMode == 2
-                                    ? 'No expense transactions'
-                                    : 'No transactions yet'),
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.textPrimaryOf(context),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _balanceViewMode == 1
-                                ? 'Tap to add an income transaction'
-                                : (_balanceViewMode == 2
-                                    ? 'Tap to add an expense transaction'
-                                    : 'Tap to add your first transaction'),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.textSecondaryOf(context),
-                            ),
-                          ),
-                        ],
+                        );
+                      },
+                      child: KeyedSubtree(
+                        key: ValueKey<int>(_balanceViewMode),
+                        child: _buildTransactionListSection(
+                          displayTransactions,
+                          grouped,
+                          context,
+                          s,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      // Build flat list with date headers
-                      int itemIndex = 0;
-                      for (final entry in grouped.entries) {
-                        // Date header
-                        if (index == itemIndex) {
-                          return Padding(
-                            padding: EdgeInsets.only(
-                              top: itemIndex == 0 ? 0 : 20,
-                              bottom: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                Text(
-                                  entry.key.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.textSecondaryOf(context),
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Divider(
-                                    color: AppColors.borderOf(context),
-                                    thickness: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        itemIndex++;
-
-                        // Transactions under this header
-                        for (final txn in entry.value) {
-                            if (index == itemIndex) {
-                              return _buildTransactionTile(txn);
-                            }
-                            itemIndex++;
-                        }
-                      }
-                      return const SizedBox.shrink();
-                    },
-                    childCount: grouped.entries.fold<int>(
-                      0,
-                      (sum, e) => sum + 1 + e.value.length,
-                    ),
-                  ),
-                ),
-              ),
             ],
           ),
+        ),
         ],
       ),
     );
@@ -1372,44 +1340,60 @@ class HomeScreenState extends State<HomeScreen>
               final double leftOffset = (currentPage * segWidth + pillInset)
                   .clamp(pillInset, totalWidth - segWidth + pillInset);
 
-              Gradient pillGradient;
-              Color pillBorder;
-              Color glowColor;
-
-              if (currentPage < 0.8) {
-                pillGradient = LinearGradient(
-                  colors: [
-                    Colors.white.withValues(alpha: 0.28),
-                    Colors.white.withValues(alpha: 0.15),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                );
-                pillBorder = Colors.white.withValues(alpha: 0.45);
-                glowColor = Colors.white.withValues(alpha: 0.15);
-              } else if (currentPage >= 0.8 && currentPage <= 1.5) {
-                pillGradient = LinearGradient(
-                  colors: [
-                    AppColors.income.withValues(alpha: 0.38),
-                    AppColors.income.withValues(alpha: 0.22),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                );
-                pillBorder = AppColors.income.withValues(alpha: 0.60);
-                glowColor = AppColors.income.withValues(alpha: 0.25);
+              Color c1, c2, borderC, glowC;
+              if (currentPage <= 1.0) {
+                final double t = currentPage.clamp(0.0, 1.0);
+                c1 = Color.lerp(
+                  Colors.white.withValues(alpha: 0.28),
+                  AppColors.income.withValues(alpha: 0.38),
+                  t,
+                )!;
+                c2 = Color.lerp(
+                  Colors.white.withValues(alpha: 0.15),
+                  AppColors.income.withValues(alpha: 0.22),
+                  t,
+                )!;
+                borderC = Color.lerp(
+                  Colors.white.withValues(alpha: 0.45),
+                  AppColors.income.withValues(alpha: 0.60),
+                  t,
+                )!;
+                glowC = Color.lerp(
+                  Colors.white.withValues(alpha: 0.15),
+                  AppColors.income.withValues(alpha: 0.25),
+                  t,
+                )!;
               } else {
-                pillGradient = LinearGradient(
-                  colors: [
-                    AppColors.expense.withValues(alpha: 0.38),
-                    AppColors.expense.withValues(alpha: 0.22),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                );
-                pillBorder = AppColors.expense.withValues(alpha: 0.60);
-                glowColor = AppColors.expense.withValues(alpha: 0.25);
+                final double t = (currentPage - 1.0).clamp(0.0, 1.0);
+                c1 = Color.lerp(
+                  AppColors.income.withValues(alpha: 0.38),
+                  AppColors.expense.withValues(alpha: 0.38),
+                  t,
+                )!;
+                c2 = Color.lerp(
+                  AppColors.income.withValues(alpha: 0.22),
+                  AppColors.expense.withValues(alpha: 0.22),
+                  t,
+                )!;
+                borderC = Color.lerp(
+                  AppColors.income.withValues(alpha: 0.60),
+                  AppColors.expense.withValues(alpha: 0.60),
+                  t,
+                )!;
+                glowC = Color.lerp(
+                  AppColors.income.withValues(alpha: 0.25),
+                  AppColors.expense.withValues(alpha: 0.25),
+                  t,
+                )!;
               }
+
+              final pillGradient = LinearGradient(
+                colors: [c1, c2],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              );
+              final pillBorder = borderC;
+              final glowColor = glowC;
 
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -1511,10 +1495,118 @@ class HomeScreenState extends State<HomeScreen>
     );
   }
 
+  Widget _buildTransactionListSection(
+    List<TransactionModel> displayTransactions,
+    Map<String, List<TransactionModel>> grouped,
+    BuildContext context,
+    double s,
+  ) {
+    if (displayTransactions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 48.0),
+        child: Center(
+          child: GestureDetector(
+            onTap: _showAddTransactionSheet,
+            behavior: HitTestBehavior.opaque,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _balanceViewMode == 1
+                      ? Icons.trending_up_rounded
+                      : (_balanceViewMode == 2
+                          ? Icons.trending_down_rounded
+                          : Icons.receipt_long_rounded),
+                  size: 64,
+                  color: AppColors.isDark(context)
+                      ? AppColors.textMutedOf(context).withValues(alpha: 0.4)
+                      : Colors.grey.shade300,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _balanceViewMode == 1
+                      ? 'No income transactions'
+                      : (_balanceViewMode == 2
+                          ? 'No expense transactions'
+                          : 'No transactions yet'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.textPrimaryOf(context),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _balanceViewMode == 1
+                      ? 'Tap to add an income transaction'
+                      : (_balanceViewMode == 2
+                          ? 'Tap to add an expense transaction'
+                          : 'Tap to add your first transaction'),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final children = <Widget>[];
+    bool isFirst = true;
+    for (final entry in grouped.entries) {
+      children.add(
+        Padding(
+          padding: EdgeInsets.only(
+            top: isFirst ? 0 : 20,
+            bottom: 10,
+          ),
+          child: Row(
+            children: [
+              Text(
+                entry.key.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textSecondaryOf(context),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Divider(
+                  color: AppColors.borderOf(context),
+                  thickness: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      isFirst = false;
+
+      for (final txn in entry.value) {
+        children.add(_buildTransactionTile(txn));
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      ),
+    );
+  }
+
   Widget _buildToggleTab(int index, String label, double currentPage, double s) {
     final double dist = (currentPage - index).abs();
     final double activeFactor = (1.0 - dist).clamp(0.0, 1.0);
-    final bool isSelected = currentPage.round() == index;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1529,9 +1621,78 @@ class HomeScreenState extends State<HomeScreen>
               activeFactor,
             ),
             fontSize: (12.5 * s).clamp(11.0, 14.0),
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.2,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroLabel(int index, String text, double currentPage, double s) {
+    final double dist = (currentPage - index).abs();
+    final double opacity = (1.0 - dist).clamp(0.0, 1.0);
+    if (opacity <= 0.001) return const SizedBox.shrink();
+
+    final double translateX = (index - currentPage) * 16.0;
+
+    return Transform.translate(
+      offset: Offset(translateX, 0),
+      child: Opacity(
+        opacity: opacity,
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: (14 * s).clamp(13.0, 16.0),
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.85),
+            letterSpacing: 0.3,
+          ),
+          maxLines: 1,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMiniBadge(
+    int index,
+    IconData icon,
+    String text,
+    Color color,
+    double currentPage,
+    double s,
+  ) {
+    final double dist = (currentPage - index).abs();
+    final double opacity = (1.0 - dist).clamp(0.0, 1.0);
+    if (opacity <= 0.001) return const SizedBox.shrink();
+
+    final double translateX = (index - currentPage) * 12.0;
+
+    return Transform.translate(
+      offset: Offset(translateX, 0),
+      child: Opacity(
+        opacity: opacity,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: (13 * s).clamp(11.0, 15.0),
+              color: color,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: (11.5 * s).clamp(10.5, 13.0),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.1,
+              ),
+              maxLines: 1,
+            ),
+          ],
         ),
       ),
     );
