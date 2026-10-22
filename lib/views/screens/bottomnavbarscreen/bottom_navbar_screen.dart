@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'dart:math' as math;
 import 'package:buddy/utils/colors.dart';
@@ -111,9 +112,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     final double labelSize = (13 * s).clamp(11.0, 15.0);
     const double pillRadius = 100.0; // Clean capsule pill shape, not squircle
 
-    // FAB sizing
+    // FAB sizing (Circular iOS Liquid Glass)
     final double fabSize = (60 * s).clamp(50.0, 72.0);
-    final double fabRadius = (20 * s).clamp(16.0, 26.0);
     final double fabBottom = (110 * sh).clamp(90.0, 140.0);
     final double fabRight = (20 * s).clamp(14.0, 28.0);
     final double fabIconSize = (28 * s).clamp(22.0, 34.0);
@@ -373,7 +373,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             ),
           ),
 
-          // Animated themed FAB above navbar (rendered last to be on top)
+          // Animated themed Liquid Glass FAB above navbar (rendered last to be on top)
           Positioned.fill(
             child: Align(
               alignment: Alignment.bottomRight,
@@ -385,100 +385,11 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                     offset: Offset(0, _fabBob.value),
                     child: child,
                   ),
-                  child: GestureDetector(
-                    onTap: () async {
-                      // On Borrow/Lend tab: delegate to that screen — it
-                      // will pre-select Lend or Borrow based on active filter
-                      if (_currentIndex == 2) {
-                        _borrowLendKey.currentState?.openAddSheet();
-                        return;
-                      }
-
-                      // All other tabs: open the add transaction sheet
-                      final result = await showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (ctx) {
-                          return FractionallySizedBox(
-                            heightFactor: 0.85,
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(20),
-                              ),
-                              child: Material(
-                                color: AppColors.backgroundOf(ctx),
-                                child: const AddTransactionScreen(),
-                              ),
-                            ),
-                          );
-                        },
-                      );
-
-                      // Refresh all screens if transaction was added
-                      if (result == true && mounted) {
-                        debugPrint(
-                          '💾 Transaction saved, refreshing all screens...',
-                        );
-                        final homeState = _homeKey.currentState;
-                        final statisticsState = _statisticsKey.currentState;
-                        final borrowLendState = _borrowLendKey.currentState;
-                        final profileState = _profileKey.currentState;
-
-                        debugPrint(
-                          'Home state: ${homeState != null ? "Found ✓" : "NULL ✗"}',
-                        );
-                        debugPrint(
-                          'Statistics state: ${statisticsState != null ? "Found ✓" : "NULL ✗"}',
-                        );
-                        debugPrint(
-                          'BorrowLend state: ${borrowLendState != null ? "Found ✓" : "NULL ✗"}',
-                        );
-                        debugPrint(
-                          'Profile state: ${profileState != null ? "Found ✓" : "NULL ✗"}',
-                        );
-
-                        if (homeState != null) {
-                          await homeState.refreshData();
-                        }
-                        if (statisticsState != null) {
-                          await statisticsState.refreshData();
-                        }
-                        if (borrowLendState != null) {
-                          await borrowLendState.refreshData();
-                        }
-                        if (profileState != null) {
-                          profileState.refreshData();
-                        }
-
-                        debugPrint('✅ All screens refresh triggered');
-                      }
-                    },
-                    child: Container(
-                      width: fabSize,
-                      height: fabSize,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            AppColors.primary,
-                            AppColors.secondary,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(fabRadius),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Icon(Icons.add_rounded, size: fabIconSize, color: Colors.white),
-                      ),
-                    ),
+                  child: _LiquidGlassFab(
+                    size: fabSize,
+                    iconSize: fabIconSize,
+                    isDark: isDark,
+                    onTap: () => _openAddTransactionSheet(context),
                   ),
                 ),
               ),
@@ -500,6 +411,160 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       index,
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
+    );
+  }
+
+  Future<void> _openAddTransactionSheet(BuildContext context) async {
+    HapticFeedback.mediumImpact();
+    // On Borrow/Lend tab: delegate to that screen — it
+    // will pre-select Lend or Borrow based on active filter
+    if (_currentIndex == 2) {
+      _borrowLendKey.currentState?.openAddSheet();
+      return;
+    }
+
+    // All other tabs: open the add transaction sheet
+    final result = await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return FractionallySizedBox(
+          heightFactor: 0.85,
+          child: ClipRRect(
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
+            child: Material(
+              color: AppColors.backgroundOf(ctx),
+              child: const AddTransactionScreen(),
+            ),
+          ),
+        );
+      },
+    );
+
+    // Refresh all screens if transaction was added
+    if (result == true && mounted) {
+      debugPrint('💾 Transaction saved, refreshing all screens...');
+      final homeState = _homeKey.currentState;
+      final statisticsState = _statisticsKey.currentState;
+      final borrowLendState = _borrowLendKey.currentState;
+      final profileState = _profileKey.currentState;
+
+      debugPrint('Home state: ${homeState != null ? "Found ✓" : "NULL ✗"}');
+      debugPrint('Statistics state: ${statisticsState != null ? "Found ✓" : "NULL ✗"}');
+      debugPrint('BorrowLend state: ${borrowLendState != null ? "Found ✓" : "NULL ✗"}');
+      debugPrint('Profile state: ${profileState != null ? "Found ✓" : "NULL ✗"}');
+
+      if (homeState != null) {
+        await homeState.refreshData();
+      }
+      if (statisticsState != null) {
+        await statisticsState.refreshData();
+      }
+      if (borrowLendState != null) {
+        await borrowLendState.refreshData();
+      }
+      if (profileState != null) {
+        profileState.refreshData();
+      }
+
+      debugPrint('✅ All screens refresh triggered');
+    }
+  }
+}
+
+/// Authentic iOS Liquid Glass circular Floating Action Button
+class _LiquidGlassFab extends StatefulWidget {
+  final double size;
+  final double iconSize;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _LiquidGlassFab({
+    required this.size,
+    required this.iconSize,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  State<_LiquidGlassFab> createState() => _LiquidGlassFabState();
+}
+
+class _LiquidGlassFabState extends State<_LiquidGlassFab> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final size = widget.size;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: isDark
+                ? const LinearGradient(
+                    colors: [
+                      Color(0xFF287A70),
+                      Color(0xFF1B554E),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  )
+                : const LinearGradient(
+                    colors: [
+                      Color(0xFF38B2A6),
+                      Color(0xFF228277),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            border: Border.all(
+              color: Colors.white.withValues(
+                alpha: isDark ? 0.35 : 0.70,
+              ),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? const Color(0xFF1E5D57).withValues(alpha: 0.40)
+                    : const Color(0xFF38B2A6).withValues(alpha: 0.55),
+                blurRadius: isDark ? 14 : 16,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.12),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Icon(
+              Icons.add_rounded,
+              size: widget.iconSize,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
