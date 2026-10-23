@@ -6,6 +6,7 @@ import 'package:buddy/services/app_init_helper.dart';
 import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/services/firestore_service.dart';
+import 'package:buddy/services/preference_service.dart';
 import 'firebase_options.dart';
 
 void main() {
@@ -13,14 +14,16 @@ void main() {
 
   debugPrint('🚀 APP: Starting instant frame-1 launch...');
 
-  // Start network monitoring immediately
-  NetworkHelper.startMonitoring();
-
   // Kick off essential services in background without delaying first frame render
   final initFuture = _initCoreServices();
 
   // Render UI immediately so splash screen shows instantly!
   runApp(MyApp(initFuture: initFuture));
+
+  // Defer network monitoring to post-frame to eliminate DNS socket contention before frame 1
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    NetworkHelper.startMonitoring();
+  });
 }
 
 Future<void> _initCoreServices() async {
@@ -28,6 +31,9 @@ Future<void> _initCoreServices() async {
     await Future.wait([
       ThemeService.initialize().catchError((e) {
         debugPrint('⚠️ APP: ThemeService init error: $e');
+      }),
+      PreferenceService.init().catchError((e) {
+        debugPrint('⚠️ APP: PreferenceService init error: $e');
       }),
       Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,

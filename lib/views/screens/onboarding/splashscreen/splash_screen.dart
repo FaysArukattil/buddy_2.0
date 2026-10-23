@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
 import 'package:buddy/views/screens/onboarding/onborading_screen.dart';
-import 'package:buddy/services/app_init_helper.dart';
-import 'package:buddy/services/notification_helper.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,35 +22,18 @@ class _SplashScreenState extends State<SplashScreen>
   void initState() {
     super.initState();
 
-    // Trigger non-blocking background initializations in parallel with splash animation
-    _triggerBackgroundInit();
-
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1100),
     );
     _controller.addStatusListener((status) {
       if (status == AnimationStatus.completed) {
         navigateToNext();
       }
     });
-  }
 
-  void _triggerBackgroundInit() {
-    // 1. AppInitHelper (Firestore persistence, categories, offline sync)
-    AppInitHelper.initialize().catchError((e) {
-      debugPrint('⚠️ SPLASH: AppInitHelper background init failed: $e');
-    });
-
-    // 2. Notification Helper (in-app alerts and permission request)
-    NotificationHelper.initialize().then((_) {
-      NotificationHelper.requestNotificationPermission().catchError((e) {
-        debugPrint('⚠️ SPLASH: Notification permission request failed: $e');
-        return false;
-      });
-    }).catchError((e) {
-      debugPrint('⚠️ SPLASH: NotificationHelper background init failed: $e');
-    });
+    // Start animating immediately on frame 1 without waiting for background tasks
+    _controller.forward();
   }
 
   Future<void> navigateToNext() async {
@@ -115,13 +96,15 @@ class _SplashScreenState extends State<SplashScreen>
                 width: 250,
                 height: 250,
                 fit: BoxFit.contain,
+                renderCache: RenderCache.drawingCommands,
                 onLoaded: (composition) {
-                  final cappedDuration = composition.duration > const Duration(milliseconds: 1200)
-                      ? const Duration(milliseconds: 1200)
+                  final cappedDuration = composition.duration > const Duration(milliseconds: 1100)
+                      ? const Duration(milliseconds: 1100)
                       : composition.duration;
-                  _controller
-                    ..duration = cappedDuration
-                    ..forward();
+                  _controller.duration = cappedDuration;
+                  if (!_controller.isAnimating && !_controller.isCompleted) {
+                    _controller.forward();
+                  }
                 },
               ),
               const SizedBox(height: 20),

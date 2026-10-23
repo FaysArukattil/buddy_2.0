@@ -60,7 +60,22 @@ class StatisticsScreenState extends State<StatisticsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _load();
+    if (FirestoreService.cachedTransactions.isNotEmpty) {
+      final txns = FirestoreService.cachedTransactions;
+      _rows = txns.map((t) => <String, dynamic>{
+        'amount': t.amount,
+        'type': t.type,
+        'date': t.date.toIso8601String(),
+        'category': t.category,
+        'icon': t.icon,
+        'note': t.note,
+        'id': t.id,
+      }).toList();
+      _isLoading = false;
+      _scheduleComputation();
+    } else {
+      _load();
+    }
   }
 
   @override
@@ -77,10 +92,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
     debugPrint('📊 STATISTICS: Loading transactions...');
     try {
-      final txns = await _firestore.getAllTransactions();
+      final txns = await _firestore.getAllTransactions(forceRefresh: forceRefresh);
       debugPrint('📊 STATISTICS: Loaded ${txns.length} transactions');
       // Convert to maps for backward compat with computation methods
       final rows = txns.map((t) => <String, dynamic>{
@@ -108,7 +123,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
   Future<void> refreshData() async {
     debugPrint('🔄 STATISTICS: Manual refresh triggered');
-    await _load();
+    await _load(forceRefresh: true);
   }
 
   void _scheduleComputation() {

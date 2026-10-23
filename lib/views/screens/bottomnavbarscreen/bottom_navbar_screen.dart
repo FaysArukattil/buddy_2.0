@@ -41,7 +41,26 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   int _currentIndex = 0;
   double _dragStartPage = 0;
   double _dragAccumX = 0;
-  late final List<Widget> _pages;
+  Widget? _homePage;
+  Widget? _statsPage;
+  Widget? _debtsPage;
+  Widget? _profilePage;
+
+  Widget _getPage(int index) {
+    switch (index) {
+      case 0:
+        return _homePage ??= HomeScreen(key: _homeKey);
+      case 1:
+        return _statsPage ??= StatisticsScreen(key: _statisticsKey);
+      case 2:
+        return _debtsPage ??= BorrowLendScreen(key: _borrowLendKey);
+      case 3:
+        return _profilePage ??= ProfileScreen(key: _profileKey);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
   late final AnimationController _fabController;
   late final Animation<double> _fabBob;
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
@@ -62,15 +81,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   @override
   void initState() {
     super.initState();
-    AppInitHelper.initialize();
-    AppInitHelper.seedCategoriesIfNeeded();
     _pageController = PageController(initialPage: _currentIndex);
-    _pages = [
-      HomeScreen(key: _homeKey),
-      StatisticsScreen(key: _statisticsKey),
-      BorrowLendScreen(key: _borrowLendKey),
-      ProfileScreen(key: _profileKey),
-    ];
     _fabController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -80,6 +91,13 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       end: 6.0,
     ).animate(CurvedAnimation(parent: _fabController, curve: Curves.easeInOut));
     _fabController.repeat(reverse: true);
+
+    // Defer non-critical background maintenance until AFTER initial rendering is complete & idle
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) {
+        AppInitHelper.initialize();
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -130,15 +148,18 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       body: Stack(
         children: [
           RepaintBoundary(
-            child: PageView(
+            child: PageView.builder(
               controller: _pageController,
+              itemCount: 4,
               physics: const PageScrollPhysics(
                 parent: BouncingScrollPhysics(),
               ),
               onPageChanged: (i) {
                 _currentIndex = i;
               },
-              children: _pages,
+              itemBuilder: (context, index) {
+                return _getPage(index);
+              },
             ),
           ),
 

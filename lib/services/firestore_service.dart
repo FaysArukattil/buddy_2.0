@@ -70,39 +70,60 @@ class FirestoreService {
     debugPrint('✅ FIRESTORE: Transaction $id deleted');
   }
 
+  // ── In-Memory Transaction Cache for Instant UI Rendering ──
+  static List<TransactionModel> _cachedTransactions = [];
+  static List<TransactionModel> get cachedTransactions => _cachedTransactions;
+
+  static void updateCache(List<TransactionModel> txns) {
+    _cachedTransactions = txns;
+  }
+
   /// Get all transactions (one-time fetch), sorted by date DESC with offline cache fallback
-  Future<List<TransactionModel>> getAllTransactions() async {
+  Future<List<TransactionModel>> getAllTransactions({bool forceRefresh = false}) async {
+    if (!forceRefresh && _cachedTransactions.isNotEmpty) {
+      return _cachedTransactions;
+    }
     try {
       final snapshot = await _txnCol
           .orderBy('date', descending: true)
           .get()
           .timeout(const Duration(seconds: 4));
-      return TransactionModel.deduplicate(snapshot.docs
+      final list = TransactionModel.deduplicate(snapshot.docs
           .map((doc) => TransactionModel.fromFirestore(doc))
           .toList());
+      _cachedTransactions = list;
+      return list;
     } catch (_) {
       try {
         final snapshot = await _txnCol
             .orderBy('date', descending: true)
             .get(const GetOptions(source: Source.cache));
-        return TransactionModel.deduplicate(snapshot.docs
+        final list = TransactionModel.deduplicate(snapshot.docs
             .map((doc) => TransactionModel.fromFirestore(doc))
             .toList());
+        if (list.isNotEmpty) {
+          _cachedTransactions = list;
+        }
+        return list;
       } catch (e) {
         debugPrint('⚠️ FIRESTORE: getAllTransactions cache fallback error: $e');
-        return [];
+        return _cachedTransactions;
       }
     }
   }
 
-  /// Get transactions as a real-time stream with automatic deduplication
+  /// Get transactions as a real-time stream with automatic deduplication & cache updates
   Stream<List<TransactionModel>> getTransactionsStream() {
     return _txnCol
         .orderBy('date', descending: true)
         .snapshots()
-        .map((snapshot) => TransactionModel.deduplicate(snapshot.docs
-            .map((doc) => TransactionModel.fromFirestore(doc))
-            .toList()));
+        .map((snapshot) {
+          final list = TransactionModel.deduplicate(snapshot.docs
+              .map((doc) => TransactionModel.fromFirestore(doc))
+              .toList());
+          _cachedTransactions = list;
+          return list;
+        });
   }
 
   /// Get transactions for a specific month with offline cache fallback
