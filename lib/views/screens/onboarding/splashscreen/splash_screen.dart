@@ -8,7 +8,8 @@ import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final Future<void>? initFuture;
+  const SplashScreen({super.key, this.initFuture});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -57,6 +58,17 @@ class _SplashScreenState extends State<SplashScreen>
   Future<void> navigateToNext() async {
     if (_hasNavigated || !mounted) return;
     _hasNavigated = true;
+
+    // Ensure core services (Firebase etc.) are fully initialized before moving past splash
+    if (widget.initFuture != null) {
+      try {
+        await widget.initFuture;
+      } catch (e) {
+        debugPrint('⚠️ SPLASH: initFuture error: $e');
+      }
+    }
+
+    if (!mounted) return;
 
     // Check if user has seen onboarding
     final prefs = await SharedPreferences.getInstance();

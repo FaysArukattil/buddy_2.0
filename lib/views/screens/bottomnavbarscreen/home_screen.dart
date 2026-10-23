@@ -753,7 +753,8 @@ class HomeScreenState extends State<HomeScreen>
 
               // ── Seamless Unified Hero Header & Swipe Indicator (Swipable Top Portion) ──
               SliverToBoxAdapter(
-                child: GestureDetector(
+                child: RepaintBoundary(
+                  child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onHorizontalDragStart: (details) {
                     _stopAutoCycle();
@@ -1129,6 +1130,7 @@ class HomeScreenState extends State<HomeScreen>
           ),
         ),
       ),
+    ),
               // ── Recent Transactions Header (Immediately below hero card) ──
               SliverToBoxAdapter(
                 child: Padding(
@@ -1247,19 +1249,22 @@ class HomeScreenState extends State<HomeScreen>
                 )
               else
                 SliverToBoxAdapter(
-                  child: AnimatedSize(
-                    duration: const Duration(milliseconds: 260),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.topCenter,
+                  child: RepaintBoundary(
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeOutCubic,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: child,
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      layoutBuilder: (currentChild, previousChildren) {
+                        return Stack(
+                          alignment: Alignment.topCenter,
+                          children: <Widget>[
+                            ...previousChildren,
+                            if (currentChild != null) currentChild,
+                          ],
                         );
+                      },
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(opacity: animation, child: child);
                       },
                       child: KeyedSubtree(
                         key: ValueKey<int>(_balanceViewMode),
@@ -1337,22 +1342,23 @@ class HomeScreenState extends State<HomeScreen>
         ),
       ),
       padding: const EdgeInsets.all(3.0),
-      child: AnimatedBuilder(
-        animation: _balancePageController,
-        builder: (context, _) {
-          final double currentPage = _balancePageController.hasClients &&
-                  _balancePageController.positions.length == 1 &&
-                  _balancePageController.position.haveDimensions
-              ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-              : _balanceViewMode.toDouble();
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final double totalWidth = constraints.maxWidth;
+          const int itemCount = 3;
+          final double segWidth = totalWidth / itemCount;
+          const double pillInset = 1.0;
+          final double pillWidth = segWidth - (2 * pillInset);
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final double totalWidth = constraints.maxWidth;
-              const int itemCount = 3;
-              final double segWidth = totalWidth / itemCount;
-              const double pillInset = 1.0;
-              final double pillWidth = segWidth - (2 * pillInset);
+          return AnimatedBuilder(
+            animation: _balancePageController,
+            builder: (context, _) {
+              final double currentPage = _balancePageController.hasClients &&
+                      _balancePageController.positions.length == 1 &&
+                      _balancePageController.position.haveDimensions
+                  ? (_balancePageController.page ?? _balanceViewMode.toDouble())
+                  : _balanceViewMode.toDouble();
+
               final double leftOffset = (currentPage * segWidth + pillInset)
                   .clamp(pillInset, totalWidth - segWidth + pillInset);
 

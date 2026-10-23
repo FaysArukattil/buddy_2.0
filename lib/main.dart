@@ -8,15 +8,22 @@ import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'firebase_options.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  debugPrint('🚀 APP: Starting lightning-fast initialization...');
+  debugPrint('🚀 APP: Starting instant frame-1 launch...');
 
   // Start network monitoring immediately
   NetworkHelper.startMonitoring();
 
-  // Initialize essential services in parallel
+  // Kick off essential services in background without delaying first frame render
+  final initFuture = _initCoreServices();
+
+  // Render UI immediately so splash screen shows instantly!
+  runApp(MyApp(initFuture: initFuture));
+}
+
+Future<void> _initCoreServices() async {
   try {
     await Future.wait([
       ThemeService.initialize().catchError((e) {
@@ -33,15 +40,13 @@ void main() async {
     ]);
     debugPrint('✅ APP: Core services initialized in parallel');
   } catch (e) {
-    debugPrint('⚠️ APP: Init error (continuing to render): $e');
+    debugPrint('⚠️ APP: Init error: $e');
   }
-
-  // Render UI immediately without waiting for heavy sync/network tasks!
-  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final Future<void>? initFuture;
+  const MyApp({super.key, this.initFuture});
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -100,7 +105,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
           themeAnimationDuration: Duration.zero,
-          home: const SplashScreen(),
+          home: SplashScreen(initFuture: widget.initFuture),
         );
       },
     );

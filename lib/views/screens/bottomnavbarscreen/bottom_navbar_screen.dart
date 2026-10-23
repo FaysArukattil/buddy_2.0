@@ -129,15 +129,17 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       backgroundColor: AppColors.backgroundOf(context),
       body: Stack(
         children: [
-          PageView(
-            controller: _pageController,
-            physics: const PageScrollPhysics(
-              parent: BouncingScrollPhysics(),
+          RepaintBoundary(
+            child: PageView(
+              controller: _pageController,
+              physics: const PageScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              onPageChanged: (i) {
+                _currentIndex = i;
+              },
+              children: _pages,
             ),
-            onPageChanged: (i) {
-              _currentIndex = i;
-            },
-            children: _pages,
           ),
 
           // Global offline status indicator banner
@@ -153,7 +155,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
             left: 0,
             right: 0,
             bottom: 0,
-            child: SafeArea(
+            child: RepaintBoundary(
+              child: SafeArea(
               top: false,
               child: Padding(
                 padding: EdgeInsets.fromLTRB(hPad, 0, hPad, math.max(bottomSafe > 0 ? 0 : 6, 6 * s)),
@@ -210,23 +213,23 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                         horizontal: vPad,
                         vertical: vPad,
                       ),
-                      child: AnimatedBuilder(
-                        animation: _pageController,
-                        builder: (context, _) {
-                          final double currentPage = _pageController.hasClients &&
-                                  _pageController.position.haveDimensions
-                              ? (_pageController.page ?? _currentIndex.toDouble())
-                              : _currentIndex.toDouble();
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final totalWidth = constraints.maxWidth;
+                          const itemCount = 4;
+                          final itemWidth = totalWidth / itemCount;
+                          const double pillInset = 2.5;
+                          final double pillWidth = itemWidth - 2 * pillInset;
 
-                          final int selectedIndex = currentPage.round().clamp(0, 3);
+                          return AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, _) {
+                              final double currentPage = _pageController.hasClients &&
+                                      _pageController.position.haveDimensions
+                                  ? (_pageController.page ?? _currentIndex.toDouble())
+                                  : _currentIndex.toDouble();
 
-                          return LayoutBuilder(
-                            builder: (context, constraints) {
-                              final totalWidth = constraints.maxWidth;
-                              const itemCount = 4;
-                              final itemWidth = totalWidth / itemCount;
-                              const double pillInset = 2.5;
-                              final double pillWidth = itemWidth - 2 * pillInset;
+                              final int selectedIndex = currentPage.round().clamp(0, 3);
                               final double leftOffset = (currentPage * itemWidth + pillInset)
                                   .clamp(pillInset, totalWidth - itemWidth + pillInset);
 
@@ -377,6 +380,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
               ),
             ),
           ),
+        ),
 
           // Animated themed Liquid Glass FAB above navbar (rendered last to be on top)
           Positioned.fill(
@@ -390,11 +394,13 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                     offset: Offset(0, _fabBob.value),
                     child: child,
                   ),
-                  child: _LiquidGlassFab(
-                    size: fabSize,
-                    iconSize: fabIconSize,
-                    isDark: isDark,
-                    onTap: () => _openAddTransactionSheet(context),
+                  child: RepaintBoundary(
+                    child: _LiquidGlassFab(
+                      size: fabSize,
+                      iconSize: fabIconSize,
+                      isDark: isDark,
+                      onTap: () => _openAddTransactionSheet(context),
+                    ),
                   ),
                 ),
               ),
