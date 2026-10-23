@@ -97,10 +97,23 @@ class NotificationTestHelper extends StatelessWidget {
                 onPressed: () => _testAtmWithdrawal(context),
                 color: Colors.teal.shade800,
               ),
+              _TestButton(
+                label: 'Canara Credit ₹300',
+                onPressed: () => _testCanaraCredit(context),
+                color: Colors.green.shade700,
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _testCanaraCredit(BuildContext context) async {
+    await _simulateTransaction(
+      context,
+      text: 'Dear Customer, Acct XXXX8585 credited with INR 300.00 on 19/09/26 from SUFAIRA VAZH; UPI:129847355238; Bal INR 316.35-CanaraBank.',
+      packageName: 'com.canara.mobility',
     );
   }
 
@@ -205,7 +218,7 @@ class NotificationTestHelper extends StatelessWidget {
       final txn = TransactionModel(
         amount: transactionData['amount'] as double,
         type: transactionData['type'] as String,
-        date: DateTime.now(),
+        date: (transactionData['date'] as DateTime?) ?? DateTime.now(),
         note: transactionData['note'] as String?,
         category: transactionData['category'] as String,
         icon: transactionData['icon'] as int,
@@ -292,13 +305,43 @@ class NotificationTestHelper extends StatelessWidget {
     final category = _detectCategory(text, type);
     final icon = _getIconForCategory(category);
 
-    String note = 'Test: $text';
+    String note = text;
     final atmMatch = RegExp(r'withdrawn\s*[@at]\s*([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)', caseSensitive: false).firstMatch(text);
     if (atmMatch != null) {
       final loc = atmMatch.group(1)?.trim();
       if (loc != null && loc.isNotEmpty) {
         note = 'Cash Withdrawal ($loc)';
       }
+    } else if (type == 'income') {
+      final fromMatch = RegExp(r'from\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)', caseSensitive: false).firstMatch(text);
+      if (fromMatch != null) {
+        final sender = fromMatch.group(1)?.trim();
+        if (sender != null && sender.isNotEmpty && sender.toLowerCase() != 'account' && sender.toLowerCase() != 'a/c') {
+          note = 'Received from $sender';
+        }
+      }
+    } else {
+      final toMatch = RegExp(r'(?:to|transfer\s+to|trf\s+to|paid\s+to)\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)', caseSensitive: false).firstMatch(text);
+      if (toMatch != null) {
+        final recipient = toMatch.group(1)?.trim();
+        if (recipient != null && recipient.isNotEmpty && recipient.toLowerCase() != 'account' && recipient.toLowerCase() != 'a/c') {
+          note = 'Paid to $recipient';
+        }
+      }
+    }
+
+    DateTime? parsedDate;
+    final dateMatch = RegExp(r'\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b', caseSensitive: false).firstMatch(text);
+    if (dateMatch != null) {
+      try {
+        final rawDate = dateMatch.group(1)!.replaceAll('-', '/');
+        final parts = rawDate.split('/');
+        final day = int.parse(parts[0]);
+        final month = int.parse(parts[1]);
+        var year = int.parse(parts[2]);
+        if (year < 100) year += 2000;
+        parsedDate = DateTime(year, month, day, 12, 0);
+      } catch (_) {}
     }
 
     return {
@@ -307,6 +350,7 @@ class NotificationTestHelper extends StatelessWidget {
       'note': note,
       'category': category,
       'icon': icon,
+      if (parsedDate != null) 'date': parsedDate,
     };
   }
 

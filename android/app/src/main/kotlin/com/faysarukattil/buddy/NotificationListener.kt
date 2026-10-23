@@ -101,8 +101,13 @@ class NotificationListener : NotificationListenerService() {
             "com.bob.upi",                            // BOB UPI
 
             // Canara Bank
-            "com.canaaborbank.mobility",              // Canara ai1
+            "com.canara.mobility",                    // Canara ai1 Mobile Banking (Official)
             "com.canarabank.mobility",
+            "com.canara.ai1",
+            "com.canarabank.ai1",
+            "com.canara.upi",
+            "com.canarabank.upi",
+            "com.canarabank.corp",
 
             // Punjab National Bank (PNB)
             "com.pnb.pnbone",                         // PNB ONE
@@ -593,14 +598,20 @@ class NotificationListener : NotificationListenerService() {
                 return
             }
 
-            // 9. Check if the same amount was already recorded today (calendar day / 24h)
-            val sameAmountSeen = isSameAmountSeenToday(buddyPrefs, transaction.amount, transaction.type)
+            // 8b. Check if this exact UPI transaction was already recorded within the last 24h
+            if (isExactUpiDuplicate(buddyPrefs, transaction.upiRef)) {
+                Log.d(TAG, "⚠️ Transaction with UPI ref ${transaction.upiRef} already recorded — skipping duplicate notification")
+                return
+            }
 
-            if (sameAmountSeen) {
+            // 9. Check if a transaction with the same amount was recorded within the last 5 minutes
+            val potentialDuplicate = isRecentSameAmount(buddyPrefs, transaction.amount, transaction.type, transaction.upiRef)
+
+            if (potentialDuplicate) {
                 // Store as pending and ask user to confirm via notification
                 storePendingTransaction(buddyPrefs, hash, transaction, pkg)
                 showDuplicateConfirmationNotification(hash, transaction)
-                Log.d(TAG, "⚠️ Same amount (₹${transaction.amount}) already seen today — asking user to confirm")
+                Log.d(TAG, "⚠️ Same amount (₹${transaction.amount}) seen within 5 minutes — asking user to confirm")
                 return
             }
 
@@ -628,7 +639,7 @@ class NotificationListener : NotificationListenerService() {
 
         if (FINANCIAL_APPS.contains(packageName)) return true
         val lower = packageName.lowercase()
-        return listOf("sms", "message", "messaging", "mms", "bank", "pay", "upi", "finance", "wallet", "credit", "card", "money", "sbi").any { lower.contains(it) }
+        return listOf("sms", "message", "messaging", "mms", "bank", "pay", "upi", "finance", "wallet", "credit", "card", "money", "sbi", "canara", "federal", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "idfc", "indus", "rbl", "yesbank", "union").any { lower.contains(it) }
     }
 
     private fun isOwnNotification(title: String, content: String): Boolean {
@@ -926,7 +937,7 @@ class NotificationListener : NotificationListenerService() {
         val type = if (isDebit) "expense" else "income"
         val (category, icon) = detectCategory(lowerText, type)
 
-        // Generate clean note for ATM/cash withdrawals (e.g. "withdrawn@ DAHISAR" -> "Cash Withdrawal (DAHISAR)")
+        // Extract clean note for ATM/cash withdrawals, sender or recipient
         var note = text.take(100)
         val atmMatch = Regex("""withdrawn\s*[@at]\s*([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
         if (atmMatch != null) {
@@ -934,9 +945,50 @@ class NotificationListener : NotificationListenerService() {
             if (location.isNotEmpty()) {
                 note = "Cash Withdrawal ($location)"
             }
+        } else if (!isDebit) {
+            val fromMatch = Regex("""from\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+            if (fromMatch != null) {
+                val sender = fromMatch.groupValues[1].trim()
+                if (sender.isNotEmpty() && !sender.equals("account", ignoreCase = true) && !sender.equals("a/c", ignoreCase = true)) {
+                    note = "Received from $sender"
+                }
+            }
+        } else {
+            val toMatch = Regex("""(?:to|transfer\s+to|trf\s+to|paid\s+to)\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+            if (toMatch != null) {
+                val recipient = toMatch.groupValues[1].trim()
+                if (recipient.isNotEmpty() && !recipient.equals("account", ignoreCase = true) && !recipient.equals("a/c", ignoreCase = true)) {
+                    note = "Paid to $recipient"
+                }
+            }
         }
 
-        return Transaction(amount, type, category, icon, note)
+        // Extract UPI / Reference ID if present
+        val upiMatch = UPI_REF_PATTERN.find(text)
+        val upiRef = upiMatch?.value?.replace(Regex("""^[^\d]*"""), "")?.trim()
+
+        // Extract transaction date if explicitly formatted in SMS (e.g. "on 19/09/26" or "on 19-09-2026")
+        var transactionDateIso: String? = null
+        val dateMatch = Regex("""\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b""", RegexOption.IGNORE_CASE).find(text)
+        if (dateMatch != null) {
+            try {
+                val rawDate = dateMatch.groupValues[1].replace("-", "/")
+                val parts = rawDate.split("/")
+                val day = parts[0].toInt()
+                val month = parts[1].toInt()
+                var year = parts[2].toInt()
+                if (year < 100) year += 2000
+                val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    set(year, month - 1, day, 12, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                transactionDateIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(cal.time)
+            } catch (_: Exception) {}
+        }
+
+        return Transaction(amount, type, category, icon, note, transactionDateIso, upiRef)
     }
 
     /**
@@ -1008,18 +1060,38 @@ class NotificationListener : NotificationListenerService() {
         return hash.joinToString("") { "%02x".format(it) }
     }
 
-    private fun isSameAmountSeenToday(prefs: android.content.SharedPreferences, amount: Double, type: String): Boolean {
+    private fun isExactUpiDuplicate(prefs: android.content.SharedPreferences, upiRef: String?): Boolean {
+        val cleanUpi = upiRef?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+        val oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+
+        for ((key, value) in prefs.all) {
+            if (key.startsWith("${KEY_PREFIX}txn_") ||
+                key.startsWith("${KEY_PREFIX}pending_") ||
+                key.startsWith("${KEY_PREFIX}history_")) {
+                try {
+                    val json = JSONObject(value as String)
+                    val existingUpi = json.optString("upiRef", "").trim()
+                    val txnTime = json.optLong("timestamp", 0L)
+                    if (existingUpi.isNotEmpty() && cleanUpi.equals(existingUpi, ignoreCase = true) && txnTime >= oneDayAgo) {
+                        return true
+                    }
+                } catch (_: Exception) {}
+            }
+        }
+        return false
+    }
+
+    private fun isRecentSameAmount(
+        prefs: android.content.SharedPreferences,
+        amount: Double,
+        type: String,
+        upiRef: String?
+    ): Boolean {
         // Prune old history entries older than 48h to prevent unbounded pref growth
         pruneOldHistory(prefs)
 
-        val calendar = Calendar.getInstance()
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val todayStart = calendar.timeInMillis
-        val oneDayAgo = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
-        val cutoffTime = minOf(todayStart, oneDayAgo)
+        val fiveMinutesAgo = System.currentTimeMillis() - (5 * 60 * 1000L)
+        val cleanUpi = upiRef?.trim()?.takeIf { it.isNotEmpty() }
 
         for ((key, value) in prefs.all) {
             if (key.startsWith("${KEY_PREFIX}txn_") ||
@@ -1030,9 +1102,15 @@ class NotificationListener : NotificationListenerService() {
                     val txnAmount = json.getDouble("amount")
                     val txnType = json.getString("type")
                     val txnTime = json.optLong("timestamp", 0L)
+                    val existingUpi = json.optString("upiRef", "").trim().takeIf { it.isNotEmpty() }
 
-                    // Match if same amount (within 1 paisa) and same type from today / last 24h
-                    if (txnType == type && kotlin.math.abs(txnAmount - amount) < 0.01 && txnTime >= cutoffTime) {
+                    // If both have different non-empty UPI references, they are definitely distinct transactions
+                    if (cleanUpi != null && existingUpi != null && !cleanUpi.equals(existingUpi, ignoreCase = true)) {
+                        continue
+                    }
+
+                    // Match if same amount (within 1 paisa) and same type within the 5-minute window
+                    if (txnType == type && kotlin.math.abs(txnAmount - amount) < 0.01 && txnTime >= fiveMinutesAgo) {
                         return true
                     }
                 } catch (_: Exception) {
@@ -1066,7 +1144,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun saveTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {
-        val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+        val isoDate = transaction.dateIso ?: SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date())
 
@@ -1079,12 +1157,14 @@ class NotificationListener : NotificationListenerService() {
             put("source", source)
             put("timestamp", System.currentTimeMillis())
             put("date", isoDate)
+            transaction.upiRef?.let { put("upiRef", it) }
         }
 
         val historyJson = JSONObject().apply {
             put("amount", transaction.amount)
             put("type", transaction.type)
             put("timestamp", System.currentTimeMillis())
+            transaction.upiRef?.let { put("upiRef", it) }
         }
 
         prefs.edit()
@@ -1094,7 +1174,7 @@ class NotificationListener : NotificationListenerService() {
     }
 
     private fun storePendingTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {
-        val isoDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+        val isoDate = transaction.dateIso ?: SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date())
 
@@ -1107,6 +1187,7 @@ class NotificationListener : NotificationListenerService() {
             put("source", source)
             put("timestamp", System.currentTimeMillis())
             put("date", isoDate)
+            transaction.upiRef?.let { put("upiRef", it) }
         }
 
         prefs.edit().putString("${KEY_PREFIX}pending_$hash", json.toString()).apply()
@@ -1203,6 +1284,8 @@ class NotificationListener : NotificationListenerService() {
         val type: String,
         val category: String,
         val icon: Int,
-        val note: String
+        val note: String,
+        val dateIso: String? = null,
+        val upiRef: String? = null
     )
 }

@@ -209,6 +209,7 @@ class NotificationService {
               'amount': data['amount'],
               'type': txnType,
               'timestamp': data['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+              if (data['upiRef'] != null) 'upiRef': data['upiRef'],
             });
             await prefs.setString(histKey, histData);
           }

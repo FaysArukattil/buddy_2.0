@@ -69,6 +69,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     put("amount", json.getDouble("amount"))
                     put("type", json.getString("type"))
                     put("timestamp", System.currentTimeMillis())
+                    json.optString("upiRef", "").takeIf { it.isNotEmpty() }?.let {
+                        put("upiRef", it)
+                    }
                 }
 
                 // Move from pending to confirmed
