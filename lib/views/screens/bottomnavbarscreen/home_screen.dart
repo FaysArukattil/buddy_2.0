@@ -52,6 +52,12 @@ class HomeScreenState extends State<HomeScreen>
   double _headerDragStartPage = 0;
   int _lastHeaderHapticIndex = 0;
   List<TransactionModel> _transactions = [];
+  List<TransactionModel> _cachedDisplayAll = [];
+  List<TransactionModel> _cachedDisplayIncome = [];
+  List<TransactionModel> _cachedDisplayExpense = [];
+  Map<String, List<TransactionModel>> _cachedGroupedAll = {};
+  Map<String, List<TransactionModel>> _cachedGroupedIncome = {};
+  Map<String, List<TransactionModel>> _cachedGroupedExpense = {};
   bool _isLoading = true;
   StreamSubscription? _txnSubscription;
 
@@ -155,8 +161,8 @@ class HomeScreenState extends State<HomeScreen>
         _balancePageController.position.haveDimensions) {
       _balancePageController.animateToPage(
         mode,
-        duration: Duration(milliseconds: isUserAction ? 350 : 550),
-        curve: isUserAction ? Curves.easeOutCubic : Curves.easeInOutCubic,
+        duration: Duration(milliseconds: isUserAction ? 260 : 450),
+        curve: Curves.easeOutCubic,
       );
     }
   }
@@ -206,11 +212,18 @@ class HomeScreenState extends State<HomeScreen>
     double monthIncome = 0;
     double monthExpense = 0;
 
-    for (final txn in transactions) {
-      final isDebt = txn.category == 'Lending' || txn.category == 'Borrowing';
-      if (!_includeDebtsInBalance && isDebt) {
-        continue;
-      }
+    // Deduplicate once
+    final deduped = TransactionModel.deduplicate(transactions);
+
+    // Debt preference filter
+    final base = _includeDebtsInBalance
+        ? deduped
+        : deduped
+            .where((txn) => txn.category != 'Lending' && txn.category != 'Borrowing')
+            .toList(growable: false);
+
+    // Month totals for Hero header
+    for (final txn in base) {
       if (txn.date.year == now.year && txn.date.month == now.month) {
         if (txn.type == 'income') {
           monthIncome += txn.amount;
@@ -220,10 +233,43 @@ class HomeScreenState extends State<HomeScreen>
       }
     }
 
+    // Pre-filter by type for instant tab switching
+    final incomeTxns = base
+        .where((txn) => txn.type.toLowerCase().trim() == 'income')
+        .toList(growable: false);
+    final expenseTxns = base
+        .where((txn) => txn.type.toLowerCase().trim() == 'expense')
+        .toList(growable: false);
+
+    // Cap display count on HomeScreen at 30 items for smooth 120fps performance
+    const int homeMaxCount = 30;
+    final cappedAll = base.length > homeMaxCount ? base.sublist(0, homeMaxCount) : base;
+    final cappedIncome = incomeTxns.length > homeMaxCount ? incomeTxns.sublist(0, homeMaxCount) : incomeTxns;
+    final cappedExpense = expenseTxns.length > homeMaxCount ? expenseTxns.sublist(0, homeMaxCount) : expenseTxns;
+
+    Map<String, List<TransactionModel>> groupTxns(List<TransactionModel> list) {
+      final map = <String, List<TransactionModel>>{};
+      for (final txn in list) {
+        final header = _getDateHeader(txn.date);
+        map.putIfAbsent(header, () => []).add(txn);
+      }
+      return map;
+    }
+
+    final groupedAll = groupTxns(cappedAll);
+    final groupedIncome = groupTxns(cappedIncome);
+    final groupedExpense = groupTxns(cappedExpense);
+
     setState(() {
       _income = monthIncome;
       _expenses = monthExpense;
       _totalBalance = monthIncome - monthExpense;
+      _cachedDisplayAll = cappedAll;
+      _cachedDisplayIncome = cappedIncome;
+      _cachedDisplayExpense = cappedExpense;
+      _cachedGroupedAll = groupedAll;
+      _cachedGroupedIncome = groupedIncome;
+      _cachedGroupedExpense = groupedExpense;
     });
   }
 
@@ -644,26 +690,14 @@ class HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     super.build(context);
 
-    // Filter display transactions based on debt separation setting and balance view mode
-    final dedupedTransactions = TransactionModel.deduplicate(_transactions);
-    final baseTransactions = _includeDebtsInBalance
-        ? dedupedTransactions
-        : dedupedTransactions
-            .where((txn) => txn.category != 'Lending' && txn.category != 'Borrowing')
-            .toList();
-
+    // Instant O(1) lookup of pre-cached filtered & grouped transactions
     final displayTransactions = _balanceViewMode == 1
-        ? baseTransactions.where((txn) => txn.type.toLowerCase().trim() == 'income').toList()
-        : _balanceViewMode == 2
-            ? baseTransactions.where((txn) => txn.type.toLowerCase().trim() == 'expense').toList()
-            : baseTransactions;
+        ? _cachedDisplayIncome
+        : (_balanceViewMode == 2 ? _cachedDisplayExpense : _cachedDisplayAll);
 
-    // Group transactions by date
-    final grouped = <String, List<TransactionModel>>{};
-    for (final txn in displayTransactions) {
-      final header = _getDateHeader(txn.date);
-      grouped.putIfAbsent(header, () => []).add(txn);
-    }
+    final grouped = _balanceViewMode == 1
+        ? _cachedGroupedIncome
+        : (_balanceViewMode == 2 ? _cachedGroupedExpense : _cachedGroupedAll);
 
     final mq = MediaQuery.of(context);
     final screenW = mq.size.width;
@@ -1214,35 +1248,17 @@ class HomeScreenState extends State<HomeScreen>
               else
                 SliverToBoxAdapter(
                   child: AnimatedSize(
-                    duration: const Duration(milliseconds: 380),
+                    duration: const Duration(milliseconds: 260),
                     curve: Curves.easeOutCubic,
                     alignment: Alignment.topCenter,
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
+                      duration: const Duration(milliseconds: 200),
                       switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      layoutBuilder: (currentChild, previousChildren) {
-                        return Stack(
-                          alignment: Alignment.topCenter,
-                          children: [
-                            ...previousChildren,
-                            if (currentChild != null) currentChild,
-                          ],
-                        );
-                      },
+                      switchOutCurve: Curves.easeOutCubic,
                       transitionBuilder: (child, animation) {
                         return FadeTransition(
                           opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.0, 0.04),
-                              end: Offset.zero,
-                            ).animate(CurvedAnimation(
-                              parent: animation,
-                              curve: Curves.easeOutCubic,
-                            )),
-                            child: child,
-                          ),
+                          child: child,
                         );
                       },
                       child: KeyedSubtree(
@@ -1594,6 +1610,41 @@ class HomeScreenState extends State<HomeScreen>
       }
     }
 
+    if (_transactions.length > 30) {
+      children.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+          child: Center(
+            child: TextButton.icon(
+              onPressed: () {
+                final seeAllType = _balanceViewMode == 1
+                    ? 'Income'
+                    : (_balanceViewMode == 2 ? 'Expense' : 'All');
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => FilteredTransactionsScreen(type: seeAllType),
+                  ),
+                ).then((_) => refreshData());
+              },
+              icon: const Icon(Icons.history_rounded, size: 16),
+              label: Text(
+                _balanceViewMode == 1
+                    ? 'View all income in History'
+                    : (_balanceViewMode == 2
+                        ? 'View all expenses in History'
+                        : 'View all transactions in History'),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
       child: Column(
@@ -1836,31 +1887,27 @@ class HomeScreenState extends State<HomeScreen>
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              IntrinsicHeight(
-                child: Row(
-                  children: [
-                    // Category-specific brand color vertical stripe on the left edge
-                    Container(
-                      width: 4.5,
-                      color: catColor,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    final displayMap = txn.toDisplayMap();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TransactionDetailScreen(data: displayMap),
+                      ),
+                    ).then((_) => refreshData());
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 18.5, // 4.5px category stripe + 14px padding
+                      right: 14.0,
+                      top: 12.0,
+                      bottom: 12.0,
                     ),
-                    Expanded(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            final displayMap = txn.toDisplayMap();
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TransactionDetailScreen(data: displayMap),
-                              ),
-                            ).then((_) => refreshData());
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-                            child: Row(
+                    child: Row(
                               children: [
                                 Container(
                                   width: 44,
@@ -1956,9 +2003,13 @@ class HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      // Category-specific brand color vertical stripe on the left edge (zero-cost full height layout)
+                      Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4.5,
+                child: ColoredBox(color: catColor),
               ),
               if (isAutoDetected)
                 Positioned(

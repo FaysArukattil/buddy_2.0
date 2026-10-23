@@ -467,31 +467,27 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              IntrinsicHeight(
-                child: Row(
-                  children: [
-                    // Category-specific brand color vertical stripe on the left edge
-                    Container(
-                      width: 4.5,
-                      color: catColor,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => TransactionDetailScreen(data: tx),
+                      ),
+                    );
+                    if (mounted) await _load();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 18.5, // 4.5px category stripe + 14px padding
+                      right: 14.0,
+                      top: 12.0,
+                      bottom: 12.0,
                     ),
-                    Expanded(
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TransactionDetailScreen(data: tx),
-                              ),
-                            );
-                            if (mounted) await _load();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-                            child: Row(
+                    child: Row(
                               children: [
                                 Container(
                                   width: 44,
@@ -589,9 +585,13 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      // Category-specific brand color vertical stripe on the left edge (zero-cost full height layout)
+                      Positioned(
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: 4.5,
+                child: ColoredBox(color: catColor),
               ),
               if (isAutoDetected)
                 Positioned(

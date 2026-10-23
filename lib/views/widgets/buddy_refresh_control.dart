@@ -126,31 +126,33 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
                   ? (0.5 + 0.5 * math.sin(_spinController.value * 2 * math.pi))
                   : (progress * 0.4);
 
-              return AnimatedOpacity(
+              if (!isRefreshing && progress <= 0.001) {
+                return const SizedBox.shrink();
+              }
+              if (isDone) {
+                return const SizedBox.shrink();
+              }
+
+              return AnimatedScale(
                 duration: const Duration(milliseconds: 280),
-                curve: Curves.easeOut,
-                opacity: isDone ? 0.0 : (isRefreshing ? 1.0 : (0.2 + 0.8 * progress)),
-                child: AnimatedScale(
-                  duration: const Duration(milliseconds: 280),
-                  curve: Curves.easeOutBack,
-                  scale: isDone ? 0.4 : (isRefreshing ? 1.0 : (0.55 + 0.45 * progress)),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFFFFD54F).withValues(
-                            alpha: 0.25 + 0.35 * shineFactor,
-                          ),
-                          blurRadius: 16 + 10 * shineFactor,
-                          spreadRadius: 2 + 2 * shineFactor,
+                curve: Curves.easeOutBack,
+                scale: isRefreshing ? 1.0 : (0.55 + 0.45 * progress).clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFFFD54F).withValues(
+                          alpha: 0.25 + 0.35 * shineFactor,
                         ),
-                      ],
-                    ),
-                    child: Transform.rotate(
-                      angle: rotationAngle,
-                      child: BuddyLoadingIndicator(size: widget.size),
-                    ),
+                        blurRadius: 16 + 10 * shineFactor,
+                        spreadRadius: 2 + 2 * shineFactor,
+                      ),
+                    ],
+                  ),
+                  child: Transform.rotate(
+                    angle: rotationAngle,
+                    child: BuddyLoadingIndicator(size: widget.size),
                   ),
                 ),
               );

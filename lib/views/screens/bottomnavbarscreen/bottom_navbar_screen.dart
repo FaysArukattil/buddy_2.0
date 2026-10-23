@@ -23,12 +23,17 @@ class BottomNavbarScreen extends StatefulWidget {
 class BottomNavbarScreenState extends State<BottomNavbarScreen>
     with SingleTickerProviderStateMixin {
   void switchTab(int index) {
-    if (_pageController.hasClients) {
+    if (!_pageController.hasClients) return;
+    final int distance = (index - _currentIndex).abs();
+    _currentIndex = index;
+    if (distance <= 1) {
       _pageController.animateToPage(
         index,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
       );
+    } else {
+      _pageController.jumpToPage(index);
     }
   }
 
@@ -401,17 +406,23 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   }
 
   void _goTo(int index) {
-    if (index == _currentIndex &&
-        _pageController.hasClients &&
-        _pageController.page?.round() == index) {
+    if (!_pageController.hasClients) return;
+    if (index == _currentIndex && _pageController.page?.round() == index) {
       return;
     }
+    HapticFeedback.selectionClick();
+    final int distance = (index - _currentIndex).abs();
     _currentIndex = index;
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+
+    if (distance <= 1) {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
   }
 
   Future<void> _openAddTransactionSheet(BuildContext context) async {

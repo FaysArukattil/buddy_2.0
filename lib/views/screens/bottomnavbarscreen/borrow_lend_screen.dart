@@ -933,24 +933,16 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Left accent stripe indicator
-              Container(
-                width: 4.5,
-                color: accentStripeColor,
-              ),
-              Expanded(
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => _showDebtDetailModal(context, debt),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
+        child: Stack(
+          children: [
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _showDebtDetailModal(context, debt),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 18.5, right: 14, top: 14, bottom: 14),
+                  child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                 // ── Top Row: Avatar + Name & Subtitle + Amount ──
@@ -1429,9 +1421,15 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
+                // Left accent stripe indicator
+                Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4.5,
+              child: ColoredBox(color: accentStripeColor),
+            ),
+          ],
         ),
       ),
     );

@@ -39,6 +39,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- Disable experimental Impeller on Android to eliminate engine validation breaks -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
             
         <!-- Notification Listener Service (OS-managed, no foreground service) -->
         <service
