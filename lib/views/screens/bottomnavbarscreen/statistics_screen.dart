@@ -43,6 +43,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
   int? _selectedBucket; // selected calendar cell
   int _touchedPieIndex = -1;
+  int _lastSliceTapTime = 0;
 
   bool _isDownloading = false;
   bool _isLoading = true;
@@ -424,13 +425,24 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
   String _getDateRangeLabel() {
     final d = _selectedDate;
+    final now = DateTime.now();
     switch (_selectedTab) {
       case 0:
-        return DateFormat('MMM dd, yyyy').format(d);
+        if (d.year == now.year && d.month == now.month && d.day == now.day) {
+          return 'Today, ${DateFormat('MMM d').format(d)}';
+        }
+        final yesterday = now.subtract(const Duration(days: 1));
+        if (d.year == yesterday.year &&
+            d.month == yesterday.month &&
+            d.day == yesterday.day) {
+          return 'Yesterday, ${DateFormat('MMM d').format(d)}';
+        }
+        return DateFormat('EEE, MMM d, yyyy').format(d);
       case 1:
         final (s, e) = _periodRange();
         final end = e.subtract(const Duration(days: 1));
-        return '${DateFormat('MMM dd').format(s)} – ${DateFormat('MMM dd').format(end)}';
+        final endFmt = end.year == s.year ? 'MMM d' : 'MMM d, yyyy';
+        return '${DateFormat('MMM d').format(s)} – ${DateFormat(endFmt).format(end)}';
       case 2:
         return DateFormat('MMMM yyyy').format(d);
       default:
@@ -441,43 +453,64 @@ class StatisticsScreenState extends State<StatisticsScreen>
   // ───────────────────────── Navigation ─────────────────────────
 
   bool get _canNavigateForward {
-    final (_, e) = _periodRange();
-    return e.isBefore(DateTime.now()) || e.isAtSameMomentAs(DateTime.now());
+    final now = DateTime.now();
+    switch (_selectedTab) {
+      case 0: // Day
+        final s = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+        final today = DateTime(now.year, now.month, now.day);
+        return s.isBefore(today);
+      case 1: // Week
+        final (_, e) = _periodRange();
+        return e.isBefore(now);
+      case 2: // Month
+        return _selectedDate.year < now.year ||
+            (_selectedDate.year == now.year && _selectedDate.month < now.month);
+      default: // Year
+        return _selectedDate.year < now.year;
+    }
   }
 
   void _navigateDate(int delta) {
     HapticFeedback.selectionClick();
     final c = _selectedDate;
+    final now = DateTime.now();
     DateTime next;
     switch (_selectedTab) {
-      case 0:
+      case 0: // Day
         next = DateTime(c.year, c.month, c.day + delta);
         break;
-      case 1:
-        next = DateTime(c.year, c.month, c.day + 7 * delta);
+      case 1: // Week
+        next = DateTime(c.year, c.month, c.day + (7 * delta));
         break;
-      case 2:
-        final maxDays = DateTime(c.year, c.month + delta + 1, 0).day;
-        next = DateTime(c.year, c.month + delta, math.min(c.day, maxDays));
+      case 2: // Month
+        final target = DateTime(c.year, c.month + delta, 1);
+        final maxDays = DateTime(target.year, target.month + 1, 0).day;
+        next = DateTime(target.year, target.month, math.min(c.day, maxDays));
         break;
-      default:
-        next = DateTime(c.year + delta, c.month, math.min(c.day, 28));
+      default: // Year
+        final target = DateTime(c.year + delta, c.month, 1);
+        final maxDays = DateTime(target.year, target.month + 1, 0).day;
+        next = DateTime(target.year, target.month, math.min(c.day, maxDays));
     }
-    final today = DateTime.now();
-    if (next.isAfter(today)) next = today;
+    if (next.isAfter(now)) next = now;
     setState(() => _selectedDate = next);
     _computeData();
   }
 
   void _selectTab(int i) {
+    HapticFeedback.selectionClick();
     setState(() {
       _selectedTab = i;
-      _selectedDate = DateTime.now();
+      final now = DateTime.now();
+      if (_selectedDate.isAfter(now)) {
+        _selectedDate = now;
+      }
     });
     _computeData();
   }
 
   void _selectType(int i) {
+    HapticFeedback.selectionClick();
     setState(() => _type = i == 0 ? 'Expense' : 'Income');
     _computeData();
   }
@@ -871,9 +904,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final mq = MediaQuery.of(context);
     final topPadding = mq.padding.top;
     final isDark = AppColors.isDark(context);
-    final headerColor = isDark
-        ? const Color(0xFF0F2624)
-        : const Color(0xFF0F3632);
+    final headerColor = AppColors.backgroundOf(context);
 
     if (_isLoading) {
       return Scaffold(
@@ -888,70 +919,159 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
-      body: Stack(
-        children: [
-          // Fills the space revealed when over-scrolling at the top.
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: AnimatedBuilder(
-              animation: _scrollController,
-              builder: (context, _) {
-                final offset = _scrollController.hasClients
-                    ? _scrollController.offset
-                    : 0.0;
-                if (offset >= 0) return const SizedBox.shrink();
-                return Container(
-                  height: topPadding - offset + 40,
-                  color: headerColor,
-                );
-              },
-            ),
-          ),
-          CustomScrollView(
-            controller: _scrollController,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: BouncingScrollPhysics(),
-            ),
-            slivers: [
-              BuddyRefreshControl(
-                onRefresh: refreshData,
-                backgroundColor: headerColor,
-                topPadding: topPadding,
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          if (_touchedPieIndex != -1) {
+            final now = DateTime.now().millisecondsSinceEpoch;
+            if (now - _lastSliceTapTime > 250) {
+              HapticFeedback.selectionClick();
+              setState(() => _touchedPieIndex = -1);
+            }
+          }
+        },
+        child: Stack(
+          children: [
+            // Fills the space revealed when over-scrolling at the top.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: AnimatedBuilder(
+                animation: _scrollController,
+                builder: (context, _) {
+                  final offset = _scrollController.hasClients
+                      ? _scrollController.offset
+                      : 0.0;
+                  if (offset >= 0) return const SizedBox.shrink();
+                  return Container(
+                    height: topPadding - offset + 40,
+                    color: headerColor,
+                  );
+                },
               ),
-              SliverToBoxAdapter(child: _buildHero(isDark, topPadding)),
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  20,
-                  mq.padding.bottom + kBottomNavigationBarHeight + 60,
+            ),
+            CustomScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(
+                parent: BouncingScrollPhysics(),
+              ),
+              slivers: [
+                BuddyRefreshControl(
+                  onRefresh: refreshData,
+                  backgroundColor: headerColor,
+                  topPadding: topPadding,
                 ),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate(
-                    !hasData
-                        ? [_buildEmptyState()]
-                        : [
-                            _buildOverviewCard(accent, isDark),
-                            const SizedBox(height: 14),
-                            _buildInsightTiles(),
-                            const SizedBox(height: 14),
-                            _buildCategoriesCard(isDark),
-                          ],
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      _buildTopBar(isDark, topPadding),
+                      _buildTypeSwitch(isDark),
+                      const SizedBox(height: 12),
+                      _buildHero(isDark),
+                    ],
                   ),
                 ),
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    16,
+                    20,
+                    mq.padding.bottom + kBottomNavigationBarHeight + 60,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate(
+                      [
+                        _buildOverviewCard(accent, isDark),
+                        if (!hasData) ...[
+                          const SizedBox(height: 14),
+                          _buildEmptyState(),
+                        ] else ...[
+                          const SizedBox(height: 14),
+                          _buildInsightTiles(),
+                          const SizedBox(height: 14),
+                          _buildCategoriesCard(isDark),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────── Top bar & Hero ─────────────────────────
+
+  Widget _buildTopBar(bool isDark, double topPadding) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, topPadding + 10, 20, 10),
+      child: Row(
+        children: [
+          Text(
+            'Statistics',
+            style: TextStyle(
+              color: AppColors.textPrimaryOf(context),
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.6,
+            ),
+          ),
+          const Spacer(),
+          GestureDetector(
+            onTap: _isDownloading ? null : _downloadCurrentView,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : AppColors.cardOf(context),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : AppColors.borderOf(context).withValues(alpha: 0.7),
+                ),
+                boxShadow: isDark ? null : AppColors.cardShadowOf(context),
               ),
-            ],
+              child: Center(
+                child: _isDownloading
+                    ? const BuddyLoadingIndicator(size: 16)
+                    : Icon(
+                        Icons.ios_share_rounded,
+                        color: AppColors.textPrimaryOf(context),
+                        size: 19,
+                      ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ───────────────────────── Hero ─────────────────────────
+  Widget _buildTypeSwitch(bool isDark) {
+    final isExpense = _type == 'Expense';
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: _GlassSegmented(
+        labels: const ['Expense', 'Income'],
+        icons: const [Icons.south_west_rounded, Icons.north_east_rounded],
+        selected: isExpense ? 0 : 1,
+        onChanged: _selectType,
+        height: 44,
+        fontSize: 13.5,
+        activeColor: isExpense ? AppColors.expense : AppColors.primary,
+        isDark: isDark,
+      ),
+    );
+  }
 
-  Widget _buildHero(bool isDark, double topPadding) {
+  Widget _buildHero(bool isDark) {
     final isExpense = _type == 'Expense';
     final total = _cachedTotal;
     final prev = _cachedPrevTotal;
@@ -959,135 +1079,61 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final deltaPct = hasPrev ? (total - prev) / prev * 100 : 0.0;
     final isUp = deltaPct >= 0;
     final good = isExpense ? !isUp : isUp;
-    final badge = good ? const Color(0xFF69F0AE) : const Color(0xFFFF8A80);
+    final badge = good ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     const compareNames = ['yesterday', 'last week', 'last month', 'last year'];
+    final accent = isExpense ? AppColors.expense : AppColors.primary;
+
+    final borderColor = AppColors.borderOf(context).withValues(alpha: 0.6);
+    final totalTextColor =
+        isDark ? Colors.white : AppColors.textPrimaryOf(context);
 
     return Container(
-      width: double.infinity,
-      padding: EdgeInsets.fromLTRB(20, topPadding + 12, 20, 22),
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: isDark
-              ? const [Color(0xFF0F2624), Color(0xFF1E5D57)]
-              : const [Color(0xFF0F3632), Color(0xFF2C7A72)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+        color: AppColors.cardOf(context),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: borderColor),
+        boxShadow: AppColors.cardShadowOf(context),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + export
+          // Header row: Type badge + Comparison pill
           Row(
             children: [
-              const Text(
-                'Statistics',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.6,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: isDark ? 0.22 : 0.14),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: accent.withValues(alpha: isDark ? 0.38 : 0.28),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isExpense
+                          ? Icons.arrow_downward_rounded
+                          : Icons.arrow_upward_rounded,
+                      size: 13,
+                      color: accent,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      isExpense ? 'Total Spent' : 'Total Earned',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: accent,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const Spacer(),
-              GestureDetector(
-                onTap: _isDownloading ? null : _downloadCurrentView,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.13),
-                    borderRadius: BorderRadius.circular(13),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Center(
-                    child: _isDownloading
-                        ? const BuddyLoadingIndicator(size: 16)
-                        : const Icon(
-                            Icons.ios_share_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-
-          // Date navigator
-          Container(
-            height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.11),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-            ),
-            child: Row(
-              children: [
-                _navButton(Icons.chevron_left_rounded, () => _navigateDate(-1)),
-                Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _showDatePicker,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.calendar_month_rounded,
-                          size: 16,
-                          color: Colors.white70,
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            _getDateRangeLabel(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          size: 18,
-                          color: Colors.white70,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                _navButton(
-                  Icons.chevron_right_rounded,
-                  _canNavigateForward ? () => _navigateDate(1) : null,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 22),
-
-          // Total + change
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '${isExpense ? 'Total spent' : 'Total earned'} · ${_cachedTxns.length} ${_cachedTxns.length == 1 ? 'txn' : 'txns'}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
               if (hasPrev)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1095,8 +1141,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: badge.withValues(alpha: 0.18),
+                    color: badge.withValues(alpha: isDark ? 0.2 : 0.12),
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: badge.withValues(alpha: isDark ? 0.35 : 0.25),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1122,56 +1171,198 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 14),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               FormatUtils.formatCurrencyFull(total),
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: totalTextColor,
                 fontSize: 38,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -1.2,
               ),
             ),
           ),
-          const SizedBox(height: 20),
-
-          // Switches
-          _GlassSegmented(
-            labels: const ['Expense', 'Income'],
-            icons: const [Icons.south_west_rounded, Icons.north_east_rounded],
-            selected: isExpense ? 0 : 1,
-            onChanged: _selectType,
-            activeColor: isExpense
-                ? const Color(0xFFE57373)
-                : const Color(0xFF4DB6AC),
-          ),
-          const SizedBox(height: 10),
-          _GlassSegmented(
-            labels: _tabs,
-            selected: _selectedTab,
-            onChanged: _selectTab,
-            height: 40,
-            fontSize: 12.5,
+          const SizedBox(height: 16),
+          // Quick stats row: Count of transactions + Active Period badge
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.08)
+                      : Colors.white.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : AppColors.borderOf(context).withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.receipt_rounded,
+                      size: 13,
+                      color: isDark
+                          ? Colors.white70
+                          : AppColors.textSecondaryOf(context),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${_cachedTxns.length} ${_cachedTxns.length == 1 ? 'transaction' : 'transactions'}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? Colors.white
+                            : AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : AppColors.borderOf(context).withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.date_range_rounded,
+                        size: 13,
+                        color: isDark
+                            ? Colors.white70
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          _getDateRangeLabel(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? Colors.white
+                                : AppColors.textPrimaryOf(context),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _navButton(IconData icon, VoidCallback? onTap) {
+  Widget _buildDateNavigator(bool isDark, Color accent) {
+    final bgColor = isDark
+        ? Colors.white.withValues(alpha: 0.06)
+        : AppColors.surfaceOf(context);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : AppColors.borderOf(context).withValues(alpha: 0.6);
+    final textColor = isDark ? Colors.white : AppColors.textPrimaryOf(context);
+    final iconColor =
+        isDark ? Colors.white70 : AppColors.textSecondaryOf(context);
+
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          _navButton(
+            Icons.chevron_left_rounded,
+            () => _navigateDate(-1),
+            isDark,
+          ),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _showDatePicker,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.calendar_month_rounded,
+                    size: 16,
+                    color: accent,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _getDateRangeLabel(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    size: 18,
+                    color: iconColor,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          _navButton(
+            Icons.chevron_right_rounded,
+            _canNavigateForward ? () => _navigateDate(1) : null,
+            isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _navButton(IconData icon, VoidCallback? onTap, bool isDark) {
+    final activeColor =
+        isDark ? Colors.white : AppColors.textPrimaryOf(context);
+    final disabledColor = isDark
+        ? Colors.white.withValues(alpha: 0.2)
+        : AppColors.textSecondaryOf(context).withValues(alpha: 0.3);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
-        width: 46,
-        height: 46,
+        width: 44,
+        height: 44,
         child: Icon(
           icon,
-          size: 24,
-          color: onTap == null ? Colors.white30 : Colors.white,
+          size: 22,
+          color: onTap == null ? disabledColor : activeColor,
         ),
       ),
     );
@@ -1200,6 +1391,15 @@ class StatisticsScreenState extends State<StatisticsScreen>
         children: [
           Row(
             children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   isDay ? 'Timeline' : 'Activity',
@@ -1233,11 +1433,28 @@ class StatisticsScreenState extends State<StatisticsScreen>
             ],
           ),
           const SizedBox(height: 14),
+
+          // Period selector: Day, Week, Month, Year
+          _GlassSegmented(
+            labels: _tabs,
+            selected: _selectedTab,
+            onChanged: _selectTab,
+            height: 38,
+            fontSize: 12,
+            activeColor: accent,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 12),
+
+          // Date Navigator Capsule directly above the calendar grid
+          _buildDateNavigator(isDark, accent),
+          const SizedBox(height: 14),
+
           if (isDay)
             _buildDayTimeline(accent)
           else ...[
             _buildReadout(accent),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _buildCalendar(_cachedPoints, accent),
           ],
         ],
@@ -1580,7 +1797,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 Text(
                   label,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: sub != null ? 11.5 : 12,
                     fontWeight: (onFill || today || selected)
                         ? FontWeight.w800
                         : FontWeight.w600,
@@ -1589,15 +1806,24 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 ),
                 if (sub != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      sub,
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
-                        color: onFill
-                            ? Colors.white.withValues(alpha: 0.85)
-                            : AppColors.textSecondaryOf(context),
+                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        sub,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 8.5,
+                          fontWeight:
+                              sub != '–' ? FontWeight.w700 : FontWeight.w500,
+                          color: onFill
+                              ? Colors.white.withValues(alpha: 0.9)
+                              : (sub == '–'
+                                    ? AppColors.textSecondaryOf(
+                                        context,
+                                      ).withValues(alpha: 0.4)
+                                    : AppColors.textSecondaryOf(context)),
+                        ),
                       ),
                     ),
                   ),
@@ -1675,7 +1901,13 @@ class StatisticsScreenState extends State<StatisticsScreen>
             ),
             grid(7, [
               for (var i = 0; i < lead; i++) null,
-              for (var i = 0; i < points.length; i++) cell(i, '${i + 1}'),
+              for (var i = 0; i < points.length; i++)
+                cell(
+                  i,
+                  '${i + 1}',
+                  sub: points[i] > 0 ? _compact(points[i]) : '–',
+                  height: 48,
+                ),
             ]),
           ],
         );
@@ -1855,7 +2087,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  // ───────────────────────── Categories ─────────────────────────
+  // Categories
 
   Widget _buildCategoriesCard(bool isDark) {
     final cats = _cachedTopCategories;
@@ -1893,146 +2125,224 @@ class StatisticsScreenState extends State<StatisticsScreen>
         ? '${(t.amount / total * 100).toStringAsFixed(1)}% of total'
         : '${cats.length} ${cats.length == 1 ? 'category' : 'categories'}';
 
-    return Container(
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Categories',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                      color: AppColors.textPrimaryOf(context),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () {
+        if (_touchedPieIndex != -1) {
+          final now = DateTime.now().millisecondsSinceEpoch;
+          if (now - _lastSliceTapTime > 250) {
+            HapticFeedback.selectionClick();
+            setState(() => _touchedPieIndex = -1);
+          }
+        }
+      },
+      child: Container(
+        decoration: _cardDecoration(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-                Text(
-                  hasTouch ? 'Tap centre to reset' : 'Tap a slice',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondaryOf(context),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Categories',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 236,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                PieChart(
-                  PieChartData(
-                    startDegreeOffset: -90,
-                    borderData: FlBorderData(show: false),
-                    sectionsSpace: 3,
-                    centerSpaceRadius: 78,
-                    pieTouchData: PieTouchData(
-                      touchCallback: (event, response) {
-                        final section = response?.touchedSection;
-                        if (!event.isInterestedForInteractions ||
-                            section == null) {
-                          return;
-                        }
-                        final i = section.touchedSectionIndex;
-                        if (i >= 0 && i != _touchedPieIndex) {
-                          HapticFeedback.selectionClick();
-                          setState(() => _touchedPieIndex = i);
-                        }
+                  if (hasTouch)
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        HapticFeedback.selectionClick();
+                        setState(() => _touchedPieIndex = -1);
                       },
-                    ),
-                    sections: List.generate(slices.length, (i) {
-                      final s = slices[i];
-                      final selected = i == _touchedPieIndex;
-                      final dim = hasTouch && !selected;
-                      return PieChartSectionData(
-                        value: s.amount,
-                        showTitle: false,
-                        radius: selected ? 22 : 15,
-                        color: dim ? s.color.withValues(alpha: 0.28) : s.color,
-                      );
-                    }),
-                  ),
-                  swapAnimationDuration: const Duration(milliseconds: 350),
-                  swapAnimationCurve: Curves.easeOutCubic,
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (hasTouch) setState(() => _touchedPieIndex = -1);
-                  },
-                  child: SizedBox(
-                    width: 130,
-                    height: 130,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          centerTitle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondaryOf(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.3),
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            centerValue,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.close_rounded,
+                              size: 13,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Reset',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                    Text(
+                      'Tap a slice to filter',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            SizedBox(
+              height: 236,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      startDegreeOffset: -90,
+                      borderData: FlBorderData(show: false),
+                      sectionsSpace: 3,
+                      centerSpaceRadius: 78,
+                      pieTouchData: PieTouchData(
+                        touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                          if (!event.isInterestedForInteractions) return;
+                          if (event is FlTapDownEvent || event is FlTapUpEvent) {
+                            final section = pieTouchResponse?.touchedSection;
+                            final i = section?.touchedSectionIndex ?? -1;
+                            if (i >= 0 && i < slices.length) {
+                              _lastSliceTapTime =
+                                  DateTime.now().millisecondsSinceEpoch;
+                              HapticFeedback.selectionClick();
+                              setState(() {
+                                _touchedPieIndex =
+                                    (_touchedPieIndex == i) ? -1 : i;
+                              });
+                            } else if (_touchedPieIndex != -1) {
+                              _lastSliceTapTime =
+                                  DateTime.now().millisecondsSinceEpoch;
+                              HapticFeedback.selectionClick();
+                              setState(() => _touchedPieIndex = -1);
+                            }
+                          }
+                        },
+                      ),
+                      sections: List.generate(slices.length, (i) {
+                        final s = slices[i];
+                        final selected = i == _touchedPieIndex;
+                        final dim = hasTouch && !selected;
+                        return PieChartSectionData(
+                          value: s.amount,
+                          showTitle: false,
+                          radius: selected ? 22 : 15,
+                          color: dim
+                              ? s.color.withValues(alpha: 0.28)
+                              : s.color,
+                        );
+                      }),
+                    ),
+                    swapAnimationDuration: const Duration(milliseconds: 350),
+                    swapAnimationCurve: Curves.easeOutCubic,
+                  ),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      if (hasTouch) {
+                        _lastSliceTapTime =
+                            DateTime.now().millisecondsSinceEpoch;
+                        HapticFeedback.selectionClick();
+                        setState(() => _touchedPieIndex = -1);
+                      }
+                    },
+                    child: SizedBox(
+                      width: 130,
+                      height: 130,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            centerTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.8,
-                              color: centerColor,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondaryOf(context),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          centerSub,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondaryOf(context),
+                          const SizedBox(height: 3),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              centerValue,
+                              style: TextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.8,
+                                color: centerColor,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 3),
+                          Text(
+                            centerSub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondaryOf(context),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.6,
-            color: AppColors.borderOf(context).withValues(alpha: 0.6),
-          ),
-          for (var i = 0; i < cats.length; i++) ...[
-            _categoryRow(i, cats[i], total),
-            if (i != cats.length - 1)
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 70,
-                endIndent: 16,
-                color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                ],
               ),
+            ),
+            Divider(
+              height: 1,
+              thickness: 0.6,
+              color: AppColors.borderOf(context).withValues(alpha: 0.6),
+            ),
+            for (var i = 0; i < cats.length; i++) ...[
+              _categoryRow(i, cats[i], total),
+              if (i != cats.length - 1)
+                Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  indent: 70,
+                  endIndent: 16,
+                  color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -2051,7 +2361,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final isLast = idx == _cachedTopCategories.length - 1;
 
     return Material(
-      color: highlighted ? color.withValues(alpha: 0.08) : Colors.transparent,
+      color: highlighted ? color.withValues(alpha: 0.12) : Colors.transparent,
       borderRadius: isLast
           ? const BorderRadius.vertical(bottom: Radius.circular(24))
           : BorderRadius.zero,
@@ -2071,7 +2381,14 @@ class StatisticsScreenState extends State<StatisticsScreen>
             icon: IconHelper.getIcon(cat['icon']),
           );
         },
-        child: Padding(
+        child: Container(
+          decoration: highlighted
+              ? BoxDecoration(
+                  border: Border(
+                    left: BorderSide(color: color, width: 4),
+                  ),
+                )
+              : null,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             children: [
@@ -2118,25 +2435,21 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 7),
+                    const SizedBox(height: 3),
                     Row(
                       children: [
                         Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(3),
-                            child: SizedBox(
-                              height: 5,
-                              child: LinearProgressIndicator(
-                                value: (pct / 100).clamp(0.0, 1.0),
-                                backgroundColor: AppColors.surfaceOf(context),
-                                valueColor: AlwaysStoppedAnimation(color),
-                              ),
+                          child: Text(
+                            '$count ${count == 1 ? 'transaction' : 'transactions'}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondaryOf(context),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
                         Text(
-                          '${pct.toStringAsFixed(1)}% · $count',
+                          '${pct.toStringAsFixed(1)}%',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -2339,19 +2652,40 @@ class StatisticsScreenState extends State<StatisticsScreen>
                           final note = (item['note'] as String?)?.trim() ?? '';
                           final cat =
                               (item['category'] as String?)?.trim() ?? 'Other';
-                          final rowTitle = note.isNotEmpty ? note : cat;
-                          final rowSub = (showCategory && note.isNotEmpty)
-                              ? '$cat • $date'
-                              : date;
+                          final catColor = AppColors.getCategoryColor(cat);
+                          final catIcon = IconHelper.getIcon(item['icon']);
+
+                          final hasNote = note.isNotEmpty;
+                          final rowTitle = hasNote ? note : cat;
+                          final rowSub = hasNote ? '$cat • $date' : date;
 
                           return Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surfaceOf(context),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
                               children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: catColor.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Center(
+                                    child: Icon(
+                                      catIcon,
+                                      size: 19,
+                                      color: catColor,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment:
@@ -2364,16 +2698,20 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                         style: TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
+                                          letterSpacing: -0.2,
                                           color: AppColors.textPrimaryOf(
                                             context,
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 3),
+                                      const SizedBox(height: 2),
                                       Text(
                                         rowSub,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          fontSize: 11,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w500,
                                           color: AppColors.textSecondaryOf(
                                             context,
                                           ),
@@ -2382,6 +2720,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                     ],
                                   ),
                                 ),
+                                const SizedBox(width: 10),
                                 Text(
                                   FormatUtils.formatCurrencyFull(
                                     (item['amount'] as num).toDouble(),
@@ -2389,6 +2728,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                   style: TextStyle(
                                     fontSize: 14.5,
                                     fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3,
                                     color: valueColor,
                                   ),
                                 ),
@@ -2419,6 +2759,7 @@ class _GlassSegmented extends StatefulWidget {
     this.activeColor,
     this.height = 42,
     this.fontSize = 13,
+    this.isDark = true,
   });
 
   final List<String> labels;
@@ -2428,6 +2769,7 @@ class _GlassSegmented extends StatefulWidget {
   final Color? activeColor;
   final double height;
   final double fontSize;
+  final bool isDark;
 
   @override
   State<_GlassSegmented> createState() => _GlassSegmentedState();
@@ -2439,14 +2781,31 @@ class _GlassSegmentedState extends State<_GlassSegmented> {
   @override
   Widget build(BuildContext context) {
     final n = widget.labels.length;
+    final isDark = widget.isDark;
+
+    final bgColor = isDark
+        ? Colors.black.withValues(alpha: 0.25)
+        : AppColors.surfaceOf(context);
+    final borderColor = isDark
+        ? Colors.white.withValues(alpha: 0.1)
+        : AppColors.borderOf(context).withValues(alpha: 0.6);
+    final defaultIndicatorColor = isDark
+        ? Colors.white.withValues(alpha: 0.18)
+        : AppColors.cardOf(context);
+
+    final selTextColor = widget.activeColor != null
+        ? Colors.white
+        : (isDark ? Colors.white : AppColors.textPrimaryOf(context));
+    final unselTextColor =
+        isDark ? Colors.white60 : AppColors.textSecondaryOf(context);
 
     return Container(
       height: widget.height,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
+        color: bgColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: borderColor),
       ),
       child: LayoutBuilder(
         builder: (context, c) {
@@ -2486,15 +2845,24 @@ class _GlassSegmentedState extends State<_GlassSegmented> {
                   child: Container(
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
-                      color:
-                          widget.activeColor ??
-                          Colors.white.withValues(alpha: 0.22),
+                      color: widget.activeColor ?? defaultIndicatorColor,
+                      boxShadow: (!isDark && widget.activeColor == null)
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ]
+                          : null,
                     ),
                   ),
                 ),
                 Row(
                   children: List.generate(n, (i) {
                     final sel = (page - i).abs() < 0.5;
+                    final textColor = sel ? selTextColor : unselTextColor;
+
                     return Expanded(
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
@@ -2512,7 +2880,7 @@ class _GlassSegmentedState extends State<_GlassSegmented> {
                                 Icon(
                                   widget.icons![i],
                                   size: 15,
-                                  color: sel ? Colors.white : Colors.white70,
+                                  color: textColor,
                                 ),
                                 const SizedBox(width: 6),
                               ],
@@ -2523,7 +2891,7 @@ class _GlassSegmentedState extends State<_GlassSegmented> {
                                   fontWeight: sel
                                       ? FontWeight.w800
                                       : FontWeight.w600,
-                                  color: sel ? Colors.white : Colors.white70,
+                                  color: textColor,
                                 ),
                               ),
                             ],
