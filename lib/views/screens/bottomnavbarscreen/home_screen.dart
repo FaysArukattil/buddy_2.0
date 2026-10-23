@@ -1638,19 +1638,16 @@ class HomeScreenState extends State<HomeScreen>
 
     return Transform.translate(
       offset: Offset(translateX, 0),
-      child: Opacity(
-        opacity: opacity,
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: (14 * s).clamp(13.0, 16.0),
-            fontWeight: FontWeight.w600,
-            color: Colors.white.withValues(alpha: 0.85),
-            letterSpacing: 0.3,
-          ),
-          maxLines: 1,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: (14 * s).clamp(13.0, 16.0),
+          fontWeight: FontWeight.w600,
+          color: Colors.white.withValues(alpha: (0.85 * opacity).clamp(0.0, 1.0)),
+          letterSpacing: 0.3,
         ),
+        maxLines: 1,
       ),
     );
   }
@@ -1671,29 +1668,26 @@ class HomeScreenState extends State<HomeScreen>
 
     return Transform.translate(
       offset: Offset(translateX, 0),
-      child: Opacity(
-        opacity: opacity,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: (13 * s).clamp(11.0, 15.0),
-              color: color,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: (13 * s).clamp(11.0, 15.0),
+            color: color.withValues(alpha: opacity.clamp(0.0, 1.0)),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            text,
+            style: TextStyle(
+              color: color.withValues(alpha: opacity.clamp(0.0, 1.0)),
+              fontSize: (11.5 * s).clamp(10.5, 13.0),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.1,
             ),
-            const SizedBox(width: 5),
-            Text(
-              text,
-              style: TextStyle(
-                color: color,
-                fontSize: (11.5 * s).clamp(10.5, 13.0),
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.1,
-              ),
-              maxLines: 1,
-            ),
-          ],
-        ),
+            maxLines: 1,
+          ),
+        ],
       ),
     );
   }

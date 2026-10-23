@@ -1925,12 +1925,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
               duration: Duration(milliseconds: 400 + (idx * 100)),
               curve: Curves.easeOutCubic,
               builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, 20 * (1 - value)),
-                    child: child,
-                  ),
+                return Transform.translate(
+                  offset: Offset(0, 16 * (1 - value)),
+                  child: child,
                 );
               },
               child: Container(

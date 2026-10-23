@@ -332,22 +332,21 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                                       child: Align(
                                                         alignment: Alignment.centerLeft,
                                                         widthFactor: growFactor,
-                                                        child: Opacity(
-                                                          opacity: growFactor,
-                                                          child: Padding(
-                                                            padding: EdgeInsets.only(left: 4.5 * s),
-                                                            child: Text(
-                                                              _navItems[i].label,
-                                                              style: TextStyle(
-                                                                color: Colors.white,
-                                                                fontSize: labelSize,
-                                                                fontWeight: FontWeight.w800,
-                                                                letterSpacing: -0.2,
+                                                        child: Padding(
+                                                          padding: EdgeInsets.only(left: 4.5 * s),
+                                                          child: Text(
+                                                            _navItems[i].label,
+                                                            style: TextStyle(
+                                                              color: Colors.white.withValues(
+                                                                alpha: growFactor.clamp(0.0, 1.0),
                                                               ),
-                                                              maxLines: 1,
-                                                              softWrap: false,
-                                                              overflow: TextOverflow.clip,
+                                                              fontSize: labelSize,
+                                                              fontWeight: FontWeight.w800,
+                                                              letterSpacing: -0.2,
                                                             ),
+                                                            maxLines: 1,
+                                                            softWrap: false,
+                                                            overflow: TextOverflow.clip,
                                                           ),
                                                         ),
                                                       ),

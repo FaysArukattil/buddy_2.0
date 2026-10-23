@@ -329,86 +329,118 @@ class ProfileScreenState extends State<ProfileScreen>
       ),
       child: Column(
         children: [
-          // Side-by-side layout: Large photo card on left, details on right
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              _buildPhotoCard(),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    GestureDetector(
-                      onTap: _editName,
-                      behavior: HitTestBehavior.opaque,
-                      child: Text(
-                        _name.isEmpty ? 'Add your name' : _name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
+          // Symmetrical Frosted Profile Card: Photo on left, balanced details & status on right
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.12),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildPhotoCard(),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: _editName,
+                        behavior: HitTestBehavior.opaque,
+                        child: Text(
+                          _name.isEmpty ? 'Add your name' : _name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 19.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          ),
                         ),
                       ),
-                    ),
-                    if (_email.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        _email,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.78),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
+                      if (_email.isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.alternate_email_rounded,
+                              size: 12,
+                              color: Colors.white.withValues(alpha: 0.72),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _email,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                      // Member since pill
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.calendar_today_rounded,
+                              size: 11,
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Member since ${_memberSinceLabel()}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.1,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.calendar_today_rounded,
-                            size: 11,
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Member since ${_memberSinceLabel()}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           // Subtle horizontal divider line
           Container(
             height: 1,
@@ -466,8 +498,10 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+
+
   Widget _buildPhotoCard() {
-    const cardSize = 92.0;
+    const cardSize = 84.0;
     final hasPhoto = _photoUrl != null && _photoUrl!.isNotEmpty;
 
     return GestureDetector(
@@ -476,7 +510,7 @@ class ProfileScreenState extends State<ProfileScreen>
         width: cardSize,
         height: cardSize,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(20),
           gradient: hasPhoto
               ? null
               : LinearGradient(
@@ -486,18 +520,18 @@ class ProfileScreenState extends State<ProfileScreen>
                 ),
           border: Border.all(
             color: Colors.white.withValues(alpha: 0.35),
-            width: 2.2,
+            width: 2.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.26),
-              blurRadius: 16,
-              offset: const Offset(0, 6),
+              color: Colors.black.withValues(alpha: 0.24),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(18),
           child: hasPhoto
               ? Image.network(
                   _photoUrl!,
@@ -1706,40 +1740,41 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 180),
-                    opacity: _isValid ? 1.0 : 0.4,
-                    child: InkWell(
-                      onTap: _isValid
-                          ? () {
-                              HapticFeedback.heavyImpact();
-                              Navigator.pop(context, true);
-                            }
-                          : null,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        height: 46,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: dangerColor,
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: _isValid
-                              ? [
-                                  BoxShadow(
-                                    color: dangerColor.withValues(alpha: 0.4),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ]
-                              : null,
-                        ),
-                        child: const Text(
-                          'Delete Everything',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  child: InkWell(
+                    onTap: _isValid
+                        ? () {
+                            HapticFeedback.heavyImpact();
+                            Navigator.pop(context, true);
+                          }
+                        : null,
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _isValid
+                            ? dangerColor
+                            : dangerColor.withValues(alpha: 0.38),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: _isValid
+                            ? [
+                                BoxShadow(
+                                  color: dangerColor.withValues(alpha: 0.4),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Text(
+                        'Delete Everything',
+                        style: TextStyle(
+                          color: _isValid
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.6),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
