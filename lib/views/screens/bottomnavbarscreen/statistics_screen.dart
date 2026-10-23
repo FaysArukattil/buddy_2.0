@@ -25,6 +25,7 @@ import 'package:buddy/services/pdf_service.dart';
 import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
+import 'package:buddy/views/screens/transaction_detail_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -1026,27 +1027,19 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   ),
                 ),
 
-                // Main body content below header
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(
-                    (20 * s).clamp(16.0, 24.0),
-                    (16 * s).clamp(12.0, 20.0),
-                    (20 * s).clamp(16.0, 24.0),
-                    mq.padding.bottom + kBottomNavigationBarHeight + 60,
-                  ),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      if (!hasData) ...[
-                        _buildEmptyState(),
-                      ] else ...[
-                        // "the three things"
-                        _buildInsightTiles(),
-                        const SizedBox(height: 14),
-                        // "then category breakdown"
-                        _buildCategoriesLedgerCard(isDark),
-                      ],
-                    ]),
-                  ),
+                // Main body content below header: takes FULL WIDTH matching the hero header
+                SliverToBoxAdapter(
+                  child: hasData
+                      ? _buildFullWidthBottomSection(isDark, s, mq.padding.bottom)
+                      : Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            0,
+                            (24 * s).clamp(16.0, 32.0),
+                            0,
+                            mq.padding.bottom + kBottomNavigationBarHeight + 60,
+                          ),
+                          child: _buildEmptyState(),
+                        ),
                 ),
               ],
             ),
@@ -1856,143 +1849,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
       return _buildHeaderDayTimeline(accent, s);
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildHeaderReadout(accent, s),
-        SizedBox(height: (6 * s).clamp(4.0, 10.0)),
-        Expanded(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            child: _buildHeaderCalendarGrid(_cachedPoints, accent, s),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeaderReadout(Color accent, double s) {
-    final idx = _selectedBucket;
-    final points = _cachedPoints;
-    final has = idx != null && idx < points.length;
-    final unit = _selectedTab == 3 ? 'a month' : 'a day';
-
-    if (!has) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.touch_app_rounded,
-              size: 12,
-              color: Colors.white70,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'Tap $unit to inspect amount',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final amount = points[idx];
-    final pct = _cachedTotal > 0 ? amount / _cachedTotal * 100 : 0.0;
-    final count = amount > 0 ? _txnsForBucket(idx).length : 0;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _bucketLabel(idx),
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Colors.white70,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            amount > 0 ? _money(amount) : '–',
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-          if (amount > 0) ...[
-            const SizedBox(width: 5),
-            Text(
-              '(${pct.toStringAsFixed(1)}%)',
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w600,
-                color: Colors.white60,
-              ),
-            ),
-          ],
-          if (count > 0) ...[
-            const SizedBox(width: 8),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () {
-                _stopAutoCycle();
-                _showTransactionsSheet(
-                  title: _bucketLabel(idx),
-                  subtitle:
-                      '$count ${count == 1 ? 'transaction' : 'transactions'}',
-                  txns: _txnsForBucket(idx),
-                  color: accent,
-                  icon: Icons.event_note_rounded,
-                  showCategory: true,
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 14,
-                      color: Colors.white,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
+    return Center(
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: _buildHeaderCalendarGrid(_cachedPoints, accent, s),
       ),
     );
   }
@@ -2001,7 +1861,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final maxVal = points.isEmpty ? 0.0 : points.reduce(math.max);
     final now = DateTime.now();
 
-    Widget cell(int i, String label, {String? sub, double height = 34}) {
+    Widget cell(int i, String label, {String? sub, double height = 36}) {
       final val = i < points.length ? points[i] : 0.0;
       final intensity = (maxVal > 0 && val > 0)
           ? (val / maxVal).clamp(0.2, 1.0).toDouble()
@@ -2018,7 +1878,18 @@ class StatisticsScreenState extends State<StatisticsScreen>
               : () {
                   _stopAutoCycle();
                   HapticFeedback.selectionClick();
-                  setState(() => _selectedBucket = selected ? null : i);
+                  setState(() => _selectedBucket = i);
+                  final txns = _txnsForBucket(i);
+                  _showTransactionsSheet(
+                    title: _bucketLabel(i),
+                    subtitle: txns.isNotEmpty
+                        ? '${txns.length} ${txns.length == 1 ? 'transaction' : 'transactions'}'
+                        : 'No ${_type.toLowerCase()} transactions',
+                    txns: txns,
+                    color: accent,
+                    icon: Icons.event_note_rounded,
+                    showCategory: true,
+                  );
                 },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
@@ -2162,7 +2033,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   i,
                   '${i + 1}',
                   sub: points[i] > 0 ? _compact(points[i]) : '–',
-                  height: (34 * s).clamp(30.0, 40.0),
+                  height: (36 * s).clamp(32.0, 42.0),
                 ),
             ]),
           ],
@@ -2201,65 +2072,88 @@ class StatisticsScreenState extends State<StatisticsScreen>
         final color = AppColors.getCategoryColor(cat);
         final amt = (t['amount'] as num).toDouble();
 
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.14),
-              width: 1.0,
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _stopAutoCycle();
+            HapticFeedback.lightImpact();
+            final displayMap = {
+              'id': t['id'],
+              'title': note.isNotEmpty ? note : cat,
+              'amount': amt,
+              'category': cat,
+              'date': t['date'],
+              'type': _type,
+              'icon': t['icon'],
+              'note': note,
+            };
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => TransactionDetailScreen(data: displayMap),
+              ),
+            ).then((_) => refreshData());
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.14),
+                width: 1.0,
+              ),
             ),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    IconHelper.getIcon(t['icon']),
+                    size: 16,
+                    color: Colors.white,
+                  ),
                 ),
-                child: Icon(
-                  IconHelper.getIcon(t['icon']),
-                  size: 16,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      note.isNotEmpty ? note : cat,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        note.isNotEmpty ? note : cat,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '$time • $cat',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white70,
+                      Text(
+                        '$time • $cat',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Text(
-                '$sign${FormatUtils.formatCurrencyFull(amt)}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                Text(
+                  '$sign${FormatUtils.formatCurrencyFull(amt)}',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -2317,42 +2211,244 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  BoxDecoration _cardDecoration([double radius = 24]) => BoxDecoration(
-    color: AppColors.cardOf(context),
-    borderRadius: BorderRadius.circular(radius),
-    border: Border.all(
-      color: AppColors.borderOf(context).withValues(alpha: 0.5),
-    ),
-    boxShadow: AppColors.cardShadowOf(context),
-  );
+  BoxDecoration _cardDecoration([double radius = 22]) {
+    final isDark = AppColors.isDark(context);
+    return BoxDecoration(
+      color: isDark ? const Color(0xFF102624) : Colors.white,
+      borderRadius: BorderRadius.circular(radius),
+      border: Border.all(
+        color: isDark
+            ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
+            : const Color(0xFFCBD5E1),
+        width: 1.2,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: isDark
+              ? Colors.black.withValues(alpha: 0.30)
+              : const Color(0xFF0F3632).withValues(alpha: 0.08),
+          blurRadius: 16,
+          offset: const Offset(0, 5),
+        ),
+        if (!isDark)
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+      ],
+    );
+  }
 
-  // ───────────────────────── Insights ─────────────────────────
+  // ───────────────────────── Full-Width Bottom Section ─────────────────────────
 
-  Widget _buildInsightTiles() {
+  Widget _buildFullWidthBottomSection(
+    bool isDark,
+    double s,
+    double bottomPadding,
+  ) {
+    final cats = _cachedTopCategories;
+    final total = _cachedTotal;
+    final hasTouch = _touchedPieIndex >= 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(height: (16 * s).clamp(12.0, 18.0)),
+
+        // 1. Daily Avg & Peak in the SAME ROW, full width split between them with curves
+        _buildInsightTiles(s, isDark),
+
+        SizedBox(height: (16 * s).clamp(12.0, 20.0)),
+
+        // 2. Category Breakdown portion ALSO full width with matching curves
+        Container(
+          margin: EdgeInsets.symmetric(
+            horizontal: (16 * s).clamp(14.0, 20.0),
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF102624) : Colors.white,
+            borderRadius: BorderRadius.circular((22 * s).clamp(18.0, 24.0)),
+            border: Border.all(
+              color: isDark
+                  ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
+                  : const Color(0xFFCBD5E1),
+              width: 1.2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.30)
+                    : const Color(0xFF0F172A).withValues(alpha: 0.07),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+              if (!isDark)
+                BoxShadow(
+                  color: const Color(0xFF0F3632).withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  (18 * s).clamp(14.0, 22.0),
+                  (16 * s).clamp(14.0, 20.0),
+                  (18 * s).clamp(14.0, 22.0),
+                  (12 * s).clamp(10.0, 14.0),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF2C7A72)
+                            : const Color(0xFF0F766E),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Category Breakdown',
+                        style: TextStyle(
+                          fontSize: (16.5 * s).clamp(15.0, 18.0),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: isDark
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    if (hasTouch)
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          setState(() => _touchedPieIndex = -1);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.primary.withValues(alpha: 0.15)
+                                : const Color(0xFF0F766E).withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.primary.withValues(alpha: 0.3)
+                                  : const Color(0xFF0F766E).withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.close_rounded,
+                                size: 13,
+                                color: isDark
+                                    ? AppColors.primary
+                                    : const Color(0xFF0F766E),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Reset',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark
+                                      ? AppColors.primary
+                                      : const Color(0xFF0F766E),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 3.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.08)
+                              : const Color(0xFFEEF6F5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.14)
+                                : const Color(0xFF0F766E).withValues(alpha: 0.25),
+                            width: 0.9,
+                          ),
+                        ),
+                        child: Text(
+                          '${cats.length} ${cats.length == 1 ? 'category' : 'categories'}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF0F766E),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Divider(
+                height: 1,
+                thickness: 0.8,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE2E8F0),
+              ),
+              for (var i = 0; i < cats.length; i++) ...[
+                _categoryRow(i, cats[i], total, isDark, s),
+                if (i != cats.length - 1)
+                  Divider(
+                    height: 1,
+                    thickness: 0.6,
+                    indent: (64 * s).clamp(56.0, 72.0),
+                    endIndent: (18 * s).clamp(14.0, 22.0),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFE2E8F0),
+                  ),
+              ],
+            ],
+          ),
+        ),
+
+        SizedBox(height: bottomPadding + kBottomNavigationBarHeight + 50),
+      ],
+    );
+  }
+
+  // ───────────────────────── Daily Avg & Peak (Same Row, Full Width with Curves) ─────────────────────────
+
+  Widget _buildInsightTiles(double s, bool isDark) {
     final points = _cachedPoints;
     final total = _cachedTotal;
     final txns = _cachedTxns;
     final isDay = _selectedTab == 0;
 
-    // Biggest single transaction in this period.
-    Map<String, dynamic>? biggest;
-    for (final t in txns) {
-      if (biggest == null ||
-          (t['amount'] as num) > (biggest['amount'] as num)) {
-        biggest = t;
-      }
-    }
-    final biggestAmount = biggest != null
-        ? (biggest['amount'] as num).toDouble()
-        : 0.0;
-    final biggestCat = biggest != null
-        ? (biggest['category'] as String?)?.trim()
-        : null;
-
-    // Peak bucket.
+    // Peak bucket
     final peakVal = points.isEmpty ? 0.0 : points.reduce(math.max);
     final peakIdx = points.indexOf(peakVal);
-    String peakLabel = '-';
+    String peakLabel = 'None';
     if (peakIdx >= 0 && peakVal > 0) {
       if (_selectedTab == 0) {
         peakLabel = DateFormat('h a').format(_bucketStart(peakIdx));
@@ -2363,194 +2459,245 @@ class StatisticsScreenState extends State<StatisticsScreen>
       }
     }
 
-    const unit = ['hour', 'day', 'day', 'month'];
-    final avg = total / _elapsedBuckets(points.length);
+    final double avg;
+    final String avgLabel;
+    final String avgSub;
+    if (isDay) {
+      avg = txns.isEmpty ? 0.0 : total / txns.length;
+      avgLabel = 'Avg / Txn';
+      avgSub = '${txns.length} ${txns.length == 1 ? 'txn' : 'txns'} today';
+    } else if (_selectedTab == 3) {
+      final elapsed = _elapsedBuckets(points.length);
+      avg = total / elapsed;
+      avgLabel = 'Monthly Avg';
+      avgSub = '$elapsed active ${elapsed == 1 ? 'mo' : 'mos'}';
+    } else {
+      final elapsed = _elapsedBuckets(points.length);
+      avg = total / elapsed;
+      avgLabel = 'Daily Avg';
+      avgSub = '$elapsed active ${elapsed == 1 ? 'day' : 'days'}';
+    }
 
-    return Row(
-      children: [
-        Expanded(
-          child: isDay
-              ? _tile(
-                  Icons.receipt_long_rounded,
-                  const Color(0xFF5C6BC0),
-                  '${txns.length}',
-                  txns.length == 1 ? 'Transaction' : 'Transactions',
-                )
-              : _tile(
-                  Icons.speed_rounded,
-                  const Color(0xFF5C6BC0),
-                  _money(avg),
-                  'Avg per ${unit[_selectedTab]}',
-                ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _tile(
-            Icons.bolt_rounded,
-            const Color(0xFFFF7043),
-            _money(peakVal),
-            'Peak · $peakLabel',
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _tile(
-            Icons.workspace_premium_rounded,
-            const Color(0xFF26A69A),
-            _money(biggestAmount),
-            biggestCat != null ? 'Biggest · $biggestCat' : 'Biggest',
-          ),
-        ),
-      ],
-    );
-  }
+    final avgColor = isDark ? const Color(0xFF4DD0E1) : const Color(0xFF0F766E);
+    final peakColor = _type == 'Expense'
+        ? (isDark ? const Color(0xFFFF7043) : const Color(0xFFEA580C))
+        : (isDark ? const Color(0xFF10B981) : const Color(0xFF059669));
 
-  Widget _tile(IconData icon, Color color, String value, String label) {
+    final peakTitle = _type == 'Expense' ? 'Peak Spend' : 'Peak Income';
+    final peakSub = peakVal > 0 ? 'Peak · $peakLabel' : 'No activity';
+    final peakTxns = peakIdx >= 0 ? _txnsForBucket(peakIdx) : <Map<String, dynamic>>[];
+    final avgTxns = _cachedTxns;
+
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _cardDecoration(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.13),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, size: 16, color: color),
+      margin: EdgeInsets.symmetric(
+        horizontal: (16 * s).clamp(14.0, 20.0),
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF102624) : Colors.white,
+        borderRadius: BorderRadius.circular((22 * s).clamp(18.0, 24.0)),
+        border: Border.all(
+          color: isDark
+              ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
+              : const Color(0xFFCBD5E1),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.30)
+                : const Color(0xFF0F172A).withValues(alpha: 0.07),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
           ),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.4,
-              color: AppColors.textPrimaryOf(context),
+          if (!isDark)
+            BoxShadow(
+              color: const Color(0xFF0F3632).withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondaryOf(context),
-            ),
-          ),
         ],
       ),
-    );
-  }
-
-  // Categories
-
-  Widget _buildCategoriesLedgerCard(bool isDark) {
-    final cats = _cachedTopCategories;
-    final total = _cachedTotal;
-    if (cats.isEmpty) return const SizedBox.shrink();
-
-    final hasTouch = _touchedPieIndex >= 0;
-
-    return Container(
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Category Breakdown',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
-                      color: AppColors.textPrimaryOf(context),
-                    ),
-                  ),
-                ),
-                if (hasTouch)
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      setState(() => _touchedPieIndex = -1);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.close_rounded,
-                            size: 13,
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Reset',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 1,
-            thickness: 0.6,
-            color: AppColors.borderOf(context).withValues(alpha: 0.6),
-          ),
-          for (var i = 0; i < cats.length; i++) ...[
-            _categoryRow(i, cats[i], total),
-            if (i != cats.length - 1)
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                indent: 70,
-                endIndent: 16,
-                color: AppColors.borderOf(context).withValues(alpha: 0.4),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left half: Daily Average
+            Expanded(
+              child: _splitInsightHalf(
+                icon: Icons.analytics_rounded,
+                color: avgColor,
+                label: avgLabel,
+                subtitle: avgSub,
+                value: _money(avg),
+                isDark: isDark,
+                s: s,
+                onTap: avgTxns.isEmpty
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        _showTransactionsSheet(
+                          title: avgLabel,
+                          subtitle:
+                              '${avgTxns.length} ${avgTxns.length == 1 ? 'transaction' : 'transactions'} • Total ${_money(total)}',
+                          txns: avgTxns,
+                          color: avgColor,
+                          icon: Icons.analytics_rounded,
+                          showCategory: true,
+                        );
+                      },
               ),
+            ),
+
+            // Clean vertical divider split
+            VerticalDivider(
+              width: 1,
+              thickness: 1,
+              color: isDark
+                  ? const Color(0xFF1E5D57).withValues(alpha: 0.35)
+                  : const Color(0xFFCBD5E1),
+            ),
+
+            // Right half: Peak
+            Expanded(
+              child: _splitInsightHalf(
+                icon: Icons.local_fire_department_rounded,
+                color: peakColor,
+                label: peakTitle,
+                subtitle: peakSub,
+                value: _money(peakVal),
+                isDark: isDark,
+                s: s,
+                onTap: peakTxns.isEmpty
+                    ? null
+                    : () {
+                        HapticFeedback.lightImpact();
+                        _showTransactionsSheet(
+                          title: '$peakTitle ($peakLabel)',
+                          subtitle:
+                              '${peakTxns.length} ${peakTxns.length == 1 ? 'transaction' : 'transactions'}',
+                          txns: peakTxns,
+                          color: peakColor,
+                          icon: Icons.local_fire_department_rounded,
+                          showCategory: true,
+                        );
+                      },
+              ),
+            ),
           ],
-        ],
+        ),
       ),
     );
   }
 
-  Widget _categoryRow(int idx, Map<String, dynamic> cat, double total) {
+  Widget _splitInsightHalf({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String subtitle,
+    required String value,
+    required bool isDark,
+    required double s,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: (14 * s).clamp(12.0, 18.0),
+            vertical: (13 * s).clamp(11.0, 16.0),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: (32 * s).clamp(28.0, 36.0),
+                    height: (32 * s).clamp(28.0, 36.0),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: isDark ? 0.22 : 0.16),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: color.withValues(alpha: isDark ? 0.38 : 0.32),
+                        width: 1.1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        icon,
+                        size: (17 * s).clamp(15.0, 19.0),
+                        color: color,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: (8 * s).clamp(6.0, 10.0)),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: (12.0 * s).clamp(11.0, 13.5),
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.75)
+                            : const Color(0xFF334155),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: (8 * s).clamp(6.0, 10.0)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: (18.0 * s).clamp(16.0, 20.0),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                    color: isDark
+                        ? Colors.white
+                        : const Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: (11.0 * s).clamp(10.0, 12.0),
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.60)
+                      : const Color(0xFF475569),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ───────────────────────── Categories Ledger Row ─────────────────────────
+
+  Widget _categoryRow(
+    int idx,
+    Map<String, dynamic> cat,
+    double total,
+    bool isDark,
+    double s,
+  ) {
     final name = cat['category'] as String;
     final amt = cat['amount'] as double;
     final count = (cat['count'] as int?) ?? 1;
@@ -2561,17 +2708,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final highlighted =
         (idx == _touchedPieIndex && idx < limit) ||
         (hasOthers && _touchedPieIndex == limit && idx >= limit);
-    final isLast = idx == _cachedTopCategories.length - 1;
 
     return Material(
-      color: highlighted ? color.withValues(alpha: 0.12) : Colors.transparent,
-      borderRadius: isLast
-          ? const BorderRadius.vertical(bottom: Radius.circular(24))
-          : BorderRadius.zero,
+      color: highlighted
+          ? color.withValues(alpha: isDark ? 0.22 : 0.10)
+          : Colors.transparent,
       child: InkWell(
-        borderRadius: isLast
-            ? const BorderRadius.vertical(bottom: Radius.circular(24))
-            : BorderRadius.zero,
         onTap: () {
           HapticFeedback.lightImpact();
           final txns = _txnsForCategory(name);
@@ -2590,22 +2732,32 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   border: Border(left: BorderSide(color: color, width: 4)),
                 )
               : null,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          padding: EdgeInsets.symmetric(
+            horizontal: (18 * s).clamp(14.0, 22.0),
+            vertical: (12 * s).clamp(10.0, 14.0),
+          ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: (40 * s).clamp(36.0, 44.0),
+                height: (40 * s).clamp(36.0, 44.0),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(13),
+                  color: color.withValues(alpha: isDark ? 0.22 : 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: color.withValues(alpha: isDark ? 0.35 : 0.30),
+                    width: 1.0,
+                  ),
                 ),
-                child: Icon(
-                  IconHelper.getIcon(cat['icon']),
-                  color: color,
-                  size: 20,
+                child: Center(
+                  child: Icon(
+                    IconHelper.getIcon(cat['icon']),
+                    color: color,
+                    size: (19 * s).clamp(17.0, 21.0),
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: (12 * s).clamp(10.0, 14.0)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2618,20 +2770,24 @@ class StatisticsScreenState extends State<StatisticsScreen>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 14.5,
+                              fontSize: (14.5 * s).clamp(13.5, 16.0),
                               fontWeight: FontWeight.w700,
                               letterSpacing: -0.2,
-                              color: AppColors.textPrimaryOf(context),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                             ),
                           ),
                         ),
                         Text(
                           _money(amt),
                           style: TextStyle(
-                            fontSize: 14.5,
+                            fontSize: (14.5 * s).clamp(13.5, 16.0),
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.3,
-                            color: AppColors.textPrimaryOf(context),
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
                           ),
                         ),
                       ],
@@ -2641,9 +2797,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
                       borderRadius: BorderRadius.circular(2),
                       child: LinearProgressIndicator(
                         value: (pct / 100.0).clamp(0.0, 1.0),
-                        backgroundColor: color.withValues(alpha: 0.12),
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : const Color(0xFFE2E8F0),
                         valueColor: AlwaysStoppedAnimation<Color>(color),
-                        minHeight: 3.5,
+                        minHeight: 4.5,
                       ),
                     ),
                     const SizedBox(height: 5),
@@ -2653,18 +2811,22 @@ class StatisticsScreenState extends State<StatisticsScreen>
                           child: Text(
                             '$count ${count == 1 ? 'transaction' : 'transactions'}',
                             style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondaryOf(context),
+                              fontSize: (11.5 * s).clamp(10.5, 12.5),
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? Colors.white60
+                                  : const Color(0xFF475569),
                             ),
                           ),
                         ),
                         Text(
                           '${pct.toStringAsFixed(1)}%',
                           style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textSecondaryOf(context),
+                            fontSize: (11.5 * s).clamp(10.5, 12.5),
+                            fontWeight: FontWeight.w800,
+                            color: isDark
+                                ? Colors.white70
+                                : const Color(0xFF1E293B),
                           ),
                         ),
                       ],
@@ -2694,7 +2856,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
   // ───────────────────────── Empty state ─────────────────────────
 
   Widget _buildEmptyState() {
+    final isDark = AppColors.isDark(context);
     return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(vertical: 52, horizontal: 24),
       decoration: _cardDecoration(),
       child: Column(
@@ -2702,13 +2866,17 @@ class StatisticsScreenState extends State<StatisticsScreen>
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: AppColors.surfaceOf(context),
+              color: isDark
+                  ? AppColors.surfaceOf(context)
+                  : const Color(0xFFF1F5F9),
               shape: BoxShape.circle,
             ),
             child: Icon(
               Icons.calendar_month_rounded,
               size: 34,
-              color: AppColors.textSecondaryOf(context),
+              color: isDark
+                  ? AppColors.textSecondaryOf(context)
+                  : const Color(0xFF64748B),
             ),
           ),
           const SizedBox(height: 16),
@@ -2717,7 +2885,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimaryOf(context),
+              color: isDark
+                  ? Colors.white
+                  : const Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 4),
@@ -2726,7 +2896,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12.5,
-              color: AppColors.textSecondaryOf(context),
+              color: isDark
+                  ? Colors.white60
+                  : const Color(0xFF64748B),
             ),
           ),
         ],
@@ -2745,13 +2917,14 @@ class StatisticsScreenState extends State<StatisticsScreen>
     bool showCategory = false,
   }) {
     HapticFeedback.lightImpact();
+    final isDark = AppColors.isDark(context);
     final totalAmt = txns.fold<double>(
       0.0,
       (sum, r) => sum + (r['amount'] as num).toDouble(),
     );
     final valueColor = _type == 'Income'
         ? AppColors.income
-        : AppColors.textPrimaryOf(context);
+        : (isDark ? Colors.white : const Color(0xFF0F172A));
 
     showModalBottomSheet(
       context: context,
@@ -2763,7 +2936,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
             maxHeight: MediaQuery.of(ctx).size.height * 0.72,
           ),
           decoration: BoxDecoration(
-            color: AppColors.cardOf(ctx),
+            color: isDark ? const Color(0xFF102624) : Colors.white,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
@@ -2774,7 +2947,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 width: 38,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.borderOf(ctx),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.20)
+                      : const Color(0xFFCBD5E1),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -2785,8 +2960,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
+                        color: color.withValues(alpha: isDark ? 0.20 : 0.14),
                         borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: color.withValues(alpha: isDark ? 0.35 : 0.28),
+                          width: 1.0,
+                        ),
                       ),
                       child: Icon(icon, color: color, size: 22),
                     ),
@@ -2803,7 +2982,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.3,
-                              color: AppColors.textPrimaryOf(ctx),
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -2814,7 +2995,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondaryOf(ctx),
+                              color: isDark
+                                  ? Colors.white60
+                                  : const Color(0xFF64748B),
                             ),
                           ),
                         ],
@@ -2835,8 +3018,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
               ),
               Divider(
                 height: 1,
-                thickness: 0.6,
-                color: AppColors.borderOf(ctx).withValues(alpha: 0.6),
+                thickness: 0.8,
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE2E8F0),
               ),
               Flexible(
                 child: txns.isEmpty
@@ -2845,7 +3030,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         child: Text(
                           'No transactions found.',
                           style: TextStyle(
-                            color: AppColors.textSecondaryOf(ctx),
+                            color: isDark
+                                ? Colors.white60
+                                : const Color(0xFF64748B),
                           ),
                         ),
                       )
@@ -2876,8 +3063,16 @@ class StatisticsScreenState extends State<StatisticsScreen>
                               vertical: 12,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceOf(context),
+                              color: isDark
+                                  ? AppColors.surfaceOf(context)
+                                  : const Color(0xFFF8FAFC),
                               borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFF1E5D57).withValues(alpha: 0.3)
+                                    : const Color(0xFFE2E8F0),
+                                width: 1.0,
+                              ),
                             ),
                             child: Row(
                               children: [
@@ -2885,8 +3080,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: catColor.withValues(alpha: 0.14),
+                                    color: catColor.withValues(alpha: isDark ? 0.20 : 0.14),
                                     borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: catColor.withValues(alpha: isDark ? 0.35 : 0.28),
+                                      width: 1.0,
+                                    ),
                                   ),
                                   child: Center(
                                     child: Icon(
@@ -2910,9 +3109,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                           fontSize: 14,
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: -0.2,
-                                          color: AppColors.textPrimaryOf(
-                                            context,
-                                          ),
+                                          color: isDark
+                                              ? Colors.white
+                                              : const Color(0xFF0F172A),
                                         ),
                                       ),
                                       const SizedBox(height: 2),
@@ -2923,9 +3122,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
                                         style: TextStyle(
                                           fontSize: 11.5,
                                           fontWeight: FontWeight.w500,
-                                          color: AppColors.textSecondaryOf(
-                                            context,
-                                          ),
+                                          color: isDark
+                                              ? Colors.white60
+                                              : const Color(0xFF64748B),
                                         ),
                                       ),
                                     ],
@@ -2957,3 +3156,4 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 }
+
