@@ -99,6 +99,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
+          themeAnimationDuration: Duration.zero,
           home: const SplashScreen(),
         );
       },

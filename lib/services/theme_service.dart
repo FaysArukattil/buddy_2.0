@@ -31,19 +31,19 @@ class ThemeService {
 
   /// Sets the theme mode and persists it to SharedPreferences.
   static Future<void> setThemeMode(ThemeMode mode) async {
+    if (themeModeNotifier.value == mode) return;
     themeModeNotifier.value = mode;
-    try {
-      final prefs = await SharedPreferences.getInstance();
+    SharedPreferences.getInstance().then((prefs) {
       String modeStr = 'system';
       if (mode == ThemeMode.light) {
         modeStr = 'light';
       } else if (mode == ThemeMode.dark) {
         modeStr = 'dark';
       }
-      await prefs.setString(_themePrefKey, modeStr);
-    } catch (e) {
+      prefs.setString(_themePrefKey, modeStr);
+    }).catchError((e) {
       debugPrint('Error saving theme mode: $e');
-    }
+    });
   }
 
   /// Toggles between light and dark mode explicitly.

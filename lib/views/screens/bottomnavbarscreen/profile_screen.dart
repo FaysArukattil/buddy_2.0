@@ -79,12 +79,26 @@ class ProfileScreenState extends State<ProfileScreen>
         }
       }
 
+      DateTime? memberSince = user?.metadata.creationTime;
+      if (memberSince == null) {
+        final saved = prefs.getString('member_since');
+        if (saved != null) {
+          memberSince = DateTime.tryParse(saved);
+        }
+      }
+      if (memberSince == null) {
+        memberSince = DateTime.now();
+        await prefs.setString('member_since', memberSince.toIso8601String());
+      } else {
+        await prefs.setString('member_since', memberSince.toIso8601String());
+      }
+
       if (mounted) {
         setState(() {
           _name = name;
           _email = email;
           _photoUrl = user?.photoURL;
-          _memberSince = user?.metadata.creationTime;
+          _memberSince = memberSince;
         });
       }
       _loadStats();
@@ -132,6 +146,7 @@ class ProfileScreenState extends State<ProfileScreen>
   String _money(double v) => FormatUtils.formatCurrency(v, compact: true);
 
   String _memberSinceLabel() {
+    if (_memberSince == null) return 'Recent';
     const m = [
       'Jan',
       'Feb',
@@ -146,7 +161,8 @@ class ProfileScreenState extends State<ProfileScreen>
       'Nov',
       'Dec',
     ];
-    return '${m[_memberSince!.month - 1]} ${_memberSince!.year}';
+    final monthIdx = (_memberSince!.month - 1).clamp(0, 11);
+    return '${m[monthIdx]} ${_memberSince!.year}';
   }
 
   List<Color> _avatarGradient() {
@@ -313,58 +329,97 @@ class ProfileScreenState extends State<ProfileScreen>
       ),
       child: Column(
         children: [
-          _buildPhotoCard(),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: _editName,
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    _name.isEmpty ? 'Add your name' : _name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.3,
+          // Side-by-side layout: Large photo card on left, details on right
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildPhotoCard(),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: _editName,
+                      behavior: HitTestBehavior.opaque,
+                      child: Text(
+                        _name.isEmpty ? 'Add your name' : _name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
                     ),
-                  ),
+                    if (_email.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.78),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.calendar_today_rounded,
+                            size: 11,
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Member since ${_memberSinceLabel()}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 5),
-                Icon(
-                  Icons.edit_outlined,
-                  size: 15,
-                  color: Colors.white.withValues(alpha: 0.65),
-                ),
-              ],
-            ),
-          ),
-          if (_email.isNotEmpty || _memberSince != null) ...[
-            const SizedBox(height: 3),
-            Text(
-              _email.isNotEmpty && _memberSince != null
-                  ? '$_email • ${_memberSinceLabel()}'
-                  : (_email.isNotEmpty
-                      ? _email
-                      : 'Member since ${_memberSinceLabel()}'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 12.5,
-                fontWeight: FontWeight.w400,
               ),
-            ),
-          ],
-          const SizedBox(height: 16),
+            ],
+          ),
+          const SizedBox(height: 18),
+          // Subtle horizontal divider line
+          Container(
+            height: 1,
+            width: double.infinity,
+            color: Colors.white.withValues(alpha: 0.12),
+          ),
+          const SizedBox(height: 14),
           Text(
             'Balance this month',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
+              color: Colors.white.withValues(alpha: 0.72),
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
               letterSpacing: 0.2,
@@ -382,7 +437,7 @@ class ProfileScreenState extends State<ProfileScreen>
               letterSpacing: -0.8,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -412,75 +467,47 @@ class ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildPhotoCard() {
-    const cardSize = 72.0;
+    const cardSize = 92.0;
     final hasPhoto = _photoUrl != null && _photoUrl!.isNotEmpty;
 
     return GestureDetector(
       onTap: _editName,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: cardSize,
-            height: cardSize,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              gradient: hasPhoto
-                  ? null
-                  : LinearGradient(
-                      colors: _avatarGradient(),
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.22),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
+      child: Container(
+        width: cardSize,
+        height: cardSize,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: hasPhoto
+              ? null
+              : LinearGradient(
+                  colors: _avatarGradient(),
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: hasPhoto
-                  ? Image.network(
-                      _photoUrl!,
-                      width: cardSize,
-                      height: cardSize,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _avatarFallback(cardSize),
-                    )
-                  : _avatarFallback(cardSize),
-            ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.35),
+            width: 2.2,
           ),
-          Positioned(
-            right: -3,
-            bottom: -3,
-            child: Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E5D57),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.edit_rounded,
-                size: 11,
-                color: Colors.white,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.26),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: hasPhoto
+              ? Image.network(
+                  _photoUrl!,
+                  width: cardSize,
+                  height: cardSize,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _avatarFallback(cardSize),
+                )
+              : _avatarFallback(cardSize),
+        ),
       ),
     );
   }
@@ -489,9 +516,9 @@ class ProfileScreenState extends State<ProfileScreen>
     return Center(
       child: Text(
         _name.isNotEmpty ? _name.trim()[0].toUpperCase() : '?',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white,
-          fontSize: 30,
+          fontSize: size * 0.44,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -769,7 +796,7 @@ class ProfileScreenState extends State<ProfileScreen>
                 children: [
                   // Smooth animated sliding pill
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 280),
+                    duration: const Duration(milliseconds: 200),
                     curve: Curves.easeOutCubic,
                     left: selectedIndex * tabWidth,
                     top: 0,
@@ -862,23 +889,19 @@ class ProfileScreenState extends State<ProfileScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: isSelected ? AppColors.primary : inactiveColor,
-                ),
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? AppColors.primary : inactiveColor,
               ),
               const SizedBox(width: 6),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 200),
+              Text(
+                title,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected ? activeColor : inactiveColor,
                 ),
-                child: Text(title),
               ),
             ],
           ),
