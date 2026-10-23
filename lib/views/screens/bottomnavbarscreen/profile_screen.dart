@@ -74,8 +74,9 @@ class ProfileScreenState extends State<ProfileScreen>
       var name = prefs.getString('name') ?? user?.displayName ?? '';
       if (name.isEmpty && email.contains('@')) {
         final local = email.split('@').first;
-        if (local.isNotEmpty)
+        if (local.isNotEmpty) {
           name = local[0].toUpperCase() + local.substring(1);
+        }
       }
 
       if (mounted) {
@@ -215,7 +216,12 @@ class ProfileScreenState extends State<ProfileScreen>
               ),
               SliverToBoxAdapter(child: _buildHeader(isDark, topPadding)),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  MediaQuery.of(context).padding.bottom + 110,
+                ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
                     _buildStatsRow(),
@@ -294,7 +300,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(20, topPadding + 24, 20, 24),
+      padding: EdgeInsets.fromLTRB(20, topPadding + 14, 20, 18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
@@ -303,12 +309,12 @@ class ProfileScreenState extends State<ProfileScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(32)),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Column(
         children: [
-          _buildAvatar(),
-          const SizedBox(height: 14),
+          _buildPhotoCard(),
+          const SizedBox(height: 10),
           GestureDetector(
             onTap: _editName,
             behavior: HitTestBehavior.opaque,
@@ -322,64 +328,61 @@ class ProfileScreenState extends State<ProfileScreen>
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
+                      fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      letterSpacing: -0.4,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 5),
                 Icon(
                   Icons.edit_outlined,
-                  size: 16,
-                  color: Colors.white.withValues(alpha: 0.6),
+                  size: 15,
+                  color: Colors.white.withValues(alpha: 0.65),
                 ),
               ],
             ),
           ),
-          if (_email.isNotEmpty) ...[
-            const SizedBox(height: 4),
+          if (_email.isNotEmpty || _memberSince != null) ...[
+            const SizedBox(height: 3),
             Text(
-              _email,
+              _email.isNotEmpty && _memberSince != null
+                  ? '$_email • ${_memberSinceLabel()}'
+                  : (_email.isNotEmpty
+                      ? _email
+                      : 'Member since ${_memberSinceLabel()}'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.75),
-                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.72),
+                fontSize: 12.5,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
-          if (_memberSince != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              'Member since ${_memberSinceLabel()}',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
-                fontSize: 12,
-              ),
-            ),
-          ],
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
           Text(
             'Balance this month',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 13,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.2,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             FormatUtils.formatCurrency(balance, compact: false),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: positive ? Colors.white : _coral,
-              fontSize: 38,
+              fontSize: 32,
               fontWeight: FontWeight.w900,
-              letterSpacing: -1,
+              letterSpacing: -0.8,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -391,7 +394,7 @@ class ProfileScreenState extends State<ProfileScreen>
                   type: 'Income',
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: _flowChip(
                   label: 'Expenses',
@@ -404,6 +407,93 @@ class ProfileScreenState extends State<ProfileScreen>
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoCard() {
+    const cardSize = 72.0;
+    final hasPhoto = _photoUrl != null && _photoUrl!.isNotEmpty;
+
+    return GestureDetector(
+      onTap: _editName,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: cardSize,
+            height: cardSize,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: hasPhoto
+                  ? null
+                  : LinearGradient(
+                      colors: _avatarGradient(),
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  blurRadius: 14,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: hasPhoto
+                  ? Image.network(
+                      _photoUrl!,
+                      width: cardSize,
+                      height: cardSize,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _avatarFallback(cardSize),
+                    )
+                  : _avatarFallback(cardSize),
+            ),
+          ),
+          Positioned(
+            right: -3,
+            bottom: -3,
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E5D57),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.edit_rounded,
+                size: 11,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _avatarFallback(double size) {
+    return Center(
+      child: Text(
+        _name.isNotEmpty ? _name.trim()[0].toUpperCase() : '?',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 30,
+          fontWeight: FontWeight.w800,
+        ),
       ),
     );
   }
@@ -426,10 +516,14 @@ class ProfileScreenState extends State<ProfileScreen>
         ).then((_) => refreshData());
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.08),
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
@@ -449,8 +543,9 @@ class ProfileScreenState extends State<ProfileScreen>
                   Text(
                     label,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.72),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -460,7 +555,7 @@ class ProfileScreenState extends State<ProfileScreen>
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: color,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -469,54 +564,6 @@ class ProfileScreenState extends State<ProfileScreen>
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildAvatar() {
-    const radius = 42.0;
-    final hasPhoto = _photoUrl != null && _photoUrl!.isNotEmpty;
-
-    return GestureDetector(
-      onTap: _editName,
-      child: Container(
-        padding: const EdgeInsets.all(3),
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withValues(alpha: 0.5),
-            width: 2,
-          ),
-        ),
-        child: hasPhoto
-            ? CircleAvatar(
-                radius: radius,
-                backgroundColor: AppColors.surfaceOf(context),
-                backgroundImage: NetworkImage(_photoUrl!),
-                onBackgroundImageError: (e, _) =>
-                    debugPrint('Error loading photo: $e'),
-              )
-            : Container(
-                width: radius * 2,
-                height: radius * 2,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: _avatarGradient(),
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Text(
-                  _name.isNotEmpty ? _name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
       ),
     );
   }
@@ -698,83 +745,140 @@ class ProfileScreenState extends State<ProfileScreen>
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, mode, _) {
+        final selectedIndex = mode == ThemeMode.system
+            ? 0
+            : (mode == ThemeMode.light ? 1 : 2);
+
         return Container(
+          height: 48,
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF161C23) : const Color(0xFFF1F5F9),
+            color: isDark ? const Color(0xFF141A22) : const Color(0xFFEFF2F6),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.borderOf(context).withValues(alpha: 0.5),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.08)
+                  : Colors.black.withValues(alpha: 0.05),
             ),
           ),
-          child: Row(
-            children: [
-              _themeOption(
-                'System',
-                Icons.brightness_auto_rounded,
-                mode == ThemeMode.system,
-                ThemeMode.system,
-              ),
-              _themeOption(
-                'Light',
-                Icons.light_mode_rounded,
-                mode == ThemeMode.light,
-                ThemeMode.light,
-              ),
-              _themeOption(
-                'Dark',
-                Icons.dark_mode_rounded,
-                mode == ThemeMode.dark,
-                ThemeMode.dark,
-              ),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final tabWidth = constraints.maxWidth / 3;
+
+              return Stack(
+                children: [
+                  // Smooth animated sliding pill
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    left: selectedIndex * tabWidth,
+                    top: 0,
+                    bottom: 0,
+                    width: tabWidth,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF243040)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.12)
+                              : Colors.black.withValues(alpha: 0.04),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.35 : 0.06,
+                            ),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Tab items row
+                  Row(
+                    children: [
+                      _themeTabItem(
+                        title: 'System',
+                        icon: Icons.brightness_auto_rounded,
+                        isSelected: selectedIndex == 0,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ThemeService.setThemeMode(ThemeMode.system);
+                        },
+                        isDark: isDark,
+                      ),
+                      _themeTabItem(
+                        title: 'Light',
+                        icon: Icons.light_mode_rounded,
+                        isSelected: selectedIndex == 1,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ThemeService.setThemeMode(ThemeMode.light);
+                        },
+                        isDark: isDark,
+                      ),
+                      _themeTabItem(
+                        title: 'Dark',
+                        icon: Icons.dark_mode_rounded,
+                        isSelected: selectedIndex == 2,
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          ThemeService.setThemeMode(ThemeMode.dark);
+                        },
+                        isDark: isDark,
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
     );
   }
 
-  Widget _themeOption(
-    String title,
-    IconData icon,
-    bool selected,
-    ThemeMode mode,
-  ) {
-    final isDark = AppColors.isDark(context);
-    final inactive = isDark ? Colors.white60 : Colors.grey.shade600;
+  Widget _themeTabItem({
+    required String title,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    final activeColor = isDark ? Colors.white : AppColors.textPrimaryOf(context);
+    final inactiveColor = isDark
+        ? Colors.white.withValues(alpha: 0.45)
+        : AppColors.textSecondaryOf(context);
 
     return Expanded(
       child: GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          ThemeService.setThemeMode(mode);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected
-                ? (isDark ? const Color(0xFF263342) : Colors.white)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
-          ),
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? AppColors.primary : inactive,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: isSelected ? AppColors.primary : inactiveColor,
+                ),
               ),
               const SizedBox(width: 6),
-              Text(
-                title,
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 200),
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                  color: selected ? AppColors.textPrimaryOf(context) : inactive,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? activeColor : inactiveColor,
                 ),
+                child: Text(title),
               ),
             ],
           ),
@@ -787,59 +891,21 @@ class ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _editName() async {
     HapticFeedback.lightImpact();
-    final controller = TextEditingController(text: _name);
-
     final newName = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardOf(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Edit name',
-          style: TextStyle(
-            color: AppColors.textPrimaryOf(context),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (v) => Navigator.pop(context, v.trim()),
-          style: TextStyle(color: AppColors.textPrimaryOf(context)),
-          decoration: InputDecoration(
-            hintText: 'Your name',
-            hintStyle: TextStyle(color: AppColors.textLightOf(context)),
-            filled: true,
-            fillColor: AppColors.surfaceOf(context),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondaryOf(context)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      barrierDismissible: true,
+      builder: (context) => _ModernEditNameDialog(initialName: _name),
     );
-    controller.dispose();
 
     if (newName == null || newName.isEmpty || !mounted) return;
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('name', newName);
+    try {
+      await FirebaseAuth.instance.currentUser?.updateDisplayName(newName);
+    } catch (e) {
+      debugPrint('Could not update Firebase displayName: $e');
+    }
     if (!mounted) return;
     setState(() => _name = newName);
     AppSnackbar.showSuccess(context, 'Name updated');
@@ -970,206 +1036,926 @@ class ProfileScreenState extends State<ProfileScreen>
   }) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.cardOf(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: AppColors.textPrimaryOf(context),
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          message,
-          style: TextStyle(color: AppColors.textSecondaryOf(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondaryOf(context)),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: isDangerous ? Colors.red : AppColors.primary,
-            ),
-            child: Text(confirmLabel),
-          ),
-        ],
+      barrierDismissible: true,
+      builder: (context) => _ModernConfirmDialog(
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        isDangerous: isDangerous,
       ),
     );
     return result ?? false;
   }
 
   Future<bool> _showTypeToConfirmDialog() async {
-    final controller = TextEditingController();
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final isValid = controller.text.trim().toUpperCase() == 'DELETE';
-          return AlertDialog(
-            backgroundColor: AppColors.cardOf(context),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+      builder: (context) => const _ModernTypeToConfirmDialog(),
+    );
+    return result ?? false;
+  }
+
+  Future<String?> _showPasswordDialog() async {
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const _ModernPasswordDialog(),
+    );
+    return result;
+  }
+}
+
+// ───────────────────────── Modern Dialog Components ─────────────────────────
+
+class _ModernConfirmDialog extends StatelessWidget {
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final bool isDangerous;
+
+  const _ModernConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.isDangerous,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    final accentColor =
+        isDangerous ? const Color(0xFFEF4444) : AppColors.primary;
+    final icon =
+        isDangerous ? Icons.delete_forever_rounded : Icons.logout_rounded;
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(
+              alpha: isDark ? 0.35 : 0.2,
             ),
-            title: Text(
-              'Final confirmation',
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon Badge
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.28),
+                  width: 1.5,
+                ),
+              ),
+              child: Icon(icon, color: accentColor, size: 26),
+            ),
+            const SizedBox(height: 18),
+            // Title
+            Text(
+              title,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: AppColors.textPrimaryOf(context),
-                fontWeight: FontWeight.bold,
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
               ),
             ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Type DELETE to permanently remove your account and all data.',
-                  style: TextStyle(
-                    color: AppColors.textSecondaryOf(context),
-                    fontSize: 14,
+            const SizedBox(height: 10),
+            // Message
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondaryOf(context),
+                fontSize: 13.5,
+                height: 1.45,
+              ),
+            ),
+            if (isDangerous) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.25),
                   ),
                 ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: controller,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.characters,
-                  onChanged: (_) => setDialogState(() {}),
-                  style: TextStyle(
-                    color: AppColors.textPrimaryOf(context),
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2,
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: Color(0xFFEF4444),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'This action cannot be undone.',
+                        style: TextStyle(
+                          color: isDark
+                              ? const Color(0xFFFF8A80)
+                              : const Color(0xFFDC2626),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 22),
+            // Action Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.pop(context, false);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textPrimaryOf(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ),
-                  decoration: InputDecoration(
-                    hintText: 'DELETE',
-                    hintStyle: TextStyle(
-                      color: AppColors.textLightOf(context),
-                      letterSpacing: 2,
-                    ),
-                    filled: true,
-                    fillColor: AppColors.surfaceOf(context),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: Colors.red,
-                        width: 1.5,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      Navigator.pop(context, true);
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: accentColor,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        confirmLabel,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: Text(
-                  'Cancel',
-                  style: TextStyle(color: AppColors.textSecondaryOf(context)),
-                ),
-              ),
-              TextButton(
-                onPressed: isValid ? () => Navigator.pop(context, true) : null,
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  disabledForegroundColor: Colors.grey,
-                ),
-                child: const Text('Delete everything'),
-              ),
-            ],
-          );
-        },
+          ],
+        ),
       ),
     );
-    controller.dispose();
-    return result ?? false;
+  }
+}
+
+class _ModernEditNameDialog extends StatefulWidget {
+  final String initialName;
+
+  const _ModernEditNameDialog({required this.initialName});
+
+  @override
+  State<_ModernEditNameDialog> createState() => _ModernEditNameDialogState();
+}
+
+class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
   }
 
-  Future<String?> _showPasswordDialog() async {
-    final controller = TextEditingController();
-    var obscure = true;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
-    final result = await showDialog<String>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppColors.cardOf(context),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Confirm password',
-            style: TextStyle(
-              color: AppColors.textPrimaryOf(context),
-              fontWeight: FontWeight.bold,
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isNotEmpty) {
+      HapticFeedback.lightImpact();
+      Navigator.pop(context, text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: AppColors.borderOf(context).withValues(
+              alpha: isDark ? 0.35 : 0.2,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Enter your password to confirm account deletion.',
-                style: TextStyle(
-                  color: AppColors.textSecondaryOf(context),
-                  fontSize: 14,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(
+                  alpha: isDark ? 0.18 : 0.12,
+                ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.28),
+                  width: 1.5,
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                obscureText: obscure,
-                autofocus: true,
-                style: TextStyle(color: AppColors.textPrimaryOf(context)),
-                decoration: InputDecoration(
-                  hintText: 'Password',
-                  hintStyle: TextStyle(color: AppColors.textLightOf(context)),
-                  filled: true,
-                  fillColor: AppColors.surfaceOf(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+              child: Icon(
+                Icons.badge_outlined,
+                color: AppColors.primary,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Edit Name',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Enter the name you would like to display on your profile and reports.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondaryOf(context),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Your name',
+                hintStyle: TextStyle(
+                  color: AppColors.textLightOf(context),
+                  fontWeight: FontWeight.normal,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF141920)
+                    : const Color(0xFFF8FAFC),
+                prefixIcon: Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
                   ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      obscure
-                          ? Icons.visibility_off_rounded
-                          : Icons.visibility_rounded,
-                      color: AppColors.textSecondaryOf(context),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.primary,
+                    width: 1.8,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textPrimaryOf(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                    onPressed: () => setDialogState(() => obscure = !obscure),
                   ),
                 ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondaryOf(context)),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Delete account'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _submit,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'Save',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
-    controller.dispose();
-    return result;
+  }
+}
+
+class _ModernTypeToConfirmDialog extends StatefulWidget {
+  const _ModernTypeToConfirmDialog();
+
+  @override
+  State<_ModernTypeToConfirmDialog> createState() =>
+      _ModernTypeToConfirmDialogState();
+}
+
+class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> {
+  late final TextEditingController _controller;
+  bool _isValid = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    final valid = _controller.text.trim().toUpperCase() == 'DELETE';
+    if (valid != _isValid) {
+      setState(() => _isValid = valid);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    const dangerColor = Color(0xFFEF4444);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: dangerColor.withValues(alpha: 0.3),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: dangerColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: dangerColor.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.delete_forever_rounded,
+                color: dangerColor,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Final Confirmation',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 10),
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  color: AppColors.textSecondaryOf(context),
+                  fontSize: 13.5,
+                  height: 1.45,
+                ),
+                children: const [
+                  TextSpan(text: 'Please type '),
+                  TextSpan(
+                    text: 'DELETE',
+                    style: TextStyle(
+                      color: dangerColor,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  TextSpan(
+                    text:
+                        ' below to permanently erase your account and all data.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textAlign: TextAlign.center,
+              textCapitalization: TextCapitalization.characters,
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 3,
+              ),
+              decoration: InputDecoration(
+                hintText: 'DELETE',
+                hintStyle: TextStyle(
+                  color: AppColors.textLightOf(context),
+                  letterSpacing: 3,
+                  fontWeight: FontWeight.w600,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF141920)
+                    : const Color(0xFFF8FAFC),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: dangerColor,
+                    width: 1.8,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, false),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textPrimaryOf(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 180),
+                    opacity: _isValid ? 1.0 : 0.4,
+                    child: InkWell(
+                      onTap: _isValid
+                          ? () {
+                              HapticFeedback.heavyImpact();
+                              Navigator.pop(context, true);
+                            }
+                          : null,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        height: 46,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: dangerColor,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: _isValid
+                              ? [
+                                  BoxShadow(
+                                    color: dangerColor.withValues(alpha: 0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: const Text(
+                          'Delete Everything',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ModernPasswordDialog extends StatefulWidget {
+  const _ModernPasswordDialog();
+
+  @override
+  State<_ModernPasswordDialog> createState() => _ModernPasswordDialogState();
+}
+
+class _ModernPasswordDialogState extends State<_ModernPasswordDialog> {
+  late final TextEditingController _controller;
+  bool _obscure = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final pwd = _controller.text;
+    if (pwd.isNotEmpty) {
+      HapticFeedback.mediumImpact();
+      Navigator.pop(context, pwd);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
+    const dangerColor = Color(0xFFEF4444);
+
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: dangerColor.withValues(alpha: 0.3),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+              blurRadius: 28,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: dangerColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: dangerColor.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
+              ),
+              child: const Icon(
+                Icons.lock_outline_rounded,
+                color: dangerColor,
+                size: 26,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Confirm Password',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 19,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Please enter your account password to authorize permanent deletion.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textSecondaryOf(context),
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 18),
+            TextField(
+              controller: _controller,
+              obscureText: _obscure,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              style: TextStyle(
+                color: AppColors.textPrimaryOf(context),
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Your password',
+                hintStyle: TextStyle(
+                  color: AppColors.textLightOf(context),
+                  fontWeight: FontWeight.normal,
+                ),
+                filled: true,
+                fillColor: isDark
+                    ? const Color(0xFF141920)
+                    : const Color(0xFFF8FAFC),
+                prefixIcon: const Icon(
+                  Icons.key_rounded,
+                  size: 20,
+                  color: dangerColor,
+                ),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_off_rounded
+                        : Icons.visibility_rounded,
+                    color: AppColors.textSecondaryOf(context),
+                    size: 20,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: dangerColor,
+                    width: 1.8,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: AppColors.borderOf(context).withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textPrimaryOf(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: InkWell(
+                    onTap: _submit,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      height: 46,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: dangerColor,
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: dangerColor.withValues(alpha: 0.35),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Text(
+                        'Delete Account',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
