@@ -41,8 +41,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
   final List<String> _tabs = const ['Day', 'Week', 'Month', 'Year'];
   DateTime _selectedDate = DateTime.now();
 
-  int _viewMode = 0; // 0 Calendar · 1 Curve · 2 Bars
-  int? _selectedBucket; // shared by calendar + charts
+  int? _selectedBucket; // selected calendar cell
   int _touchedPieIndex = -1;
 
   bool _isDownloading = false;
@@ -60,6 +59,8 @@ class StatisticsScreenState extends State<StatisticsScreen>
   double _cachedTotal = 0.0;
   double _cachedPrevTotal = 0.0;
   List<Map<String, dynamic>> _cachedTopCategories = [];
+  List<Map<String, dynamic>> _cachedTxns =
+      []; // this period + type, oldest first
   String _cacheKey = '';
 
   @override
@@ -165,6 +166,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
 
   void _recompute() {
     _cacheKey = _getCacheKey();
+    _cachedTxns = _computePeriodTxns();
     _cachedPoints = _computePoints();
     _cachedLabels = _computeLabels();
     _cachedTotal = _cachedPoints.fold<double>(0.0, (s, v) => s + v);
@@ -291,6 +293,18 @@ class StatisticsScreenState extends State<StatisticsScreen>
   }
 
   // ───────────────────────── Computation ─────────────────────────
+
+  List<Map<String, dynamic>> _computePeriodTxns() {
+    final list = <Map<String, dynamic>>[];
+    for (final r in _activeRows) {
+      if (!_matchesType(r)) continue;
+      final dt = DateTime.tryParse(r['date'] as String);
+      if (dt == null || !_isDateInCurrentPeriod(dt)) continue;
+      list.add(r);
+    }
+    list.sort((a, b) => (a['date'] as String).compareTo(b['date'] as String));
+    return list;
+  }
 
   List<double> _computePoints() {
     final buckets = List<double>.filled(_bucketCount(), 0);
@@ -422,31 +436,6 @@ class StatisticsScreenState extends State<StatisticsScreen>
       default:
         return DateFormat('yyyy').format(d);
     }
-  }
-
-  /// Rounds the chart max up so all 4 grid lines land on whole, round numbers.
-  double _niceMax(double val) {
-    if (val <= 0) return 100;
-    final raw = val / 4;
-    final magnitude = math
-        .pow(10, (math.log(raw) / math.ln10).floor())
-        .toDouble();
-    final norm = raw / magnitude;
-    double step;
-    if (norm <= 1) {
-      step = 1;
-    } else if (norm <= 2) {
-      step = 2;
-    } else if (norm <= 2.5 && magnitude >= 10) {
-      step = 2.5;
-    } else if (norm <= 5) {
-      step = 5;
-    } else {
-      step = 10;
-    }
-    step *= magnitude;
-    if (step < 1) step = 1;
-    return step * 4;
   }
 
   // ───────────────────────── Navigation ─────────────────────────
@@ -622,11 +611,13 @@ class StatisticsScreenState extends State<StatisticsScreen>
     HapticFeedback.lightImpact();
     switch (_selectedTab) {
       case 0:
-      case 1:
         await _pickDate(
-          title: _selectedTab == 0 ? 'Select day' : 'Select week',
+          title: 'Select day',
           mode: CupertinoDatePickerMode.date,
         );
+        break;
+      case 1:
+        await _pickWeek();
         break;
       case 2:
         await _pickDate(
@@ -659,6 +650,83 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
+  /// A proper week chooser: scroll through "Oct 19 – Oct 25" style ranges.
+  Future<void> _pickWeek() {
+    final now = DateTime.now();
+    final curStart = DateTime(now.year, now.month, now.day - (now.weekday - 1));
+    final (selStart, _) = _periodRange();
+    final count = (curStart.difference(DateTime(2020, 1, 1)).inDays ~/ 7) + 1;
+    int index = (curStart.difference(selStart).inDays / 7).round().clamp(
+      0,
+      count - 1,
+    );
+
+    DateTime weekStart(int i) =>
+        DateTime(curStart.year, curStart.month, curStart.day - 7 * i);
+
+    String label(int i) {
+      final s = weekStart(i);
+      final e = DateTime(s.year, s.month, s.day + 6);
+      final endFmt = e.year == now.year ? 'MMM d' : 'MMM d, yyyy';
+      return '${DateFormat('MMM d').format(s)} – ${DateFormat(endFmt).format(e)}';
+    }
+
+    return _showPickerSheet(
+      title: 'Select week',
+      onDone: () {
+        setState(() => _selectedDate = index == 0 ? now : weekStart(index));
+        _computeData();
+      },
+      picker: Builder(
+        builder: (context) => CupertinoPicker.builder(
+          scrollController: FixedExtentScrollController(initialItem: index),
+          itemExtent: 46,
+          childCount: count,
+          onSelectedItemChanged: (i) => index = i,
+          itemBuilder: (context, i) {
+            final tag = i == 0 ? 'This week' : (i == 1 ? 'Last week' : null);
+            return Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label(i),
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                  ),
+                  if (tag != null) ...[
+                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickYear() {
     final currentYear = DateTime.now().year;
     int selectedYear = _selectedDate.year;
@@ -673,7 +741,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
           scrollController: FixedExtentScrollController(
             initialItem: currentYear - selectedYear,
           ),
-          itemExtent: 40,
+          itemExtent: 46,
           onSelectedItemChanged: (index) => selectedYear = currentYear - index,
           children: List.generate(currentYear - 2020 + 1, (index) {
             return Center(
@@ -681,6 +749,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 (currentYear - index).toString(),
                 style: TextStyle(
                   fontSize: 22,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimaryOf(context),
                 ),
               ),
@@ -700,73 +769,93 @@ class StatisticsScreenState extends State<StatisticsScreen>
       context: context,
       builder: (context) {
         final isDark = AppColors.isDark(context);
-        return Container(
-          height: 300,
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        final bottom = MediaQuery.of(context).padding.bottom;
+        final textColor = AppColors.textPrimaryOf(context);
+
+        return CupertinoTheme(
+          data: CupertinoThemeData(
+            brightness: isDark ? Brightness.dark : Brightness.light,
+            primaryColor: AppColors.primary,
+            textTheme: CupertinoTextThemeData(
+              dateTimePickerTextStyle: TextStyle(
+                color: textColor,
+                fontSize: 20,
+              ),
+              pickerTextStyle: TextStyle(color: textColor, fontSize: 20),
+            ),
           ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceOf(context),
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(20),
+          // The popup has no Material ancestor, so plain Text widgets get
+          // Flutter's yellow double underline. Material supplies a proper
+          // default text style and removes it.
+          child: Material(
+            color: AppColors.cardOf(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            clipBehavior: Clip.antiAlias,
+            child: SizedBox(
+              height: 330 + bottom,
+              child: Column(
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 38,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderOf(context),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  border: Border(
-                    bottom: BorderSide(color: AppColors.borderOf(context)),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppColors.textSecondaryOf(context),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondaryOf(context),
+                            ),
+                          ),
                         ),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    CupertinoButton(
-                      child: const Text(
-                        'Done',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () {
-                        onDone();
-                        Navigator.pop(context);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoTheme(
-                  data: CupertinoThemeData(
-                    brightness: isDark ? Brightness.dark : Brightness.light,
-                    textTheme: CupertinoTextThemeData(
-                      dateTimePickerTextStyle: TextStyle(
-                        color: AppColors.textPrimaryOf(context),
-                        fontSize: 20,
-                      ),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.2,
+                            color: textColor,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            onDone();
+                            Navigator.pop(context);
+                          },
+                          child: const Text(
+                            'Done',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: picker,
-                ),
+                  Divider(
+                    height: 1,
+                    thickness: 0.6,
+                    color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                  ),
+                  Expanded(child: picker),
+                  SizedBox(height: bottom),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -987,15 +1076,18 @@ class StatisticsScreenState extends State<StatisticsScreen>
           // Total + change
           Row(
             children: [
-              Text(
-                isExpense ? 'Total spent' : 'Total earned',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  '${isExpense ? 'Total spent' : 'Total earned'} · ${_cachedTxns.length} ${_cachedTxns.length == 1 ? 'txn' : 'txns'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const Spacer(),
               if (hasPrev)
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1097,20 +1189,8 @@ class StatisticsScreenState extends State<StatisticsScreen>
   );
 
   Widget _buildOverviewCard(Color accent, bool isDark) {
-    final points = _cachedPoints;
-    final labels = _cachedLabels;
-
-    Widget body;
-    switch (_viewMode) {
-      case 1:
-        body = _buildLineChart(points, labels, accent, isDark);
-        break;
-      case 2:
-        body = _buildBarChart(points, labels, accent, isDark);
-        break;
-      default:
-        body = _buildCalendar(points, accent);
-    }
+    final isDay = _selectedTab == 0;
+    final n = _cachedTxns.length;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -1122,11 +1202,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
             children: [
               Expanded(
                 child: Text(
-                  _viewMode == 0
-                      ? 'Activity'
-                      : (_type == 'Expense'
-                            ? 'Spending trend'
-                            : 'Earnings trend'),
+                  isDay ? 'Timeline' : 'Activity',
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w800,
@@ -1135,68 +1211,195 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   ),
                 ),
               ),
-              _buildViewToggle(accent),
+              if (isDay)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$n ${n == 1 ? 'transaction' : 'transactions'}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                      color: accent,
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 14),
-          _buildReadout(accent),
-          const SizedBox(height: 16),
-          body,
+          if (isDay)
+            _buildDayTimeline(accent)
+          else ...[
+            _buildReadout(accent),
+            const SizedBox(height: 16),
+            _buildCalendar(_cachedPoints, accent),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildViewToggle(Color accent) {
-    const icons = [
-      Icons.calendar_month_rounded,
-      Icons.show_chart_rounded,
-      Icons.bar_chart_rounded,
-    ];
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceOf(context),
-        borderRadius: BorderRadius.circular(13),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(icons.length, (i) {
-          final sel = _viewMode == i;
-          return GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _viewMode = i);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-              decoration: BoxDecoration(
-                color: sel
-                    ? accent.withValues(alpha: 0.16)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
+  /// Day view: every transaction in order, with its time.
+  Widget _buildDayTimeline(Color accent) {
+    final txns = _cachedTxns;
+    final sign = _type == 'Expense' ? '-' : '+';
+
+    return Column(
+      children: List.generate(txns.length, (i) {
+        final t = txns[i];
+        final dt = DateTime.tryParse(t['date'] as String);
+        final time = dt != null ? DateFormat('h:mm a').format(dt) : '';
+        final cat = (t['category'] as String?)?.trim() ?? 'Other';
+        final note = (t['note'] as String?)?.trim() ?? '';
+        final color = AppColors.getCategoryColor(cat);
+        final isLast = i == txns.length - 1;
+
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                width: 64,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Text(
+                    time,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                  ),
+                ),
               ),
-              child: Icon(
-                icons[i],
-                size: 18,
-                color: sel ? accent : AppColors.textSecondaryOf(context),
+              SizedBox(
+                width: 22,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 19),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: AppColors.cardOf(context),
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withValues(alpha: 0.4),
+                            blurRadius: 5,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!isLast)
+                      Expanded(
+                        child: Container(
+                          width: 2,
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.7),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          );
-        }),
-      ),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            IconHelper.getIcon(t['icon']),
+                            size: 18,
+                            color: color,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                note.isNotEmpty ? note : cat,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                  color: AppColors.textPrimaryOf(context),
+                                ),
+                              ),
+                              if (note.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  cat,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondaryOf(context),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '$sign${FormatUtils.formatCurrencyFull((t['amount'] as num).toDouble())}',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            color: accent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
-  /// Shows whatever is selected in the calendar / chart.
+  /// Shows whatever is selected in the calendar.
   Widget _buildReadout(Color accent) {
     final idx = _selectedBucket;
     final points = _cachedPoints;
     final has = idx != null && idx < points.length;
-    final unit = _selectedTab == 0
-        ? 'an hour'
-        : (_selectedTab == 3 ? 'a month' : 'a day');
+    final unit = _selectedTab == 3 ? 'a month' : 'a day';
 
     if (!has) {
       return Container(
@@ -1434,14 +1637,6 @@ class StatisticsScreenState extends State<StatisticsScreen>
             ),
         ]);
         break;
-      case 0: // Day: 24 hours
-        String hour(int h) => h == 0
-            ? '12a'
-            : (h < 12 ? '${h}a' : (h == 12 ? '12p' : '${h - 12}p'));
-        content = grid(6, [
-          for (var i = 0; i < 24; i++) cell(i, hour(i), height: 40),
-        ]);
-        break;
       case 3: // Year: 12 months
         content = grid(4, [
           for (var i = 0; i < 12; i++)
@@ -1538,288 +1733,62 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  // ───────────────────────── Charts ─────────────────────────
-
-  bool _showAxisLabel(int idx, int count) {
-    switch (_selectedTab) {
-      case 0:
-        return idx % 4 == 0;
-      case 1:
-        return true;
-      case 2:
-        return idx == 0 || idx % 5 == 0 || idx == count - 1;
-      default:
-        return idx % 2 == 0;
-    }
-  }
-
-  FlTitlesData _titles(List<String> labels, double interval, Color accent) {
-    return FlTitlesData(
-      show: true,
-      topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-      leftTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 50,
-          interval: interval,
-          getTitlesWidget: (value, meta) {
-            if (value == 0) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: Text(
-                '₹${_compact(value)}',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondaryOf(context),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      bottomTitles: AxisTitles(
-        sideTitles: SideTitles(
-          showTitles: true,
-          reservedSize: 26,
-          getTitlesWidget: (value, meta) {
-            final idx = value.toInt();
-            if (idx < 0 ||
-                idx >= labels.length ||
-                !_showAxisLabel(idx, labels.length)) {
-              return const SizedBox.shrink();
-            }
-            final sel = _selectedBucket == idx;
-            return Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                labels[idx],
-                style: TextStyle(
-                  fontSize: _selectedTab == 1 ? 10 : 9,
-                  fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-                  color: sel ? accent : AppColors.textSecondaryOf(context),
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  FlGridData _grid(double interval) {
-    return FlGridData(
-      show: true,
-      drawVerticalLine: false,
-      horizontalInterval: interval,
-      getDrawingHorizontalLine: (value) => FlLine(
-        color: AppColors.borderOf(context).withValues(alpha: 0.35),
-        strokeWidth: 1,
-        dashArray: [6, 4],
-      ),
-    );
-  }
-
-  Widget _buildLineChart(
-    List<double> points,
-    List<String> labels,
-    Color accent,
-    bool isDark,
-  ) {
-    final maxY = _niceMax(points.isEmpty ? 0 : points.reduce(math.max));
-    final interval = maxY / 4;
-
-    return SizedBox(
-      height: 230,
-      child: RepaintBoundary(
-        child: LineChart(
-          LineChartData(
-            minX: 0,
-            maxX: math.max(0, points.length - 1).toDouble(),
-            minY: 0,
-            maxY: maxY,
-            gridData: _grid(interval),
-            borderData: FlBorderData(show: false),
-            titlesData: _titles(labels, interval, accent),
-            lineTouchData: LineTouchData(
-              handleBuiltInTouches: false,
-              touchSpotThreshold: 28,
-              touchCallback: (event, response) {
-                final spots = response?.lineBarSpots;
-                if (!event.isInterestedForInteractions ||
-                    spots == null ||
-                    spots.isEmpty) {
-                  return;
-                }
-                final i = spots.first.spotIndex;
-                if (_selectedBucket != i) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedBucket = i);
-                }
-              },
-              getTouchedSpotIndicator: (barData, spotIndexes) {
-                return spotIndexes.map((i) {
-                  return TouchedSpotIndicatorData(
-                    FlLine(
-                      color: accent.withValues(alpha: 0.6),
-                      strokeWidth: 1.5,
-                      dashArray: [4, 4],
-                    ),
-                    FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, bar, index) =>
-                          FlDotCirclePainter(
-                            radius: 6,
-                            color: Colors.white,
-                            strokeWidth: 3,
-                            strokeColor: accent,
-                          ),
-                    ),
-                  );
-                }).toList();
-              },
-            ),
-            lineBarsData: [
-              LineChartBarData(
-                spots: List.generate(
-                  points.length,
-                  (i) => FlSpot(i.toDouble(), points[i]),
-                ),
-                isCurved: true,
-                curveSmoothness: 0.32,
-                preventCurveOverShooting: true,
-                color: accent,
-                barWidth: 3,
-                isStrokeCapRound: true,
-                showingIndicators: _selectedBucket != null
-                    ? [_selectedBucket!]
-                    : [],
-                dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  gradient: LinearGradient(
-                    colors: [
-                      accent.withValues(alpha: isDark ? 0.35 : 0.24),
-                      accent.withValues(alpha: 0.0),
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBarChart(
-    List<double> points,
-    List<String> labels,
-    Color accent,
-    bool isDark,
-  ) {
-    final maxY = _niceMax(points.isEmpty ? 0 : points.reduce(math.max));
-    final interval = maxY / 4;
-    final barWidth = _selectedTab == 2 ? 5.5 : (_selectedTab == 0 ? 8.0 : 14.0);
-
-    return SizedBox(
-      height: 230,
-      child: RepaintBoundary(
-        child: BarChart(
-          BarChartData(
-            alignment: BarChartAlignment.spaceAround,
-            maxY: maxY,
-            minY: 0,
-            gridData: _grid(interval),
-            borderData: FlBorderData(show: false),
-            titlesData: _titles(labels, interval, accent),
-            barTouchData: BarTouchData(
-              enabled: true,
-              touchCallback: (event, response) {
-                final spot = response?.spot;
-                if (!event.isInterestedForInteractions || spot == null) return;
-                final i = spot.touchedBarGroupIndex;
-                if (_selectedBucket != i) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedBucket = i);
-                }
-              },
-              // The readout above replaces the tooltip.
-              touchTooltipData: BarTouchTooltipData(
-                getTooltipColor: (group) => Colors.transparent,
-                tooltipPadding: EdgeInsets.zero,
-                tooltipMargin: 0,
-                getTooltipItem: (group, gi, rod, ri) =>
-                    BarTooltipItem('', const TextStyle(fontSize: 0)),
-              ),
-            ),
-            barGroups: List.generate(points.length, (i) {
-              final sel = _selectedBucket == i;
-              final dim = _selectedBucket != null && !sel;
-              return BarChartGroupData(
-                x: i,
-                barRods: [
-                  BarChartRodData(
-                    toY: points[i],
-                    width: barWidth,
-                    color: accent.withValues(alpha: dim ? 0.3 : 1.0),
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(5),
-                    ),
-                    backDrawRodData: BackgroundBarChartRodData(
-                      show: true,
-                      toY: maxY,
-                      color: accent.withValues(alpha: 0.05),
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-          swapAnimationDuration: const Duration(milliseconds: 300),
-          swapAnimationCurve: Curves.easeOutCubic,
-        ),
-      ),
-    );
-  }
-
   // ───────────────────────── Insights ─────────────────────────
 
   Widget _buildInsightTiles() {
     final points = _cachedPoints;
     final total = _cachedTotal;
+    final txns = _cachedTxns;
+    final isDay = _selectedTab == 0;
+
+    // Biggest single transaction in this period.
+    Map<String, dynamic>? biggest;
+    for (final t in txns) {
+      if (biggest == null ||
+          (t['amount'] as num) > (biggest['amount'] as num)) {
+        biggest = t;
+      }
+    }
+    final biggestAmount = biggest != null
+        ? (biggest['amount'] as num).toDouble()
+        : 0.0;
+    final biggestCat = biggest != null
+        ? (biggest['category'] as String?)?.trim()
+        : null;
+
+    // Peak bucket.
     final peakVal = points.isEmpty ? 0.0 : points.reduce(math.max);
     final peakIdx = points.indexOf(peakVal);
-    final peakLabel = peakIdx >= 0 && peakIdx < _cachedLabels.length
-        ? _cachedLabels[peakIdx]
-        : '-';
-    final avg = total / _elapsedBuckets(points.length);
-    final activeUnits = points.where((p) => p > 0).length;
-
-    final (s, e) = _periodRange();
-    final txnCount = _activeRows.where((r) {
-      if (!_matchesType(r)) return false;
-      final d = DateTime.tryParse(r['date'] as String);
-      return d != null && !d.isBefore(s) && d.isBefore(e);
-    }).length;
+    String peakLabel = '-';
+    if (peakIdx >= 0 && peakVal > 0) {
+      if (_selectedTab == 0) {
+        peakLabel = DateFormat('h a').format(_bucketStart(peakIdx));
+      } else if (_selectedTab == 2) {
+        peakLabel = DateFormat('MMM d').format(_bucketStart(peakIdx));
+      } else {
+        peakLabel = _cachedLabels[peakIdx];
+      }
+    }
 
     const unit = ['hour', 'day', 'day', 'month'];
+    final avg = total / _elapsedBuckets(points.length);
 
     return Row(
       children: [
         Expanded(
-          child: _tile(
-            Icons.speed_rounded,
-            const Color(0xFF5C6BC0),
-            _money(avg),
-            'Avg per ${unit[_selectedTab]}',
-          ),
+          child: isDay
+              ? _tile(
+                  Icons.receipt_long_rounded,
+                  const Color(0xFF5C6BC0),
+                  '${txns.length}',
+                  txns.length == 1 ? 'Transaction' : 'Transactions',
+                )
+              : _tile(
+                  Icons.speed_rounded,
+                  const Color(0xFF5C6BC0),
+                  _money(avg),
+                  'Avg per ${unit[_selectedTab]}',
+                ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -1833,10 +1802,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
         const SizedBox(width: 10),
         Expanded(
           child: _tile(
-            Icons.receipt_long_rounded,
+            Icons.workspace_premium_rounded,
             const Color(0xFF26A69A),
-            '$txnCount',
-            '$activeUnits active ${unit[_selectedTab]}${activeUnits == 1 ? '' : 's'}',
+            _money(biggestAmount),
+            biggestCat != null ? 'Biggest · $biggestCat' : 'Biggest',
           ),
         ),
       ],
@@ -1893,21 +1862,35 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final total = _cachedTotal;
     if (cats.isEmpty) return const SizedBox.shrink();
 
-    final touched = (_touchedPieIndex >= 0 && _touchedPieIndex < cats.length)
-        ? cats[_touchedPieIndex]
-        : null;
+    // Keep the ring clean: top 5 categories + one "Others" slice.
+    final hasOthers = cats.length > 6;
+    final shown = hasOthers ? cats.sublist(0, 5) : cats;
+    final othersAmt = hasOthers
+        ? cats
+              .sublist(5)
+              .fold<double>(0.0, (s, c) => s + (c['amount'] as double))
+        : 0.0;
 
-    final centerTitle = touched != null
-        ? touched['category'] as String
-        : 'Total';
-    final centerValue = _money(
-      touched != null ? touched['amount'] as double : total,
-    );
-    final centerColor = touched != null
-        ? AppColors.getCategoryColor(touched['category'] as String)
-        : AppColors.textPrimaryOf(context);
-    final centerSub = touched != null
-        ? '${((touched['amount'] as double) / total * 100).toStringAsFixed(1)}%'
+    final slices = <({String name, double amount, Color color})>[
+      for (final c in shown)
+        (
+          name: c['category'] as String,
+          amount: c['amount'] as double,
+          color: AppColors.getCategoryColor(c['category'] as String),
+        ),
+      if (hasOthers)
+        (name: 'Others', amount: othersAmt, color: const Color(0xFF90A4AE)),
+    ];
+
+    final hasTouch = _touchedPieIndex >= 0 && _touchedPieIndex < slices.length;
+    final t = hasTouch ? slices[_touchedPieIndex] : null;
+
+    final centerTitle =
+        t?.name ?? (_type == 'Expense' ? 'Total spent' : 'Total earned');
+    final centerValue = _money(t?.amount ?? total);
+    final centerColor = t?.color ?? AppColors.textPrimaryOf(context);
+    final centerSub = t != null
+        ? '${(t.amount / total * 100).toStringAsFixed(1)}% of total'
         : '${cats.length} ${cats.length == 1 ? 'category' : 'categories'}';
 
     return Container(
@@ -1917,26 +1900,41 @@ class StatisticsScreenState extends State<StatisticsScreen>
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 0),
-            child: Text(
-              'Categories',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.3,
-                color: AppColors.textPrimaryOf(context),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Categories',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                  ),
+                ),
+                Text(
+                  hasTouch ? 'Tap centre to reset' : 'Tap a slice',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(
-            height: 210,
+            height: 236,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 PieChart(
                   PieChartData(
+                    startDegreeOffset: -90,
                     borderData: FlBorderData(show: false),
                     sectionsSpace: 3,
-                    centerSpaceRadius: 62,
+                    centerSpaceRadius: 78,
                     pieTouchData: PieTouchData(
                       touchCallback: (event, response) {
                         final section = response?.touchedSection;
@@ -1951,63 +1949,68 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         }
                       },
                     ),
-                    sections: List.generate(cats.length, (i) {
-                      final cat = cats[i];
-                      final amt = cat['amount'] as double;
-                      final pct = total > 0 ? amt / total * 100 : 0.0;
-                      final isTouched = i == _touchedPieIndex;
+                    sections: List.generate(slices.length, (i) {
+                      final s = slices[i];
+                      final selected = i == _touchedPieIndex;
+                      final dim = hasTouch && !selected;
                       return PieChartSectionData(
-                        color: AppColors.getCategoryColor(
-                          cat['category'] as String,
-                        ),
-                        value: amt,
-                        radius: isTouched ? 34 : 26,
-                        title: pct >= 8 ? '${pct.toStringAsFixed(0)}%' : '',
-                        titleStyle: TextStyle(
-                          fontSize: isTouched ? 12 : 10.5,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
+                        value: s.amount,
+                        showTitle: false,
+                        radius: selected ? 22 : 15,
+                        color: dim ? s.color.withValues(alpha: 0.28) : s.color,
                       );
                     }),
                   ),
-                  swapAnimationDuration: const Duration(milliseconds: 300),
+                  swapAnimationDuration: const Duration(milliseconds: 350),
                   swapAnimationCurve: Curves.easeOutCubic,
                 ),
-                IgnorePointer(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        centerTitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondaryOf(context),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () {
+                    if (hasTouch) setState(() => _touchedPieIndex = -1);
+                  },
+                  child: SizedBox(
+                    width: 130,
+                    height: 130,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          centerTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        centerValue,
-                        style: TextStyle(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.4,
-                          color: centerColor,
+                        const SizedBox(height: 3),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            centerValue,
+                            style: TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.8,
+                              color: centerColor,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        centerSub,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondaryOf(context),
+                        const SizedBox(height: 3),
+                        Text(
+                          centerSub,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -2040,7 +2043,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final count = (cat['count'] as int?) ?? 1;
     final pct = total > 0 ? amt / total * 100 : 0.0;
     final color = AppColors.getCategoryColor(name);
-    final highlighted = idx == _touchedPieIndex;
+    final hasOthers = _cachedTopCategories.length > 6;
+    final limit = hasOthers ? 5 : _cachedTopCategories.length;
+    final highlighted =
+        (idx == _touchedPieIndex && idx < limit) ||
+        (hasOthers && _touchedPieIndex == limit && idx >= limit);
     final isLast = idx == _cachedTopCategories.length - 1;
 
     return Material(
