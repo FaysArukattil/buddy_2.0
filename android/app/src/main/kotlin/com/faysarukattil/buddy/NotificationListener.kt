@@ -231,6 +231,19 @@ class NotificationListener : NotificationListenerService() {
             // Failed / Declined transactions
             "failed", "declined", "unsuccessful", "cancelled", "rejected", "timed out", "could not be processed",
 
+            // Loan / Credit Application & Processing (NOT actual money movement)
+            "loan amount of", "for processing", "received your application",
+            "loan application", "loan proposal", "loan processed",
+            "application received", "application has been", "application for",
+            "technical feasibility", "feasibility report", "proposal bearing",
+            "loan disbursement initiated", "disbursement request",
+            "loan sanction", "sanctioned amount", "sanction letter",
+            "rlms app ref", "surya ghar", "pmay", "pm awas",
+            "subsidy application", "subsidy request",
+            "emi starts from", "emi will start",
+            "loan eligibility", "eligible for loan", "loan offer",
+            "credit limit increased", "limit enhanced",
+
             // Security & Admin (not transactions)
             "otp", "verification code", "one time password", "secret code", "login code",
             "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
@@ -784,7 +797,13 @@ class NotificationListener : NotificationListenerService() {
             lowerText.contains("received inr") ||
             lowerText.contains("received ₹") ||
             lowerText.contains("you received") ||
-            (lowerText.contains("received") && lowerText.contains("from")) ||
+            // Guard: "received" must indicate money receipt, NOT "received your application/request/document"
+            (lowerText.contains("received") && lowerText.contains("from") &&
+                !lowerText.contains("received your") &&
+                !lowerText.contains("received application") &&
+                !lowerText.contains("received request") &&
+                !lowerText.contains("received document") &&
+                !lowerText.contains("at branch")) ||
             lowerText.contains("sent you") ||
             lowerText.contains("paid you") ||
             lowerText.contains("refund of") ||
@@ -842,7 +861,10 @@ class NotificationListener : NotificationListenerService() {
                 lowerText.contains("money sent to") ||
                 lowerText.contains("you received") ||
                 lowerText.contains("received from") ||
-                (lowerText.contains("received") && lowerText.contains("from")) ||
+                (lowerText.contains("received") && lowerText.contains("from") &&
+                    !lowerText.contains("received your") &&
+                    !lowerText.contains("received application") &&
+                    !lowerText.contains("at branch")) ||
                 lowerText.contains("sent you") ||
                 lowerText.contains("paid you") ||
                 (lowerText.contains("cashback credited") && (lowerText.contains("bank") || lowerText.contains("account")))
