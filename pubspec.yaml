@@ -58,6 +58,7 @@ dependencies:
 
 dependency_overrides:
   path_provider_android: 2.2.20
+  image: 4.10.1
 
 dev_dependencies:
   flutter_test:
