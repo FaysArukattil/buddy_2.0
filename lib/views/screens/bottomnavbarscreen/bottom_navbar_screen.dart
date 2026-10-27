@@ -388,30 +388,11 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                                   children: [
                                                     Transform.scale(
                                                       scale: 1.0 + (growFactor * 0.10),
-                                                      child: Stack(
-                                                        alignment: Alignment.center,
-                                                        children: [
-                                                          // When unselected: ONLY outline shows
-                                                          Opacity(
-                                                            opacity: (1.0 - growFactor).clamp(0.0, 1.0),
-                                                            child: Icon(
-                                                              _navItems[i].outline,
-                                                              size: iconSize,
-                                                              color: Colors.white.withValues(
-                                                                alpha: isDark ? 0.55 : 0.70,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          // When selected / actively selecting: Full filled icon shows
-                                                          Opacity(
-                                                            opacity: growFactor.clamp(0.0, 1.0),
-                                                            child: Icon(
-                                                              _navItems[i].icon,
-                                                              size: iconSize,
-                                                              color: Colors.white,
-                                                            ),
-                                                          ),
-                                                        ],
+                                                      child: _buildNavItemIcon(
+                                                        i,
+                                                        growFactor,
+                                                        iconSize,
+                                                        isDark,
                                                       ),
                                                     ),
                                                     ClipRect(
@@ -487,6 +468,54 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
         ],
       ),
     );
+  }
+
+  Widget _buildNavItemIcon(int i, double growFactor, double iconSize, bool isDark) {
+    final outlineColor = Colors.white.withValues(alpha: isDark ? 0.60 : 0.75);
+    const fillColor = Colors.white;
+
+    if (i == 1) {
+      // Stats: Custom vector bar chart with true hollow outline when unselected & solid fill when selected
+      return _BarChartNavIcon(
+        growFactor: growFactor,
+        size: iconSize,
+        outlineColor: outlineColor,
+        fillColor: fillColor,
+      );
+    } else if (i == 2) {
+      // Debts: Custom vector zigzag receipt with true hollow outline when unselected & solid white filled sheet when selected
+      final cutoutColor = isDark ? const Color(0xFF1B554E) : const Color(0xFF228277);
+      return _ReceiptNavIcon(
+        growFactor: growFactor,
+        size: iconSize,
+        outlineColor: outlineColor,
+        fillColor: fillColor,
+        cutoutColor: cutoutColor,
+      );
+    } else {
+      // Home (0) and Profile (3): Material icons with genuine outline/filled pairs
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: (1.0 - growFactor).clamp(0.0, 1.0),
+            child: Icon(
+              _navItems[i].outline,
+              size: iconSize,
+              color: outlineColor,
+            ),
+          ),
+          Opacity(
+            opacity: growFactor.clamp(0.0, 1.0),
+            child: Icon(
+              _navItems[i].icon,
+              size: iconSize,
+              color: fillColor,
+            ),
+          ),
+        ],
+      );
+    }
   }
 
   void _goTo(int index) {
@@ -704,4 +733,223 @@ class _NavItemData {
   final IconData outline;
   final String label;
   const _NavItemData({required this.icon, required this.outline, required this.label});
+}
+
+class _BarChartNavIcon extends StatelessWidget {
+  final double growFactor;
+  final double size;
+  final Color outlineColor;
+  final Color fillColor;
+
+  const _BarChartNavIcon({
+    required this.growFactor,
+    required this.size,
+    required this.outlineColor,
+    required this.fillColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _BarChartPainter(
+          growFactor: growFactor,
+          outlineColor: outlineColor,
+          fillColor: fillColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  final double growFactor;
+  final Color outlineColor;
+  final Color fillColor;
+
+  _BarChartPainter({
+    required this.growFactor,
+    required this.outlineColor,
+    required this.fillColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 24.0;
+    final rrects = [
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(3.2 * s, 11.5 * s, 4.6 * s, 9.5 * s),
+        Radius.circular(1.6 * s),
+      ),
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(9.7 * s, 3.5 * s, 4.6 * s, 17.5 * s),
+        Radius.circular(1.6 * s),
+      ),
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(16.2 * s, 7.5 * s, 4.6 * s, 13.5 * s),
+        Radius.circular(1.6 * s),
+      ),
+    ];
+
+    // 1. Draw outline if not fully selected
+    if (growFactor < 1.0) {
+      final outlinePaint = Paint()
+        ..color = outlineColor.withValues(alpha: (1.0 - growFactor) * outlineColor.a)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.35 * s;
+      for (final rrect in rrects) {
+        canvas.drawRRect(rrect, outlinePaint);
+      }
+    }
+
+    // 2. Draw solid fill when selected
+    if (growFactor > 0.0) {
+      final fillPaint = Paint()
+        ..color = fillColor.withValues(alpha: growFactor * fillColor.a)
+        ..style = PaintingStyle.fill;
+      for (final rrect in rrects) {
+        canvas.drawRRect(rrect, fillPaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarChartPainter oldDelegate) =>
+      oldDelegate.growFactor != growFactor ||
+      oldDelegate.outlineColor != outlineColor ||
+      oldDelegate.fillColor != fillColor;
+}
+
+class _ReceiptNavIcon extends StatelessWidget {
+  final double growFactor;
+  final double size;
+  final Color outlineColor;
+  final Color fillColor;
+  final Color cutoutColor;
+
+  const _ReceiptNavIcon({
+    required this.growFactor,
+    required this.size,
+    required this.outlineColor,
+    required this.fillColor,
+    required this.cutoutColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _ReceiptPainter(
+          growFactor: growFactor,
+          outlineColor: outlineColor,
+          fillColor: fillColor,
+          cutoutColor: cutoutColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _ReceiptPainter extends CustomPainter {
+  final double growFactor;
+  final Color outlineColor;
+  final Color fillColor;
+  final Color cutoutColor;
+
+  _ReceiptPainter({
+    required this.growFactor,
+    required this.outlineColor,
+    required this.fillColor,
+    required this.cutoutColor,
+  });
+
+  Path _buildReceiptPath(double s) {
+    final path = Path();
+    final left = 4.8 * s;
+    final right = 19.2 * s;
+    final top = 2.5 * s;
+    final r = 2.2 * s;
+    final bottomValley = 19.5 * s;
+    final bottomPeak = 21.8 * s;
+
+    // Top-left corner
+    path.moveTo(left, top + r);
+    path.arcToPoint(Offset(left + r, top), radius: Radius.circular(r));
+    // Top edge
+    path.lineTo(right - r, top);
+    // Top-right corner
+    path.arcToPoint(Offset(right, top + r), radius: Radius.circular(r));
+    // Right edge down
+    path.lineTo(right, bottomValley);
+
+    // Zigzag serrated bottom (3 teeth)
+    final toothW = (right - left) / 3.0;
+    for (int i = 0; i < 3; i++) {
+      final xStart = right - (i * toothW);
+      final xMid = xStart - (toothW / 2.0);
+      final xEnd = xStart - toothW;
+      path.lineTo(xMid, bottomPeak);
+      path.lineTo(xEnd, bottomValley);
+    }
+
+    path.close();
+    return path;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.width / 24.0;
+    final receiptPath = _buildReceiptPath(s);
+
+    // 1. Draw outline when unselected
+    if (growFactor < 1.0) {
+      final outlinePaint = Paint()
+        ..color = outlineColor.withValues(alpha: (1.0 - growFactor) * outlineColor.a)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.35 * s
+        ..strokeJoin = StrokeJoin.round;
+      canvas.drawPath(receiptPath, outlinePaint);
+
+      // Draw interior lines in outline
+      final linePaint = Paint()
+        ..color = outlineColor.withValues(alpha: (1.0 - growFactor) * outlineColor.a)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 1.25 * s;
+
+      canvas.drawLine(Offset(8.0 * s, 7.5 * s), Offset(16.0 * s, 7.5 * s), linePaint);
+      canvas.drawLine(Offset(8.0 * s, 11.5 * s), Offset(16.0 * s, 11.5 * s), linePaint);
+      canvas.drawLine(Offset(8.0 * s, 15.5 * s), Offset(13.0 * s, 15.5 * s), linePaint);
+    }
+
+    // 2. Draw solid fill when selected
+    if (growFactor > 0.0) {
+      final fillPaint = Paint()
+        ..color = fillColor.withValues(alpha: growFactor * fillColor.a)
+        ..style = PaintingStyle.fill;
+      canvas.drawPath(receiptPath, fillPaint);
+
+      // Slit cutouts in the solid receipt
+      final slitPaint = Paint()
+        ..color = cutoutColor.withValues(alpha: growFactor * cutoutColor.a)
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = 1.4 * s;
+
+      canvas.drawLine(Offset(8.0 * s, 7.5 * s), Offset(16.0 * s, 7.5 * s), slitPaint);
+      canvas.drawLine(Offset(8.0 * s, 11.5 * s), Offset(16.0 * s, 11.5 * s), slitPaint);
+      canvas.drawLine(Offset(8.0 * s, 15.5 * s), Offset(13.0 * s, 15.5 * s), slitPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReceiptPainter oldDelegate) =>
+      oldDelegate.growFactor != growFactor ||
+      oldDelegate.outlineColor != outlineColor ||
+      oldDelegate.fillColor != fillColor ||
+      oldDelegate.cutoutColor != cutoutColor;
 }
