@@ -22,23 +22,11 @@ class BottomNavbarScreen extends StatefulWidget {
 
 class BottomNavbarScreenState extends State<BottomNavbarScreen>
     with SingleTickerProviderStateMixin {
-  void switchTab(int index) {
-    if (!_pageController.hasClients) return;
-    final int distance = (index - _currentIndex).abs();
-    _currentIndex = index;
-    if (distance <= 1) {
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _pageController.jumpToPage(index);
-    }
-  }
+  void switchTab(int index) => _goTo(index);
 
   late final PageController _pageController;
   int _currentIndex = 0;
+  int _lastHapticTab = 0;
   double _dragStartPage = 0;
   double _dragAccumX = 0;
   Widget? _homePage;
@@ -72,10 +60,26 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       GlobalKey<ProfileScreenState>();
 
   static const _navItems = [
-    _NavItemData(icon: Icons.home_rounded, outline: Icons.home_outlined, label: 'Home'),
-    _NavItemData(icon: Icons.insights_rounded, outline: Icons.insights_outlined, label: 'Stats'),
-    _NavItemData(icon: Icons.payments_rounded, outline: Icons.payments_outlined, label: 'Debts'),
-    _NavItemData(icon: Icons.person_rounded, outline: Icons.person_outline_rounded, label: 'Profile'),
+    _NavItemData(
+      icon: Icons.home_rounded,
+      outline: Icons.home_outlined,
+      label: 'Home',
+    ),
+    _NavItemData(
+      icon: Icons.bar_chart_rounded,
+      outline: Icons.bar_chart_outlined,
+      label: 'Stats',
+    ),
+    _NavItemData(
+      icon: Icons.handshake_rounded,
+      outline: Icons.handshake_outlined,
+      label: 'Debts',
+    ),
+    _NavItemData(
+      icon: Icons.person_rounded,
+      outline: Icons.person_outline_rounded,
+      label: 'Profile',
+    ),
   ];
 
   @override
@@ -252,14 +256,24 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                   : _currentIndex.toDouble();
 
                               final int selectedIndex = currentPage.round().clamp(0, 3);
-                              final double leftOffset = (currentPage * itemWidth + pillInset)
-                                  .clamp(pillInset, totalWidth - itemWidth + pillInset);
+                              if (selectedIndex != _lastHapticTab) {
+                                _lastHapticTab = selectedIndex;
+                                HapticFeedback.selectionClick();
+                              }
+
+                              // Organic liquid stretch as slider glides between tabs
+                              final double stretch = (1.0 - 2.0 * (currentPage - currentPage.floor() - 0.5).abs()).clamp(0.0, 1.0) * (5.0 * s);
+                              final double activePillWidth = pillWidth + stretch;
+                              final double activeLeftOffset = (currentPage * itemWidth + pillInset - stretch / 2.0)
+                                  .clamp(pillInset, totalWidth - activePillWidth - pillInset);
 
                               return GestureDetector(
                                 behavior: HitTestBehavior.translucent,
                                 onPanStart: (details) {
                                   _dragAccumX = 0;
                                   _dragStartPage = currentPage;
+                                  _lastHapticTab = currentPage.round().clamp(0, 3);
+                                  HapticFeedback.lightImpact();
                                 },
                                 onPanUpdate: (details) {
                                   _dragAccumX += details.delta.dx;
@@ -275,10 +289,15 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                         .position.viewportDimension;
                                     _pageController.position.jumpTo(newPage * w);
                                   }
+                                  final int nearest = newPage.round().clamp(0, 3);
+                                  if (nearest != _lastHapticTab) {
+                                    _lastHapticTab = nearest;
+                                    HapticFeedback.selectionClick();
+                                  }
                                 },
                                 onPanEnd: (details) {
                                   final target =
-                                      (_pageController.page ?? currentPage).round();
+                                      (_pageController.page ?? currentPage).round().clamp(0, 3);
                                   _goTo(target);
                                 },
                                 child: SizedBox(
@@ -287,8 +306,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                     children: [
                                       // ── Seamless Physical Sliding Pill (glides smoothly across tabs) ──
                                       Positioned(
-                                        left: leftOffset,
-                                        width: pillWidth,
+                                        left: activeLeftOffset,
+                                        width: activePillWidth,
                                         top: 2,
                                         bottom: 2,
                                         child: Container(
@@ -347,15 +366,18 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                                   mainAxisSize: MainAxisSize.min,
                                                   mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    Icon(
-                                                      isSelected
-                                                          ? _navItems[i].icon
-                                                          : _navItems[i].outline,
-                                                      size: iconSize,
-                                                      color: Color.lerp(
-                                                        Colors.white.withValues(alpha: isDark ? 0.55 : 0.70),
-                                                        Colors.white,
-                                                        growFactor,
+                                                    Transform.scale(
+                                                      scale: 1.0 + (growFactor * 0.10),
+                                                      child: Icon(
+                                                        isSelected
+                                                            ? _navItems[i].icon
+                                                            : _navItems[i].outline,
+                                                        size: iconSize,
+                                                        color: Color.lerp(
+                                                          Colors.white.withValues(alpha: isDark ? 0.55 : 0.70),
+                                                          Colors.white,
+                                                          growFactor,
+                                                        ),
                                                       ),
                                                     ),
                                                     ClipRect(
@@ -435,22 +457,30 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
 
   void _goTo(int index) {
     if (!_pageController.hasClients) return;
-    if (index == _currentIndex && _pageController.page?.round() == index) {
+    final double curP = _pageController.hasClients &&
+            _pageController.position.haveDimensions
+        ? (_pageController.page ?? _currentIndex.toDouble())
+        : _currentIndex.toDouble();
+    if (index == _currentIndex && curP.round() == index) {
+      HapticFeedback.selectionClick();
       return;
     }
-    HapticFeedback.selectionClick();
-    final int distance = (index - _currentIndex).abs();
-    _currentIndex = index;
 
-    if (distance <= 1) {
-      _pageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 240),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _pageController.jumpToPage(index);
-    }
+    final int distance = (index - curP.round()).abs().clamp(1, 3);
+    _currentIndex = index;
+    HapticFeedback.lightImpact();
+
+    // Smoothly animate across any distance with natural timing
+    final int durationMs = 260 + (distance - 1) * 70;
+    _pageController.animateToPage(
+      index,
+      duration: Duration(milliseconds: durationMs),
+      curve: Curves.easeInOutCubic,
+    ).then((_) {
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+      }
+    });
   }
 
   Future<void> _openAddTransactionSheet(BuildContext context) async {

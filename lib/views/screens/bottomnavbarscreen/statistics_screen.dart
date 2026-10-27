@@ -71,6 +71,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
   int _heroVisualIndex = 0; // 0 = Chart, 1 = Calendar
   Timer? _heroAutoCycleTimer;
   bool _userInteractedWithHero = false;
+  double _heroDragAccumX = 0;
+  double _heroDragStartPage = 0;
+  int _lastHeroHapticIndex = 0;
 
   @override
   bool get wantKeepAlive => true;
@@ -1156,32 +1159,92 @@ class StatisticsScreenState extends State<StatisticsScreen>
             _buildHeaderDateNavigator(s, accent),
             SizedBox(height: (12 * s).clamp(10.0, 16.0)),
 
-            // 5. Dual-View Mode Switcher Capsule [⭕ Chart | 📅 Calendar]
-            _buildVisualModeSelector(s),
-            SizedBox(height: (8 * s).clamp(6.0, 12.0)),
-
-            // 6. Dual-View PageView: View 0 = Circular Donut Chart, View 1 = Calendar View
-            NotificationListener<ScrollStartNotification>(
-              onNotification: (notification) {
-                if (notification.dragDetails != null) {
-                  _stopAutoCycle();
-                }
-                return false;
+            // 5. Dual-View Mode Switcher Capsule [⭕ Chart | 📅 Calendar] & Swipable Views
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onHorizontalDragStart: (details) {
+                _stopAutoCycle();
+                _heroDragAccumX = 0;
+                _heroDragStartPage = (_heroVisualPageController.hasClients &&
+                        _heroVisualPageController.positions.length == 1 &&
+                        _heroVisualPageController.position.haveDimensions)
+                    ? (_heroVisualPageController.page ??
+                        _heroVisualIndex.toDouble())
+                    : _heroVisualIndex.toDouble();
+                _lastHeroHapticIndex = _heroDragStartPage.round();
               },
-              child: SizedBox(
-                height: (295 * s).clamp(275.0, 325.0),
-                child: PageView(
-                  controller: _heroVisualPageController,
-                  onPageChanged: (idx) {
-                    if (_heroVisualIndex != idx) {
-                      setState(() => _heroVisualIndex = idx);
-                    }
-                  },
-                  children: [
-                    _buildHeaderCategoriesDonut(cats, total, s),
-                    _buildHeaderCalendarView(accent, s),
-                  ],
-                ),
+              onHorizontalDragUpdate: (details) {
+                _heroDragAccumX += details.delta.dx;
+                final double w = (_heroVisualPageController.hasClients &&
+                        _heroVisualPageController.positions.length == 1 &&
+                        _heroVisualPageController.position.haveDimensions)
+                    ? _heroVisualPageController.position.viewportDimension
+                    : MediaQuery.of(context).size.width;
+                final double deltaPages =
+                    _heroDragAccumX / (w > 0 ? w : 300.0);
+                final double newPage =
+                    (_heroDragStartPage + deltaPages).clamp(0.0, 1.0);
+                if (_heroVisualPageController.hasClients &&
+                    _heroVisualPageController.positions.length == 1 &&
+                    _heroVisualPageController.position.haveDimensions) {
+                  _heroVisualPageController.position.jumpTo(newPage * w);
+                }
+                final int nearest = newPage.round().clamp(0, 1);
+                if (nearest != _lastHeroHapticIndex) {
+                  _lastHeroHapticIndex = nearest;
+                  HapticFeedback.selectionClick();
+                }
+                if (nearest != _heroVisualIndex) {
+                  setState(() => _heroVisualIndex = nearest);
+                }
+              },
+              onHorizontalDragEnd: (details) {
+                final double velocity = details.primaryVelocity ?? 0;
+                final double currentP = (_heroVisualPageController.hasClients &&
+                        _heroVisualPageController.positions.length == 1 &&
+                        _heroVisualPageController.position.haveDimensions)
+                    ? (_heroVisualPageController.page ??
+                        _heroVisualIndex.toDouble())
+                    : _heroVisualIndex.toDouble();
+                int target = currentP.round();
+                if (velocity > 250) {
+                  target = 1;
+                } else if (velocity < -250) {
+                  target = 0;
+                }
+                _onToggleVisualMode(target.clamp(0, 1));
+              },
+              onHorizontalDragCancel: () {
+                final double currentP = (_heroVisualPageController.hasClients &&
+                        _heroVisualPageController.positions.length == 1 &&
+                        _heroVisualPageController.position.haveDimensions)
+                    ? (_heroVisualPageController.page ??
+                        _heroVisualIndex.toDouble())
+                    : _heroVisualIndex.toDouble();
+                _onToggleVisualMode(currentP.round().clamp(0, 1));
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildVisualModeSelector(s),
+                  SizedBox(height: (8 * s).clamp(6.0, 12.0)),
+                  SizedBox(
+                    height: (295 * s).clamp(275.0, 325.0),
+                    child: PageView(
+                      controller: _heroVisualPageController,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onPageChanged: (idx) {
+                        if (_heroVisualIndex != idx) {
+                          setState(() => _heroVisualIndex = idx);
+                        }
+                      },
+                      children: [
+                        _buildHeaderCategoriesDonut(cats, total, s),
+                        _buildHeaderCalendarView(accent, s),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1505,6 +1568,23 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
+  void _onToggleVisualMode(int index) {
+    _stopAutoCycle();
+    if (_heroVisualIndex != index) {
+      HapticFeedback.selectionClick();
+      setState(() => _heroVisualIndex = index);
+    }
+    if (_heroVisualPageController.hasClients &&
+        _heroVisualPageController.positions.length == 1 &&
+        _heroVisualPageController.position.haveDimensions) {
+      _heroVisualPageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
   Widget _buildVisualModeSelector(double s) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
@@ -1531,18 +1611,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     final isSelected = _heroVisualIndex == index;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () {
-        _stopAutoCycle();
-        if (_heroVisualIndex != index) {
-          HapticFeedback.selectionClick();
-          setState(() => _heroVisualIndex = index);
-          _heroVisualPageController.animateToPage(
-            index,
-            duration: const Duration(milliseconds: 320),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      },
+      onTap: () => _onToggleVisualMode(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(
