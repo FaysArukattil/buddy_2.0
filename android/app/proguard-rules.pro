@@ -8,37 +8,62 @@
 -optimizationpasses 5
 -allowaccessmodification
 -repackageclasses ''
+-overloadaggressively
 
 # ------------------------------------------------------------------------------
 # 2. Flutter Engine & Plugin Integration
 # ------------------------------------------------------------------------------
-# Keep Flutter core application entry points
--keep class io.flutter.app.FlutterApplication { *; }
--keep class io.flutter.plugin.common.PluginRegistry$PluginRegistrantCallback { *; }
--keep class io.flutter.plugins.GeneratedPluginRegistrant { *; }
--keep class io.flutter.embedding.engine.FlutterJNI { *; }
--keep class io.flutter.embedding.android.FlutterActivity { *; }
--keep class io.flutter.embedding.android.FlutterFragmentActivity { *; }
+-dontwarn io.flutter.plugin.**
+-dontwarn android.**
+
+# Keep Flutter main entry points and registrant
+-keep class io.flutter.app.FlutterApplication { <init>(); }
+-keep class io.flutter.plugins.GeneratedPluginRegistrant {
+    public static void registerWith(io.flutter.embedding.engine.FlutterEngine);
+}
+
+# Allow FlutterPlugin implementations to be shrunk and obfuscated while preserving instantiation
+-if class * implements io.flutter.embedding.engine.plugins.FlutterPlugin
+-keep,allowshrinking,allowobfuscation class <1> {
+    public <init>();
+}
 
 # Keep annotated members
 -keepclassmembers class * {
     @androidx.annotation.Keep *;
 }
 
-# Keep communication channel interfaces between Flutter and native code
--keep class * implements io.flutter.plugin.common.MethodChannel$MethodCallHandler { *; }
--keep class * implements io.flutter.plugin.common.BasicMessageChannel$MessageHandler { *; }
--keep class * implements io.flutter.plugin.common.EventChannel$StreamHandler { *; }
--keep class * implements io.flutter.embedding.engine.plugins.FlutterPlugin { *; }
--keep class * implements io.flutter.embedding.engine.plugins.activity.ActivityAware { *; }
+# Preserve method call dispatching while allowing shrinking/obfuscation
+-keepclassmembers class * implements io.flutter.plugin.common.MethodChannel$MethodCallHandler {
+    public void onMethodCall(io.flutter.plugin.common.MethodCall, io.flutter.plugin.common.MethodChannel$Result);
+}
+-keepclassmembers class * implements io.flutter.plugin.common.BasicMessageChannel$MessageHandler {
+    public void onMessage(java.lang.Object, io.flutter.plugin.common.BasicMessageChannel$Reply);
+}
+-keepclassmembers class * implements io.flutter.plugin.common.EventChannel$StreamHandler {
+    public void onListen(java.lang.Object, io.flutter.plugin.common.EventChannel$EventSink);
+    public void onCancel(java.lang.Object);
+}
 
 # ------------------------------------------------------------------------------
 # 3. App-Specific Native Components
 # ------------------------------------------------------------------------------
--keep class com.faysarukattil.buddy.MainActivity { *; }
--keep class com.faysarukattil.buddy.NotificationListener { *; }
--keep class com.faysarukattil.buddy.NotificationActionReceiver { *; }
--keep class com.faysarukattil.buddy.BootReceiver { *; }
+-keep public class com.faysarukattil.buddy.MainActivity {
+    public protected <init>(...);
+    public protected <methods>;
+}
+-keep public class com.faysarukattil.buddy.NotificationListener {
+    public protected <init>(...);
+    public protected <methods>;
+}
+-keep public class com.faysarukattil.buddy.NotificationActionReceiver {
+    public protected <init>(...);
+    public protected <methods>;
+}
+-keep public class com.faysarukattil.buddy.BootReceiver {
+    public protected <init>(...);
+    public protected <methods>;
+}
 
 # ------------------------------------------------------------------------------
 # 4. Third-Party Libraries (Firebase, Google Play Services, Gson)
@@ -46,13 +71,24 @@
 -dontwarn com.google.firebase.**
 -dontwarn com.google.android.gms.**
 -dontwarn com.google.android.play.core.**
--dontwarn io.flutter.**
 
 -keepattributes *Annotation*
 -keepattributes SerializedName
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+
+# Credential Manager & Google Sign In (Preserve reflection constructors only, allow shrinking/obfuscation)
+-keepclassmembers class androidx.credentials.** {
+    public <init>(...);
+}
+-keepclassmembers class com.google.android.libraries.identity.googleid.** {
+    public <init>(...);
+}
 
 # ------------------------------------------------------------------------------
 # 5. Play Console Crash Reporting & Stack Trace Deobfuscation
@@ -64,17 +100,7 @@
 -keepattributes Exceptions
 
 # ------------------------------------------------------------------------------
-# 6. Google Sign-In & Credential Manager (required for release builds)
-# ------------------------------------------------------------------------------
--keep class com.google.android.gms.auth.** { *; }
--keep class com.google.android.gms.common.** { *; }
--keep class com.google.android.gms.auth.api.signin.** { *; }
--keep class com.google.android.gms.auth.api.credentials.** { *; }
--keep class androidx.credentials.** { *; }
--keep class io.flutter.plugins.googlesignin.** { *; }
-
-# ------------------------------------------------------------------------------
-# 7. Strip Verbose and Debug Logging in Release Builds
+# 6. Strip Verbose and Debug Logging in Release Builds
 # ------------------------------------------------------------------------------
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);

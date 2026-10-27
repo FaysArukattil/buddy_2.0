@@ -1,15 +1,17 @@
 package com.faysarukattil.buddy
 
-import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.util.Log
+import androidx.activity.enableEdgeToEdge
 
 /**
  * Simplified MainActivity — provides a MethodChannel for Flutter
@@ -19,7 +21,7 @@ import android.util.Log
  * The NotificationListenerService is managed entirely by the OS.
  * No manual service start/stop, no instance tracking, no sync handlers.
  */
-class MainActivity : FlutterActivity() {
+class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         private const val CHANNEL = "notification_channel"
@@ -27,6 +29,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private lateinit var channel: MethodChannel
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+    }
 
     override fun onResume() {
         super.onResume()
