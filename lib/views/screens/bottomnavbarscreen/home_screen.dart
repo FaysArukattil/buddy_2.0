@@ -68,9 +68,14 @@ class HomeScreenState extends State<HomeScreen>
 
     WidgetsBinding.instance.addObserver(this);
 
+    _balanceViewMode = PreferenceService.homeBalanceMode;
+    if (_balanceViewMode != 0) {
+      _userInteractedWithMode = true;
+    }
     _balancePageController = PageController(initialPage: _balanceViewMode);
     _includeDebtsInBalance = PreferenceService.includeDebtsInHome;
     PreferenceService.includeDebtsInHomeNotifier.addListener(_onDebtPreferenceChanged);
+    PreferenceService.homeBalanceModeNotifier.addListener(_onHomeModeChanged);
 
     _loadUser();
 
@@ -127,10 +132,19 @@ class HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _onHomeModeChanged() {
+    if (!mounted) return;
+    final newMode = PreferenceService.homeBalanceMode;
+    if (_balanceViewMode != newMode) {
+      _onToggleMode(newMode, isUserAction: false);
+    }
+  }
+
   @override
   void dispose() {
     _autoCycleTimer?.cancel();
     PreferenceService.includeDebtsInHomeNotifier.removeListener(_onDebtPreferenceChanged);
+    PreferenceService.homeBalanceModeNotifier.removeListener(_onHomeModeChanged);
     _txnSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
@@ -141,6 +155,7 @@ class HomeScreenState extends State<HomeScreen>
   void _onToggleMode(int mode, {bool isUserAction = true}) {
     if (isUserAction) {
       _stopAutoCycle();
+      PreferenceService.setHomeBalanceMode(mode);
     }
     final double currentPage = (_balancePageController.hasClients &&
             _balancePageController.positions.length == 1 &&

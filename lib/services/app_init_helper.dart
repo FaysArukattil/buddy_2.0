@@ -40,8 +40,11 @@ class AppInitHelper {
     debugPrint('🚀 ============ APP INITIALIZATION ============');
 
     try {
-      // 0. Initialize app preferences (including debts on home setting)
+      // 0. Initialize app preferences (including debts on home setting & cloud sync)
       await PreferenceService.init();
+      if (currentUser != null || uid != null) {
+        await PreferenceService.syncFromFirestore();
+      }
 
       // 1. Enable Firestore offline persistence
       debugPrint('📊 Enabling Firestore persistence...');
