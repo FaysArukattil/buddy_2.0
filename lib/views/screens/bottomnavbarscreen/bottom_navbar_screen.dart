@@ -27,6 +27,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
   late final PageController _pageController;
   int _currentIndex = 0;
   int _lastHapticTab = 0;
+  bool _isDraggingNavbar = false;
   double _dragStartPage = 0;
   double _dragAccumX = 0;
   Widget? _homePage;
@@ -71,8 +72,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
       label: 'Stats',
     ),
     _NavItemData(
-      icon: Icons.handshake_rounded,
-      outline: Icons.handshake_outlined,
+      icon: Icons.receipt_long_rounded,
+      outline: Icons.receipt_long_outlined,
       label: 'Debts',
     ),
     _NavItemData(
@@ -247,60 +248,80 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                           const double pillInset = 2.5;
                           final double pillWidth = itemWidth - 2 * pillInset;
 
-                          return AnimatedBuilder(
-                            animation: _pageController,
-                            builder: (context, _) {
-                              final double currentPage = _pageController.hasClients &&
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onHorizontalDragStart: (details) {
+                              _isDraggingNavbar = true;
+                              _dragAccumX = 0;
+                              final curP = _pageController.hasClients &&
                                       _pageController.position.haveDimensions
                                   ? (_pageController.page ?? _currentIndex.toDouble())
                                   : _currentIndex.toDouble();
-
-                              final int selectedIndex = currentPage.round().clamp(0, 3);
-                              if (selectedIndex != _lastHapticTab) {
-                                _lastHapticTab = selectedIndex;
-                                HapticFeedback.selectionClick();
+                              _dragStartPage = curP;
+                              _lastHapticTab = curP.round().clamp(0, 3);
+                              HapticFeedback.lightImpact();
+                            },
+                            onHorizontalDragUpdate: (details) {
+                              _dragAccumX += details.delta.dx;
+                              final deltaPages = _dragAccumX / itemWidth;
+                              final double newPage =
+                                  (_dragStartPage + deltaPages).clamp(0.0, 3.0);
+                              if (_pageController.hasClients &&
+                                  _pageController.position.haveDimensions) {
+                                final w = _pageController
+                                    .position.viewportDimension;
+                                _pageController.position.jumpTo(newPage * w);
                               }
+                              final int currentStop = newPage.round().clamp(0, 3);
+                              if (currentStop != _lastHapticTab) {
+                                _lastHapticTab = currentStop;
+                                HapticFeedback.lightImpact();
+                              }
+                            },
+                            onHorizontalDragEnd: (details) {
+                              _isDraggingNavbar = false;
+                              final curP = _pageController.hasClients &&
+                                      _pageController.position.haveDimensions
+                                  ? (_pageController.page ?? _currentIndex.toDouble())
+                                  : _currentIndex.toDouble();
+                              final v = details.primaryVelocity ?? 0;
+                              int target = curP.round().clamp(0, 3);
+                              if (v > 200) {
+                                target = (curP.floor() + 1).clamp(0, 3);
+                              } else if (v < -200) {
+                                target = (curP.ceil() - 1).clamp(0, 3);
+                              }
+                              _goTo(target);
+                            },
+                            onHorizontalDragCancel: () {
+                              _isDraggingNavbar = false;
+                              final curP = _pageController.hasClients &&
+                                      _pageController.position.haveDimensions
+                                  ? (_pageController.page ?? _currentIndex.toDouble())
+                                  : _currentIndex.toDouble();
+                              _goTo(curP.round().clamp(0, 3));
+                            },
+                            child: AnimatedBuilder(
+                              animation: _pageController,
+                              builder: (context, _) {
+                                final double currentPage = _pageController.hasClients &&
+                                        _pageController.position.haveDimensions
+                                    ? (_pageController.page ?? _currentIndex.toDouble())
+                                    : _currentIndex.toDouble();
 
-                              // Organic liquid stretch as slider glides between tabs
-                              final double stretch = (1.0 - 2.0 * (currentPage - currentPage.floor() - 0.5).abs()).clamp(0.0, 1.0) * (5.0 * s);
-                              final double activePillWidth = pillWidth + stretch;
-                              final double activeLeftOffset = (currentPage * itemWidth + pillInset - stretch / 2.0)
-                                  .clamp(pillInset, totalWidth - activePillWidth - pillInset);
-
-                              return GestureDetector(
-                                behavior: HitTestBehavior.translucent,
-                                onPanStart: (details) {
-                                  _dragAccumX = 0;
-                                  _dragStartPage = currentPage;
-                                  _lastHapticTab = currentPage.round().clamp(0, 3);
+                                final int selectedIndex = currentPage.round().clamp(0, 3);
+                                if (!_isDraggingNavbar && selectedIndex != _lastHapticTab) {
+                                  _lastHapticTab = selectedIndex;
                                   HapticFeedback.lightImpact();
-                                },
-                                onPanUpdate: (details) {
-                                  _dragAccumX += details.delta.dx;
-                                  final deltaPages = _dragAccumX / itemWidth;
-                                  final double newPage =
-                                      (_dragStartPage + deltaPages).clamp(
-                                    0.0,
-                                    (itemCount - 1).toDouble(),
-                                  );
-                                  if (_pageController.hasClients &&
-                                      _pageController.position.haveDimensions) {
-                                    final w = _pageController
-                                        .position.viewportDimension;
-                                    _pageController.position.jumpTo(newPage * w);
-                                  }
-                                  final int nearest = newPage.round().clamp(0, 3);
-                                  if (nearest != _lastHapticTab) {
-                                    _lastHapticTab = nearest;
-                                    HapticFeedback.selectionClick();
-                                  }
-                                },
-                                onPanEnd: (details) {
-                                  final target =
-                                      (_pageController.page ?? currentPage).round().clamp(0, 3);
-                                  _goTo(target);
-                                },
-                                child: SizedBox(
+                                }
+
+                                // Organic liquid stretch as slider glides between tabs
+                                final double stretch = (1.0 - 2.0 * (currentPage - currentPage.floor() - 0.5).abs()).clamp(0.0, 1.0) * (5.0 * s);
+                                final double activePillWidth = pillWidth + stretch;
+                                final double activeLeftOffset = (currentPage * itemWidth + pillInset - stretch / 2.0)
+                                    .clamp(pillInset, totalWidth - activePillWidth - pillInset);
+
+                                return SizedBox(
                                   height: navBarH,
                                   child: Stack(
                                     children: [
@@ -353,9 +374,8 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                       Row(
                                         children: List.generate(itemCount, (i) {
                                           final double dist = (currentPage - i).abs();
-                                          final double rawFactor = (1.0 - (dist / 0.75)).clamp(0.0, 1.0);
+                                          final double rawFactor = (1.0 - (dist / 0.70)).clamp(0.0, 1.0);
                                           final double growFactor = Curves.easeInOutCubic.transform(rawFactor);
-                                          final bool isSelected = selectedIndex == i;
 
                                           return Expanded(
                                             child: GestureDetector(
@@ -368,16 +388,30 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                                   children: [
                                                     Transform.scale(
                                                       scale: 1.0 + (growFactor * 0.10),
-                                                      child: Icon(
-                                                        isSelected
-                                                            ? _navItems[i].icon
-                                                            : _navItems[i].outline,
-                                                        size: iconSize,
-                                                        color: Color.lerp(
-                                                          Colors.white.withValues(alpha: isDark ? 0.55 : 0.70),
-                                                          Colors.white,
-                                                          growFactor,
-                                                        ),
+                                                      child: Stack(
+                                                        alignment: Alignment.center,
+                                                        children: [
+                                                          // When unselected: ONLY outline shows
+                                                          Opacity(
+                                                            opacity: (1.0 - growFactor).clamp(0.0, 1.0),
+                                                            child: Icon(
+                                                              _navItems[i].outline,
+                                                              size: iconSize,
+                                                              color: Colors.white.withValues(
+                                                                alpha: isDark ? 0.55 : 0.70,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          // When selected / actively selecting: Full filled icon shows
+                                                          Opacity(
+                                                            opacity: growFactor.clamp(0.0, 1.0),
+                                                            child: Icon(
+                                                              _navItems[i].icon,
+                                                              size: iconSize,
+                                                              color: Colors.white,
+                                                            ),
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
                                                     ClipRect(
@@ -412,9 +446,9 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
                                       ),
                                     ],
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           );
                         },
                       ),
