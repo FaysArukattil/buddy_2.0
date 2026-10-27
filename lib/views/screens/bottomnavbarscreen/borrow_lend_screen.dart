@@ -4071,10 +4071,24 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
     }
   }
 
+  String _getPersonInitials(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length > 1 && parts[1].isNotEmpty) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return trimmed[0].toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLend = _typeIndex == 0;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    const accentGreen = Color(0xFF69F0AE);
+    const accentCoral = Color(0xFFFF8A80);
+    final themeAccent = isLend ? accentGreen : accentCoral;
+    final primaryBtnColor = isLend ? const Color(0xFF10B981) : const Color(0xFFE65100);
 
     return Container(
       clipBehavior: Clip.antiAlias,
@@ -4089,242 +4103,390 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
           ),
         ],
       ),
-      child: Column(
-        children: [
-          // ── Signature Curved Gradient Header Banner ──
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: isDark
-                    ? const [
-                        Color(0xFF0F2624),
-                        Color(0xFF163E3B),
-                        Color(0xFF1E5D57),
-                      ]
-                    : const [
-                        Color(0xFF0F3632),
-                        Color(0xFF1E5D57),
-                        Color(0xFF2C7A72),
-                      ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            ),
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-            child: Column(
-              children: [
-                // Frosted Drag Handle
-                Center(
-                  child: Container(
-                    width: 42,
-                    height: 4.5,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Title, Subtitle & Frosted Close Button
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isEditing ? 'Edit Due Record' : 'Record Loan or Due',
-                            style: const TextStyle(
-                              fontSize: 19,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            isEditing
-                                ? 'Update transaction amounts, contacts & due dates'
-                                : 'Track money given or taken with friends',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.76),
-                            ),
-                          ),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          children: [
+            // ─── 1. Signature Page-Style Top Hero Container (Top Bar + Type Slider + Hero Amount Card) ───
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? const [
+                          Color(0xFF0F2624),
+                          Color(0xFF163E3B),
+                          Color(0xFF1E5D57),
+                        ]
+                      : const [
+                          Color(0xFF0F3632),
+                          Color(0xFF1E5D57),
+                          Color(0xFF2C7A72),
                         ],
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.22),
-                          ),
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                const SizedBox(height: 14),
-
-                // Integrated Frosted Slider (I Lent vs I Borrowed) matching Top Bar
-                Container(
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.28),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDark ? const Color(0xFF0F2624) : const Color(0xFF0F3632))
+                        .withValues(alpha: 0.32),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                children: [
+                  // Frosted Drag Handle
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
                     ),
                   ),
-                  padding: const EdgeInsets.all(3.0),
-                  child: Row(
+                  const SizedBox(height: 12),
+
+                  // Header Bar: Title, Subtitle & Frosted Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _typeIndex = 0);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            decoration: BoxDecoration(
-                              gradient: isLend
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFF10B981),
-                                        Color(0xFF059669),
-                                      ],
-                                    )
-                                  : null,
-                              borderRadius: BorderRadius.circular(13),
-                              boxShadow: isLend
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFF10B981)
-                                            .withValues(alpha: 0.35),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.north_east_rounded,
-                                    size: 15,
-                                    color: isLend
-                                        ? Colors.white
-                                        : Colors.white.withValues(alpha: 0.65),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'I Lent (To Receive)',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: isLend
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                      color: isLend
-                                          ? Colors.white
-                                          : Colors.white.withValues(alpha: 0.65),
-                                    ),
-                                  ),
-                                ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isEditing ? 'Edit Due Record' : 'Record Loan or Due',
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.4,
                               ),
                             ),
-                          ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isEditing
+                                  ? 'Update record details, amounts & repayment timeline'
+                                  : (isLend
+                                      ? 'Track money you gave to receive back'
+                                      : 'Track money you borrowed to repay'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.78),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () {
-                            HapticFeedback.selectionClick();
-                            setState(() => _typeIndex = 1);
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutCubic,
-                            decoration: BoxDecoration(
-                              gradient: !isLend
-                                  ? const LinearGradient(
-                                      colors: [
-                                        Color(0xFFEF4444),
-                                        Color(0xFFDC2626),
-                                      ],
-                                    )
-                                  : null,
-                              borderRadius: BorderRadius.circular(13),
-                              boxShadow: !isLend
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFFEF4444)
-                                            .withValues(alpha: 0.35),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
                             ),
-                            child: Center(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.south_west_rounded,
-                                    size: 15,
-                                    color: !isLend
-                                        ? Colors.white
-                                        : Colors.white.withValues(alpha: 0.65),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'I Borrowed (To Pay)',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: !isLend
-                                          ? FontWeight.w800
-                                          : FontWeight.w600,
-                                      color: !isLend
-                                          ? Colors.white
-                                          : Colors.white.withValues(alpha: 0.65),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 16,
                           ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
+                  const SizedBox(height: 14),
 
-          Expanded(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
+                  // Integrated Frosted Slider (I Lent vs I Borrowed)
+                  Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.26),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        width: 1.0,
+                      ),
+                    ),
+                    padding: const EdgeInsets.all(3.5),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _typeIndex = 0);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              decoration: BoxDecoration(
+                                gradient: isLend
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFF10B981),
+                                          Color(0xFF059669),
+                                        ],
+                                      )
+                                    : null,
+                                borderRadius: BorderRadius.circular(13),
+                                boxShadow: isLend
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF10B981)
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.arrow_outward_rounded,
+                                      size: 15,
+                                      color: isLend
+                                          ? const Color(0xFF69F0AE)
+                                          : Colors.white.withValues(alpha: 0.65),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'I Lent (Receive)',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: isLend
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: isLend
+                                            ? Colors.white
+                                            : Colors.white.withValues(alpha: 0.70),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () {
+                              HapticFeedback.selectionClick();
+                              setState(() => _typeIndex = 1);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutCubic,
+                              decoration: BoxDecoration(
+                                gradient: !isLend
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFFFF7043),
+                                          Color(0xFFE64A19),
+                                        ],
+                                      )
+                                    : null,
+                                borderRadius: BorderRadius.circular(13),
+                                boxShadow: !isLend
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFFE64A19)
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.arrow_downward_rounded,
+                                      size: 15,
+                                      color: !isLend
+                                          ? const Color(0xFFFF8A80)
+                                          : Colors.white.withValues(alpha: 0.65),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'I Borrowed (Pay)',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: !isLend
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: !isLend
+                                            ? Colors.white
+                                            : Colors.white.withValues(alpha: 0.70),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Hero Frosted Amount Card
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              isLend ? 'AMOUNT TO LEND' : 'AMOUNT TO BORROW',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: Colors.white.withValues(alpha: 0.75),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: themeAccent.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isLend ? 'Receivable' : 'Payable',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: themeAccent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              '₹',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.w900,
+                                color: themeAccent,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _amountController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                  letterSpacing: -0.5,
+                                ),
+                                cursorColor: themeAccent,
+                                decoration: InputDecoration(
+                                  hintText: '0.00',
+                                  hintStyle: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.32),
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                                onChanged: (_) => setState(() {}),
+                                validator: (val) {
+                                  if (val == null || val.trim().isEmpty) {
+                                    return 'Please enter an amount';
+                                  }
+                                  if (double.tryParse(val.trim()) == null) {
+                                    return 'Enter a valid amount';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            if (_amountController.text.isNotEmpty)
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _amountController.clear());
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.18),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isLend
+                              ? 'This amount will be logged under Money Lent to be returned to you.'
+                              : 'This amount will be logged under Money Borrowed to be repaid.',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.65),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ─── 2. Lower Form Section (Contact, Due Date, Urgency, Notes, Actions) ───
+            Padding(
               padding: EdgeInsets.fromLTRB(
                 20,
                 16,
@@ -4336,80 +4498,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Amount Field
-                    Text(
-                      'Amount',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: AppColors.borderOf(context),
-                        ),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            '₹',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: isLend
-                                  ? AppColors.primary
-                                  : const Color(0xFFE65100),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _amountController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimaryOf(context),
-                              ),
-                              decoration: InputDecoration(
-                                hintText: '0.00',
-                                hintStyle: TextStyle(
-                                  color: AppColors.textLightOf(context),
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                border: InputBorder.none,
-                              ),
-                              onChanged: (_) => setState(() {}),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Enter amount';
-                                }
-                                if (double.tryParse(val.trim()) == null) {
-                                  return 'Enter valid number';
-                                }
-                                return null;
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Person Name Field
+                    // Person / Contact Header
                     Text(
                       isLend ? 'Who did you lend to?' : 'Who did you borrow from?',
                       style: TextStyle(
@@ -4419,26 +4508,42 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
+
+                    // Contact Input Card
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.borderOf(context),
+                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 2,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.person_rounded,
-                            size: 20,
-                            color: AppColors.textSecondaryOf(context),
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isLend
+                                    ? const [Color(0xFF69F0AE), Color(0xFF10B981)]
+                                    : const [Color(0xFFFFAB91), Color(0xFFFF5722)],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                _getPersonInitials(_personController.text),
+                                style: TextStyle(
+                                  color: isLend ? const Color(0xFF0F3632) : Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: TextFormField(
                               controller: _personController,
@@ -4449,16 +4554,17 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                                 color: AppColors.textPrimaryOf(context),
                               ),
                               decoration: InputDecoration(
-                                hintText: 'Friend or Contact Name',
+                                hintText: isLend ? 'e.g. Alex, Rahul, Roommate' : 'e.g. Bank, Mom, Friend',
                                 hintStyle: TextStyle(
                                   color: AppColors.textLightOf(context),
                                   fontSize: 14,
                                 ),
                                 border: InputBorder.none,
                               ),
+                              onChanged: (_) => setState(() {}),
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
-                                  return 'Name is required';
+                                  return 'Contact name is required';
                                 }
                                 return null;
                               },
@@ -4468,41 +4574,74 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                       ),
                     ),
 
-                    // Recent contacts chips
+                    // Recent Contacts Chips
                     if (widget.recentContacts.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       SizedBox(
-                        height: 32,
+                        height: 34,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: widget.recentContacts.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 6),
+                          separatorBuilder: (_, __) => const SizedBox(width: 6),
                           itemBuilder: (context, idx) {
                             final name = widget.recentContacts[idx];
+                            final isSelected = _personController.text.trim() == name;
                             return GestureDetector(
                               onTap: () {
                                 HapticFeedback.selectionClick();
-                                setState(() {
-                                  _personController.text = name;
-                                });
+                                setState(() => _personController.text = name);
                               },
-                              child: Chip(
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                padding: EdgeInsets.zero,
-                                labelPadding:
-                                    const EdgeInsets.symmetric(horizontal: 8),
-                                backgroundColor:
-                                    AppColors.surfaceOf(context),
-                                label: Text(
-                                  name,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color:
-                                        AppColors.textSecondaryOf(context),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? (isLend
+                                          ? AppColors.income.withValues(alpha: 0.15)
+                                          : const Color(0xFFE65100).withValues(alpha: 0.15))
+                                      : AppColors.surfaceOf(context),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? (isLend ? AppColors.income : const Color(0xFFE65100))
+                                        : AppColors.borderOf(context).withValues(alpha: 0.6),
+                                    width: isSelected ? 1.5 : 1.0,
                                   ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(
+                                      width: 18,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        color: isLend
+                                            ? AppColors.income.withValues(alpha: 0.2)
+                                            : const Color(0xFFE65100).withValues(alpha: 0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _getPersonInitials(name),
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            color: isLend ? AppColors.income : const Color(0xFFE65100),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      name,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                        color: isSelected
+                                            ? (isLend ? AppColors.income : const Color(0xFFE65100))
+                                            : AppColors.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );
@@ -4513,7 +4652,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
 
                     const SizedBox(height: 18),
 
-                    // Expected Repayment Date
+                    // Expected Repayment Date Header
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -4528,29 +4667,28 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                         GestureDetector(
                           onTap: () => _pickDate(true),
                           child: Text(
-                            'Pick Date',
+                            'Change Date',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,
-                              color: AppColors.primary,
+                              color: isLend ? AppColors.income : const Color(0xFFE65100),
                             ),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
+
+                    // Date Card
                     GestureDetector(
                       onTap: () => _pickDate(true),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.borderOf(context),
+                            color: AppColors.borderOf(context).withValues(alpha: 0.7),
                           ),
                         ),
                         child: Row(
@@ -4558,20 +4696,40 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                           children: [
                             Row(
                               children: [
-                                const Icon(
-                                  Icons.event_available_rounded,
-                                  size: 18,
-                                  color: AppColors.primary,
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: (isLend ? AppColors.income : const Color(0xFFE65100))
+                                        .withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.event_available_rounded,
+                                    size: 18,
+                                    color: isLend ? AppColors.income : const Color(0xFFE65100),
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
-                                Text(
-                                  DateFormat('EEEE, dd MMMM yyyy')
-                                      .format(_dueDate),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimaryOf(context),
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      DateFormat('EEEE, dd MMMM yyyy').format(_dueDate),
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Due in ${_dueDate.difference(DateTime.now()).inDays.abs() + 1} days',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondaryOf(context),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
@@ -4589,18 +4747,19 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                     // Quick Due Date Shortcuts
                     Row(
                       children: [
-                        _buildQuickDateChip('+3 Days', 3),
+                        _buildQuickDateChip('+3 Days', 3, isLend),
                         const SizedBox(width: 6),
-                        _buildQuickDateChip('+1 Week', 7),
+                        _buildQuickDateChip('+1 Week', 7, isLend),
                         const SizedBox(width: 6),
-                        _buildQuickDateChip('+2 Weeks', 14),
+                        _buildQuickDateChip('+2 Weeks', 14, isLend),
                         const SizedBox(width: 6),
-                        _buildQuickDateChip('+1 Month', 30),
+                        _buildQuickDateChip('+1 Month', 30, isLend),
                       ],
                     ),
+
                     const SizedBox(height: 18),
 
-                    // Urgency Selector
+                    // Repayment Urgency Header
                     Text(
                       'Repayment Urgency',
                       style: TextStyle(
@@ -4618,38 +4777,41 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                       ),
                     ),
                     const SizedBox(height: 8),
+
+                    // Urgency Options
                     Row(
                       children: [
                         _buildUrgencyOption(
                           value: 'low',
                           label: 'Lenient',
-                          subtitle: 'No rush / flexible',
-                          color: const Color(0xFF2E7D32),
+                          subtitle: 'Flexible',
+                          color: const Color(0xFF10B981),
                           icon: Icons.spa_rounded,
                         ),
                         const SizedBox(width: 8),
                         _buildUrgencyOption(
                           value: 'medium',
                           label: 'Normal',
-                          subtitle: 'Due on date',
-                          color: const Color(0xFFF57C00),
+                          subtitle: 'Due date',
+                          color: const Color(0xFFF59E0B),
                           icon: Icons.schedule_rounded,
                         ),
                         const SizedBox(width: 8),
                         _buildUrgencyOption(
                           value: 'high',
                           label: 'Strict',
-                          subtitle: 'Urgent priority',
-                          color: const Color(0xFFE53935),
-                          icon: Icons.priority_high_rounded,
+                          subtitle: 'Urgent',
+                          color: const Color(0xFFEF4444),
+                          icon: Icons.bolt_rounded,
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 18),
 
-                    // Date Lent / Borrowed
+                    // Date Lent / Borrowed (Initiation Date)
                     Text(
-                      isLend ? 'Date Lent' : 'Date Borrowed',
+                      isLend ? 'Date Lent (Initiated)' : 'Date Borrowed (Initiated)',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
@@ -4660,15 +4822,12 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                     GestureDetector(
                       onTap: () => _pickDate(false),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: AppColors.borderOf(context),
+                            color: AppColors.borderOf(context).withValues(alpha: 0.7),
                           ),
                         ),
                         child: Row(
@@ -4676,34 +4835,55 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                           children: [
                             Row(
                               children: [
-                                Icon(
-                                  Icons.schedule_rounded,
-                                  size: 18,
-                                  color: AppColors.textSecondaryOf(context),
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceOf(context),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 16,
+                                    color: AppColors.textSecondaryOf(context),
+                                  ),
                                 ),
                                 const SizedBox(width: 10),
-                                Text(
-                                  DateFormat('dd MMMM yyyy').format(_loanDate),
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.textPrimaryOf(context),
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      DateFormat('dd MMMM yyyy').format(_loanDate),
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.textPrimaryOf(context),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      DateFormat('EEEE').format(_loanDate),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondaryOf(context),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                             Icon(
-                              Icons.calendar_today_outlined,
-                              size: 16,
+                              Icons.edit_calendar_outlined,
+                              size: 18,
                               color: AppColors.textSecondaryOf(context),
                             ),
                           ],
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 18),
 
-                    // Note Field
+                    // Note / Reason Field
                     Text(
                       'Note / Reason (optional)',
                       style: TextStyle(
@@ -4716,47 +4896,71 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.borderOf(context),
+                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 4,
-                      ),
-                      child: TextFormField(
-                        controller: _noteController,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppColors.textPrimaryOf(context),
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'e.g. Dinner bill, Emergency cash',
-                          hintStyle: TextStyle(
-                            fontSize: 13,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.format_quote_rounded,
+                            size: 18,
                             color: AppColors.textLightOf(context),
                           ),
-                          border: InputBorder.none,
-                        ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _noteController,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.textPrimaryOf(context),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: 'e.g. Dinner bill, Emergency cash, Rent share',
+                                hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textLightOf(context),
+                                ),
+                                border: InputBorder.none,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+
                     const SizedBox(height: 16),
 
                     // Remind on due date toggle
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.borderOf(context),
+                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
                         ),
                       ),
                       child: SwitchListTile(
                         value: _remindOnDueDate,
-                        onChanged: (val) =>
-                            setState(() => _remindOnDueDate = val),
-                        activeTrackColor: AppColors.primary,
+                        onChanged: (val) => setState(() => _remindOnDueDate = val),
+                        activeTrackColor: isLend ? AppColors.income : const Color(0xFFE65100),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                        secondary: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: (isLend ? AppColors.income : const Color(0xFFE65100))
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.notifications_active_rounded,
+                            size: 18,
+                            color: isLend ? AppColors.income : const Color(0xFFE65100),
+                          ),
+                        ),
                         title: Text(
                           'Remind me on repayment day',
                           style: TextStyle(
@@ -4766,7 +4970,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                           ),
                         ),
                         subtitle: Text(
-                          'Receive a notification reminder on ${DateFormat('dd MMM').format(_dueDate)}',
+                          'Push notification reminder on ${DateFormat('dd MMM yyyy').format(_dueDate)}',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textSecondaryOf(context),
@@ -4774,6 +4978,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                         ),
                       ),
                     ),
+
                     const SizedBox(height: 16),
 
                     // Auto-transaction info banner
@@ -4781,13 +4986,13 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: isLend
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : const Color(0xFFE65100).withValues(alpha: 0.1),
+                            ? AppColors.income.withValues(alpha: 0.10)
+                            : const Color(0xFFE65100).withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isLend
-                              ? AppColors.primary.withValues(alpha: 0.3)
-                              : const Color(0xFFE65100).withValues(alpha: 0.3),
+                              ? AppColors.income.withValues(alpha: 0.28)
+                              : const Color(0xFFE65100).withValues(alpha: 0.28),
                         ),
                       ),
                       child: Row(
@@ -4796,9 +5001,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                           Icon(
                             Icons.sync_rounded,
                             size: 18,
-                            color: isLend
-                                ? AppColors.primary
-                                : const Color(0xFFE65100),
+                            color: isLend ? AppColors.income : const Color(0xFFE65100),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -4809,66 +5012,79 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: isLend
-                                    ? AppColors.primary
-                                    : const Color(0xFFE65100),
-                                height: 1.3,
+                                color: isLend ? AppColors.income : const Color(0xFFE65100),
+                                height: 1.35,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 24),
 
-                    // Save Button
+                    const SizedBox(height: 22),
+
+                    // Primary Save Button
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: ElevatedButton(
+                      child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isLend
-                              ? AppColors.primary
-                              : const Color(0xFFE65100),
-                          foregroundColor: Colors.white,
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isSaving
+                        icon: _isSaving
+                            ? const SizedBox.shrink()
+                            : const Icon(Icons.check_circle_rounded, size: 20),
+                        label: _isSaving
                             ? const BuddyLoadingIndicator(size: 24)
                             : Text(
-                                isEditing ? 'Update Record' : 'Save Record',
+                                isEditing
+                                    ? 'Update Record'
+                                    : (isLend ? 'Save Lent Record' : 'Save Borrow Record'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w800,
                                   fontSize: 15,
                                 ),
                               ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryBtnColor,
+                          foregroundColor: Colors.white,
+                          elevation: 2,
+                          shadowColor: primaryBtnColor.withValues(alpha: 0.4),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildQuickDateChip(String label, int days) {
+  Widget _buildQuickDateChip(String label, int days, bool isLend) {
+    final targetDate = DateTime.now().add(Duration(days: days));
+    final isSelected = _dueDate.year == targetDate.year &&
+        _dueDate.month == targetDate.month &&
+        _dueDate.day == targetDate.day;
+    final activeColor = isLend ? AppColors.income : const Color(0xFFE65100);
+
     return Expanded(
       child: GestureDetector(
         onTap: () => _setQuickDueDate(days),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 7),
           decoration: BoxDecoration(
-            color: AppColors.surfaceOf(context),
-            borderRadius: BorderRadius.circular(8),
+            color: isSelected
+                ? activeColor.withValues(alpha: 0.14)
+                : AppColors.surfaceOf(context),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: AppColors.borderOf(context),
+              color: isSelected ? activeColor : AppColors.borderOf(context).withValues(alpha: 0.6),
+              width: isSelected ? 1.5 : 1,
             ),
           ),
           child: Center(
@@ -4876,8 +5092,8 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondaryOf(context),
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected ? activeColor : AppColors.textSecondaryOf(context),
               ),
             ),
           ),
@@ -4905,11 +5121,11 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
-                ? color.withValues(alpha: 0.12)
+                ? color.withValues(alpha: 0.14)
                 : AppColors.surfaceOf(context),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isSelected ? color : AppColors.borderOf(context),
+              color: isSelected ? color : AppColors.borderOf(context).withValues(alpha: 0.6),
               width: isSelected ? 1.8 : 1,
             ),
           ),
@@ -4920,7 +5136,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                 children: [
                   Icon(
                     icon,
-                    size: 14,
+                    size: 15,
                     color: isSelected
                         ? color
                         : AppColors.textSecondaryOf(context),
@@ -4929,7 +5145,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                   Text(
                     label,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                       color: isSelected
                           ? color
@@ -4942,7 +5158,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
               Text(
                 subtitle,
                 style: TextStyle(
-                  fontSize: 9.5,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: isSelected ? color : AppColors.textLightOf(context),
                 ),
