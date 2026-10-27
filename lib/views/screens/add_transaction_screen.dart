@@ -111,24 +111,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   }
 
   void _setSliderIndex(int index) {
+    HapticFeedback.lightImpact();
     if (_typeIndex != index) {
-      HapticFeedback.selectionClick();
       setState(() {
         _typeIndex = index;
         _setDefaultCategory();
       });
-      _sliderAnimController.animateTo(
-        index.toDouble(),
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
-    } else {
-      _sliderAnimController.animateTo(
-        index.toDouble(),
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOutCubic,
-      );
     }
+    _sliderAnimController.animateTo(
+      index.toDouble(),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    ).then((_) {
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+      }
+    });
   }
 
   void _setDefaultCategory() {
@@ -336,6 +334,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         bottom: false,
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
+          onHorizontalDragStart: (_) {
+            HapticFeedback.lightImpact();
+          },
           onHorizontalDragUpdate: (details) {
             final screenWidth = MediaQuery.sizeOf(context).width;
             final delta = details.delta.dx / (screenWidth / 2);
@@ -347,7 +348,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 _typeIndex = nearest;
                 _setDefaultCategory();
               });
-              HapticFeedback.selectionClick();
+              HapticFeedback.lightImpact();
             }
           },
           onHorizontalDragEnd: (details) {
@@ -519,6 +520,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
               return GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: (_) {
+                  HapticFeedback.lightImpact();
+                },
                 onHorizontalDragUpdate: (details) {
                   final double delta = details.delta.dx / pillWidth;
                   _sliderAnimController.value =
@@ -529,7 +533,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       _typeIndex = nearest;
                       _setDefaultCategory();
                     });
-                    HapticFeedback.selectionClick();
+                    HapticFeedback.lightImpact();
                   }
                 },
                 onHorizontalDragEnd: (details) {

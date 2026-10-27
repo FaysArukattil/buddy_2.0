@@ -1,5 +1,6 @@
-// lib/views/widgets/settings_modal.dart
+// lib/views/widgets/setting_modal.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:buddy/services/notification_service.dart';
 import 'package:buddy/services/notification_helper.dart';
@@ -32,6 +33,7 @@ class _SettingsModalState extends State<SettingsModal> {
   String _accountActionMessage = 'Please wait...';
   String _appVersion = 'v1.0.0';
   final AuthService _authService = AuthService();
+  final Set<String> _expandedSections = {};
 
   @override
   void initState() {
@@ -94,7 +96,10 @@ class _SettingsModalState extends State<SettingsModal> {
           NotificationService.awaitingPermissionReturn = true;
           await NotificationService.requestNotificationAccess();
 
-          if (!mounted) { _isToggling = false; return; }
+          if (!mounted) {
+            _isToggling = false;
+            return;
+          }
 
           // Show a single informative snackbar
           AppSnackbar.showWarning(
@@ -103,8 +108,6 @@ class _SettingsModalState extends State<SettingsModal> {
             duration: const Duration(seconds: 4),
           );
 
-          // Don't call requestNotificationAccess() again — that opens settings AGAIN
-          // and causes the repeated snackbar loop on Nothing/Vivo devices
           setState(() => _isLoading = false);
           _isToggling = false;
           return;
@@ -113,7 +116,10 @@ class _SettingsModalState extends State<SettingsModal> {
         // Access is granted — enable auto-detection
         await NotificationService.setAutoDetectionEnabled(true);
 
-        if (!mounted) { _isToggling = false; return; }
+        if (!mounted) {
+          _isToggling = false;
+          return;
+        }
 
         setState(() {
           _autoDetectionEnabled = true;
@@ -124,7 +130,10 @@ class _SettingsModalState extends State<SettingsModal> {
       } else {
         await NotificationService.setAutoDetectionEnabled(false);
 
-        if (!mounted) { _isToggling = false; return; }
+        if (!mounted) {
+          _isToggling = false;
+          return;
+        }
 
         setState(() {
           _autoDetectionEnabled = false;
@@ -599,7 +608,7 @@ class _SettingsModalState extends State<SettingsModal> {
                     'For security, please re-enter your password to confirm account deletion.',
                     style: TextStyle(
                       color: AppColors.textSecondaryOf(context),
-                      fontSize: 13,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -607,10 +616,12 @@ class _SettingsModalState extends State<SettingsModal> {
                     controller: controller,
                     obscureText: obscure,
                     autofocus: true,
-                    style: TextStyle(color: AppColors.textPrimaryOf(context)),
+                    style: TextStyle(
+                      color: AppColors.textPrimaryOf(context),
+                      fontSize: 16,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Password',
-                      hintStyle: TextStyle(color: AppColors.textLightOf(context)),
                       filled: true,
                       fillColor: AppColors.surfaceOf(context),
                       border: OutlineInputBorder(
@@ -652,500 +663,517 @@ class _SettingsModalState extends State<SettingsModal> {
     return result;
   }
 
+  // ── BUILD UI ──
+
   @override
   Widget build(BuildContext context) {
     final cardBg = AppColors.cardOf(context);
     final textPrimary = AppColors.textPrimaryOf(context);
     final textSecondary = AppColors.textSecondaryOf(context);
-    final borderColor = AppColors.borderOf(context);
+    final borderColor = AppColors.borderOf(context).withValues(alpha: 0.6);
     final isDark = AppColors.isDark(context);
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.90;
 
     return Container(
+      constraints: BoxConstraints(maxHeight: maxHeight),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        color: AppColors.backgroundOf(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       child: Stack(
         children: [
           SafeArea(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Handle
-                Center(
-                  child: Container(
-                    width: 44,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white24 : Colors.grey[300],
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Title
-                Row(
+                padding: const EdgeInsets.fromLTRB(20.0, 14.0, 20.0, 28.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: textPrimary,
+                    // Frosted Drag Handle
+                    Center(
+                      child: Container(
+                        width: 42,
+                        height: 4.5,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.white24 : Colors.grey[300],
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, color: textSecondary),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
+                    const SizedBox(height: 16),
 
-                // ── Appearance Section ──
-                Text(
-                  'Appearance',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ValueListenableBuilder<ThemeMode>(
-                  valueListenable: ThemeService.themeModeNotifier,
-                  builder: (context, currentMode, _) {
-                    return Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF161C23)
-                            : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: borderColor),
+                    // Top Header Bar
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(9),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            Icons.tune_rounded,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Settings & Preferences',
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                  color: textPrimary,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 1),
+                              Text(
+                                'Manage appearance, data, and tracking',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: cardBg,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: borderColor),
+                            ),
+                          ),
+                          icon: Icon(Icons.close_rounded,
+                              color: textSecondary, size: 20),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // ── 1. APPEARANCE & THEME TILE ──
+                    _buildExpandableTile(
+                      id: 'appearance',
+                      icon: Icons.palette_outlined,
+                      title: 'Appearance & Theme',
+                      badge: ValueListenableBuilder<ThemeMode>(
+                        valueListenable: ThemeService.themeModeNotifier,
+                        builder: (context, currentMode, _) {
+                          final label = currentMode == ThemeMode.system
+                              ? 'System'
+                              : currentMode == ThemeMode.light
+                                  ? 'Light'
+                                  : 'Dark';
+                          return _buildBadge(label);
+                        },
                       ),
-                      child: Row(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: ValueListenableBuilder<ThemeMode>(
+                            valueListenable: ThemeService.themeModeNotifier,
+                            builder: (context, currentMode, _) {
+                              return Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                      ? const Color(0xFF161C23)
+                                      : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: borderColor),
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildThemeOption(
+                                      title: 'System',
+                                      icon: Icons.brightness_auto_rounded,
+                                      isSelected: currentMode == ThemeMode.system,
+                                      onTap: () => ThemeService.setThemeMode(
+                                          ThemeMode.system),
+                                    ),
+                                    _buildThemeOption(
+                                      title: 'Light',
+                                      icon: Icons.light_mode_rounded,
+                                      isSelected: currentMode == ThemeMode.light,
+                                      onTap: () => ThemeService.setThemeMode(
+                                          ThemeMode.light),
+                                    ),
+                                    _buildThemeOption(
+                                      title: 'Dark',
+                                      icon: Icons.dark_mode_rounded,
+                                      isSelected: currentMode == ThemeMode.dark,
+                                      onTap: () => ThemeService.setThemeMode(
+                                          ThemeMode.dark),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildSwitchRow(
+                          icon: Icons.account_balance_wallet_outlined,
+                          title: 'Reflect Debts in Home',
+                          subtitle: _includeDebtsInBalance
+                              ? 'Included in net balance'
+                              : 'Excluded from net balance',
+                          value: _includeDebtsInBalance,
+                          onChanged: _toggleIncludeDebts,
+                        ),
+                      ],
+                    ),
+
+                    // ── 2. SMART AUTO-DETECTION TILE ──
+                    _buildExpandableTile(
+                      id: 'auto_detection',
+                      icon: Icons.notifications_active_outlined,
+                      title: 'Smart Auto-Detection',
+                      badge: _buildBadge(
+                        _autoDetectionEnabled ? 'Active' : 'Off',
+                        color: _autoDetectionEnabled
+                            ? (isDark
+                                ? const Color(0xFF064E3B)
+                                : const Color(0xFFE8F5E9))
+                            : null,
+                        textColor: _autoDetectionEnabled
+                            ? const Color(0xFF10B981)
+                            : null,
+                      ),
+                      children: [
+                        _buildSwitchRow(
+                          icon: Icons.sms_outlined,
+                          title: 'Track Bank SMS',
+                          subtitle: 'Auto-record incoming transactions',
+                          value: _autoDetectionEnabled,
+                          isLoading: _isLoading,
+                          onChanged: _toggleAutoDetection,
+                        ),
+                        if (_autoDetectionEnabled) ...[
+                          Divider(height: 1, color: borderColor),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.verified_user_outlined,
+                                  size: 13,
+                                  color: AppColors.primary,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'DEVICE OPTIMIZATIONS',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: textSecondary,
+                                    letterSpacing: 0.6,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _buildSubOptionTile(
+                            icon: Icons.battery_charging_full_rounded,
+                            title: 'Disable Battery Optimization',
+                            subtitle: 'Keeps detection reliable in background',
+                            onTap: () => NotificationService
+                                .openBatteryOptimizationSettings(),
+                          ),
+                          _buildSubOptionTile(
+                            icon: Icons.rocket_launch_outlined,
+                            title: 'Enable Autostart Access',
+                            subtitle:
+                                'Required on Vivo, Xiaomi, Oppo & Samsung',
+                            onTap: () =>
+                                NotificationService.openAutoStartSettings(),
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+                      ],
+                    ),
+
+                    // ── 3. DATA MANAGEMENT TILE ──
+                    _buildExpandableTile(
+                      id: 'data',
+                      icon: Icons.storage_rounded,
+                      title: 'Data Management',
+                      badge: _buildBadge('Storage'),
+                      children: [
+                        _buildActionRow(
+                          icon: Icons.today_rounded,
+                          title: 'Clear Today\'s Data',
+                          subtitle: 'Delete records logged today only',
+                          onTap: _clearTodayData,
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.calendar_month_rounded,
+                          title: 'Clear This Month',
+                          subtitle: 'Delete records logged this month',
+                          onTap: _clearThisMonthData,
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.delete_forever_rounded,
+                          title: 'Clear All Data',
+                          subtitle: 'Permanently wipe all transaction records',
+                          isDangerous: true,
+                          onTap: _clearAllData,
+                        ),
+                      ],
+                    ),
+
+                    // ── 4. SUPPORT & COMMUNITY TILE ──
+                    _buildExpandableTile(
+                      id: 'support',
+                      icon: Icons.favorite_border_rounded,
+                      title: 'Support & Community',
+                      badge: _buildBadge('Feedback'),
+                      children: [
+                        _buildActionRow(
+                          icon: Icons.star_outline_rounded,
+                          iconColor: const Color(0xFFFFB300),
+                          title: 'Rate on Google Play',
+                          subtitle: 'Share a review & rating on Play Store',
+                          onTap: () => FeedbackService.openPlayStore(context),
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.bug_report_outlined,
+                          title: 'Report a Bug',
+                          subtitle: 'Email diagnostics directly to developer',
+                          onTap: () => FeedbackService.reportBug(context),
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.lightbulb_outline_rounded,
+                          title: 'Request a Feature',
+                          subtitle: 'Share your ideas to improve Buddy',
+                          onTap: () => FeedbackService.requestFeature(context),
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.local_cafe_outlined,
+                          iconColor: const Color(0xFFFF9800),
+                          title: 'Buy Me a Chai ☕',
+                          subtitle: 'Support development at buymeachai.in',
+                          onTap: () => SupportService.openBuyMeChai(context),
+                        ),
+                      ],
+                    ),
+
+                    // ── 5. ACCOUNT & SECURITY TILE ──
+                    _buildExpandableTile(
+                      id: 'account',
+                      icon: Icons.person_outline_rounded,
+                      title: 'Account & Security',
+                      badge: _buildBadge('Profile'),
+                      children: [
+                        _buildUserProfileCard(),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.logout_rounded,
+                          title: 'Sign Out',
+                          subtitle: 'Safely sign out of your account',
+                          onTap: _isAccountActionLoading ? () {} : _handleLogout,
+                        ),
+                        Divider(height: 1, color: borderColor),
+                        _buildActionRow(
+                          icon: Icons.person_remove_outlined,
+                          title: 'Delete Account',
+                          subtitle: 'Permanently remove account & cloud data',
+                          isDangerous: true,
+                          onTap: _isAccountActionLoading
+                              ? () {}
+                              : _handleDeleteAccount,
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 18),
+
+                    // App Version Display
+                    Center(
+                      child: Column(
                         children: [
-                          _buildThemeOption(
-                            title: 'System',
-                            icon: Icons.brightness_auto_rounded,
-                            isSelected: currentMode == ThemeMode.system,
-                            onTap: () =>
-                                ThemeService.setThemeMode(ThemeMode.system),
+                          Text(
+                            'Buddy $_appVersion',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: textSecondary.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          _buildThemeOption(
-                            title: 'Light',
-                            icon: Icons.light_mode_rounded,
-                            isSelected: currentMode == ThemeMode.light,
-                            onTap: () =>
-                                ThemeService.setThemeMode(ThemeMode.light),
-                          ),
-                          _buildThemeOption(
-                            title: 'Dark',
-                            icon: Icons.dark_mode_rounded,
-                            isSelected: currentMode == ThemeMode.dark,
-                            onTap: () =>
-                                ThemeService.setThemeMode(ThemeMode.dark),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Crafted for effortless personal finance',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: textSecondary.withValues(alpha: 0.5),
+                            ),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 28),
-
-                // ── Auto-Detection Section ──
-                Text(
-                  'Auto Transaction Detection',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Auto-Detection Toggle
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1E2631) : Colors.white,
-                    border: Border.all(
-                      color: _autoDetectionEnabled
-                          ? AppColors.primary.withValues(alpha: .5)
-                          : borderColor,
-                      width: 1.5,
                     ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.notifications_active_rounded,
-                          color: AppColors.primary,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Auto-Detect Transactions',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Automatically add from SMS / bank notifications',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (_isLoading)
-                        const BuddyLoadingIndicator(size: 24)
-                      else
-                        Switch(
-                          value: _autoDetectionEnabled,
-                          onChanged: _toggleAutoDetection,
-                          activeThumbColor: AppColors.primary,
-                        ),
-                    ],
-                  ),
-                ),
 
-                // ── Sub-options: Battery & Autostart (shown when enabled) ──
-                if (_autoDetectionEnabled) ...[
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.all(14),
+                    const SizedBox(height: 14),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Loading Overlay during account delete/logout
+          if (_isAccountActionLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.65),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 28, vertical: 26),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1A2230) : const Color(0xFFF8FAFC),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
+                      color: isDark ? const Color(0xFF1E2631) : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
                     ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.info_outline_rounded,
-                              size: 16,
-                              color: AppColors.primary.withValues(alpha: 0.8),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'For best results on your device:',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: textPrimary,
-                                ),
-                              ),
-                            ),
-                          ],
+                        const BuddyLoadingIndicator(size: 72),
+                        const SizedBox(height: 16),
+                        Text(
+                          _accountActionMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimaryOf(context),
+                            letterSpacing: -0.3,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // Battery Optimization
-                        _buildSubOptionTile(
-                          icon: Icons.battery_saver_rounded,
-                          title: 'Disable Battery Optimization',
-                          subtitle: 'Prevents the system from stopping auto-detection',
-                          color: const Color(0xFF4CAF50),
-                          onTap: () => NotificationService.openBatteryOptimizationSettings(),
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Autostart
-                        _buildSubOptionTile(
-                          icon: Icons.rocket_launch_rounded,
-                          title: 'Enable Autostart',
-                          subtitle: 'Required on Vivo, Xiaomi, Oppo, Nothing & more',
-                          color: const Color(0xFF2196F3),
-                          onTap: () => NotificationService.openAutoStartSettings(),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Please wait a moment...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondaryOf(context),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ],
-
-                const SizedBox(height: 14),
-
-                // ── Reflect Debts in Home Screen Toggle ──
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    border: Border.all(color: borderColor, width: 1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF00897B).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.account_balance_wallet_outlined,
-                          color: Color(0xFF00897B),
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Reflect Debts in Home Screen',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _includeDebtsInBalance
-                                  ? 'Borrow & Lend included in main balance and transactions'
-                                  : 'Tracked separately (excluded from main balance)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: textSecondary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Switch(
-                        value: _includeDebtsInBalance,
-                        onChanged: _toggleIncludeDebts,
-                        activeThumbColor: AppColors.primary,
-                      ),
-                    ],
-                  ),
                 ),
-
-                const SizedBox(height: 28),
-
-                // ── Support & Feedback Section ──
-                Text(
-                  'Support & Feedback',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Rate on Google Play
-                _buildActionTile(
-                  icon: Icons.star_rate_rounded,
-                  title: 'Rate on Google Play',
-                  subtitle: 'If you love Buddy, please leave a review and rating',
-                  color: const Color(0xFFFFB300),
-                  onTap: () => FeedbackService.openPlayStore(context),
-                ),
-                const SizedBox(height: 12),
-
-                // Report a Bug
-                _buildActionTile(
-                  icon: Icons.bug_report_rounded,
-                  title: 'Report a Bug',
-                  subtitle: 'Found an issue? Mail developer directly',
-                  color: const Color(0xFFFF7043),
-                  onTap: () => FeedbackService.reportBug(context),
-                ),
-                const SizedBox(height: 12),
-
-                // Request a Feature
-                _buildActionTile(
-                  icon: Icons.lightbulb_rounded,
-                  title: 'Request a Feature',
-                  subtitle: 'Suggest new features to faysarukattil@gmail.com',
-                  color: const Color(0xFF7C4DFF),
-                  onTap: () => FeedbackService.requestFeature(context),
-                ),
-                const SizedBox(height: 12),
-
-                // Buy Me a Chai
-                _buildActionTile(
-                  icon: Icons.local_cafe_rounded,
-                  title: 'Buy Me a Chai ☕',
-                  subtitle: 'Support the developer at buymeachai.in/faysarukattil',
-                  color: const Color(0xFFFF9800),
-                  onTap: () => SupportService.openBuyMeChai(context),
-                ),
-
-                const SizedBox(height: 28),
-
-                // ── Data Management Section ──
-                Text(
-                  'Data Management',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Clear Today's Data
-                _buildActionTile(
-                  icon: Icons.today_rounded,
-                  title: 'Clear Today\'s Data',
-                  subtitle: 'Delete all transactions from today',
-                  color: Colors.blueAccent,
-                  onTap: _clearTodayData,
-                ),
-                const SizedBox(height: 12),
-
-                // Clear This Month's Data
-                _buildActionTile(
-                  icon: Icons.calendar_month_rounded,
-                  title: 'Clear This Month',
-                  subtitle: 'Delete all transactions from this month',
-                  color: Colors.orangeAccent,
-                  onTap: _clearThisMonthData,
-                ),
-                const SizedBox(height: 12),
-
-                // Clear All Data
-                _buildActionTile(
-                  icon: Icons.delete_forever_rounded,
-                  title: 'Clear All Data',
-                  subtitle: 'Delete ALL transactions permanently',
-                  color: Colors.redAccent,
-                  onTap: _clearAllData,
-                  isDangerous: true,
-                ),
-
-                const SizedBox(height: 28),
-
-                // ── Account Section ──
-                Text(
-                  'Account',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // Logout
-                _buildActionTile(
-                  icon: Icons.logout_rounded,
-                  title: 'Log Out',
-                  subtitle: 'Sign out of your account',
-                  color: const Color(0xFF546E7A),
-                  onTap: _isAccountActionLoading ? () {} : _handleLogout,
-                ),
-                const SizedBox(height: 12),
-
-                // Delete Account
-                _buildActionTile(
-                  icon: Icons.person_remove_rounded,
-                  title: 'Delete Account',
-                  subtitle: 'Permanently delete account & all data',
-                  color: const Color(0xFFD32F2F),
-                  onTap: _isAccountActionLoading ? () {} : _handleDeleteAccount,
-                  isDangerous: true,
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── App Version ──
-                Center(
-                  child: Text(
-                    'Buddy $_appVersion',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: textSecondary.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
-          ),
-        ),
+        ],
       ),
-      if (_isAccountActionLoading)
-        Positioned.fill(
-          child: Container(
-            color: Colors.black.withValues(alpha: 0.65),
-            child: Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E2631) : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      blurRadius: 28,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    );
+  }
+
+  // ── Helper UI Components ──
+
+  /// Clean expanding category tile with butter-smooth animation
+  Widget _buildExpandableTile({
+    required String id,
+    required IconData icon,
+    required String title,
+    required Widget badge,
+    required List<Widget> children,
+  }) {
+    final isExpanded = _expandedSections.contains(id);
+    final cardBg = AppColors.cardOf(context);
+    final borderColor = isExpanded
+        ? AppColors.primary.withValues(alpha: 0.40)
+        : AppColors.borderOf(context).withValues(alpha: 0.55);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 11),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: borderColor,
+          width: isExpanded ? 1.4 : 1.1,
+        ),
+        boxShadow: AppColors.cardShadowOf(context),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header Row
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                setState(() {
+                  if (isExpanded) {
+                    _expandedSections.remove(id);
+                  } else {
+                    _expandedSections.add(id);
+                  }
+                });
+              },
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
                   children: [
-                    const BuddyLoadingIndicator(size: 88),
-                    const SizedBox(height: 16),
-                    Text(
-                      _accountActionMessage,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                        letterSpacing: -0.3,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(icon, color: AppColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimaryOf(context),
+                          letterSpacing: -0.2,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Please wait a moment...',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    const SizedBox(width: 8),
+                    badge,
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: isExpanded ? 0.25 : 0.0,
+                      duration: const Duration(milliseconds: 240),
+                      curve: Curves.easeInOutCubic,
+                      child: Icon(
+                        Icons.chevron_right_rounded,
                         color: AppColors.textSecondaryOf(context),
+                        size: 20,
                       ),
                     ),
                   ],
@@ -1153,12 +1181,277 @@ class _SettingsModalState extends State<SettingsModal> {
               ),
             ),
           ),
-        ),
-    ],
-  ),
-);
-}
 
+          // Expanding Children Container
+          AnimatedSize(
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeInOutCubic,
+            alignment: Alignment.topCenter,
+            child: isExpanded
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.borderOf(context)
+                            .withValues(alpha: 0.45),
+                      ),
+                      ...children,
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Compact, elegant capsule badge
+  Widget _buildBadge(String text, {Color? color, Color? textColor}) {
+    final isDark = AppColors.isDark(context);
+    final bg = color ??
+        (isDark ? const Color(0xFF1E2631) : const Color(0xFFF1F5F9));
+    final fg = textColor ?? AppColors.textSecondaryOf(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+          width: 0.8,
+        ),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      ),
+    );
+  }
+
+  /// Sub-option Switch row
+  Widget _buildSwitchRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    bool isLoading = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: AppColors.primary, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimaryOf(context),
+                  ),
+                ),
+                const SizedBox(height: 1.5),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: BuddyLoadingIndicator(size: 20),
+            )
+          else
+            Switch.adaptive(
+              value: value,
+              onChanged: (v) {
+                HapticFeedback.lightImpact();
+                onChanged(v);
+              },
+              activeTrackColor: AppColors.primary,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Sub-option Action row (tappable)
+  Widget _buildActionRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? iconColor,
+    bool isDangerous = false,
+  }) {
+    final effectiveColor = iconColor ??
+        (isDangerous ? AppColors.expense : AppColors.primary);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: effectiveColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: effectiveColor, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDangerous
+                            ? AppColors.expense
+                            : AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                    const SizedBox(height: 1.5),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                color:
+                    AppColors.textSecondaryOf(context).withValues(alpha: 0.5),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// User profile chip inside Account section
+  Widget _buildUserProfileCard() {
+    final user = FirebaseAuth.instance.currentUser;
+    final email = user?.email ?? 'Logged In User';
+    final displayName = user?.displayName;
+    final initial = (displayName?.isNotEmpty == true
+            ? displayName![0]
+            : (email.isNotEmpty ? email[0] : 'U'))
+        .toUpperCase();
+
+    return Padding(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 19,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.15),
+            child: Text(
+              initial,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (displayName != null && displayName.isNotEmpty) ...[
+                  Text(
+                    displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimaryOf(context),
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                ],
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'Active',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Theme segment selector item
   Widget _buildThemeOption({
     required String title,
     required IconData icon,
@@ -1172,19 +1465,22 @@ class _SettingsModalState extends State<SettingsModal> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             color: isSelected ? activeBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(11),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 8,
+                      blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),
                   ]
@@ -1195,14 +1491,14 @@ class _SettingsModalState extends State<SettingsModal> {
             children: [
               Icon(
                 icon,
-                size: 17,
+                size: 16,
                 color: isSelected ? AppColors.primary : inactiveText,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 5),
               Text(
                 title,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12.5,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   color: isSelected ? activeText : inactiveText,
                 ),
@@ -1214,103 +1510,45 @@ class _SettingsModalState extends State<SettingsModal> {
     );
   }
 
-  Widget _buildActionTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-    bool isDangerous = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: color, size: 22),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDangerous ? color : AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondaryOf(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: AppColors.textSecondaryOf(context)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  /// Device optimization shortcut tile
   Widget _buildSubOptionTile({
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color color,
     required VoidCallback onTap,
   }) {
     final isDark = AppColors.isDark(context);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: isDark
-                ? color.withValues(alpha: 0.08)
-                : color.withValues(alpha: 0.05),
+                ? AppColors.primary.withValues(alpha: 0.07)
+                : AppColors.primary.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: color.withValues(alpha: 0.15),
+              color: AppColors.primary.withValues(alpha: 0.16),
               width: 1,
             ),
           ),
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(5),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
                 ),
-                child: Icon(icon, color: color, size: 16),
+                child: Icon(icon, color: AppColors.primary, size: 14),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1318,7 +1556,7 @@ class _SettingsModalState extends State<SettingsModal> {
                     Text(
                       title,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimaryOf(context),
                       ),
@@ -1326,7 +1564,7 @@ class _SettingsModalState extends State<SettingsModal> {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 10,
                         color: AppColors.textSecondaryOf(context),
                       ),
                     ),
@@ -1335,7 +1573,7 @@ class _SettingsModalState extends State<SettingsModal> {
               ),
               Icon(
                 Icons.open_in_new_rounded,
-                size: 14,
+                size: 13,
                 color: AppColors.textSecondaryOf(context),
               ),
             ],

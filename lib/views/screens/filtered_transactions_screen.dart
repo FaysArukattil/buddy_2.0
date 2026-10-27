@@ -791,6 +791,7 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                         behavior: HitTestBehavior.translucent,
                         onPanStart: (details) {
                           _toggleAccumX = 0;
+                          HapticFeedback.lightImpact();
                           setState(() {
                             _toggleDragging = true;
                             _toggleDragStartPage = _showingToday ? 0.0 : 1.0;
@@ -802,6 +803,10 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
                           final deltaPages = _toggleAccumX / itemWidth;
                           final double newPage =
                               (_toggleDragStartPage + deltaPages).clamp(0.0, 1.0);
+                          final int nearest = newPage.round();
+                          if (nearest != _togglePage.round()) {
+                            HapticFeedback.lightImpact();
+                          }
                           setState(() {
                             _togglePage = newPage;
                           });

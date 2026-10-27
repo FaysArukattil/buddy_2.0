@@ -93,7 +93,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
     if (_typeFilter == mode && pageAlreadyThere) return;
     if (isUserAction) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
     }
     if (_typeFilter != mode) {
       setState(() => _typeFilter = mode);
@@ -105,7 +105,11 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         mode,
         duration: Duration(milliseconds: isUserAction ? 280 : 400),
         curve: Curves.easeOutCubic,
-      );
+      ).then((_) {
+        if (mounted && isUserAction) {
+          HapticFeedback.mediumImpact();
+        }
+      });
     }
   }
 
@@ -114,7 +118,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     final bool alreadyThere = (currentVal - mode).abs() < 0.01;
     if (_statusFilter == mode && alreadyThere) return;
     if (isUserAction) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
     }
     if (_statusFilter != mode) {
       setState(() => _statusFilter = mode);
@@ -123,7 +127,11 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
       mode.toDouble(),
       duration: Duration(milliseconds: isUserAction ? 260 : 360),
       curve: Curves.easeOutCubic,
-    );
+    ).then((_) {
+      if (mounted && isUserAction) {
+        HapticFeedback.mediumImpact();
+      }
+    });
   }
 
   @override
@@ -371,6 +379,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
             ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
             : _typeFilter.toDouble();
         _lastHeaderHapticIndex = _headerDragStartPage.round();
+        HapticFeedback.lightImpact();
       },
       onHorizontalDragUpdate: (details) {
         _headerDragAccumX += details.delta.dx;
@@ -391,7 +400,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         final int nearest = newPage.round().clamp(0, 2);
         if (nearest != _lastHeaderHapticIndex) {
           _lastHeaderHapticIndex = nearest;
-          HapticFeedback.selectionClick();
+          HapticFeedback.lightImpact();
         }
       },
       onHorizontalDragEnd: (details) {
@@ -945,6 +954,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                   _segDragAccumX = 0;
                   _segDragStartPage = currentPage;
                   _lastSegHapticIndex = currentPage.round();
+                  HapticFeedback.lightImpact();
                 },
                 onHorizontalDragUpdate: (details) {
                   _segDragAccumX += details.delta.dx;
@@ -961,7 +971,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                   final int nearest = newPage.round().clamp(0, 2);
                   if (nearest != _lastSegHapticIndex) {
                     _lastSegHapticIndex = nearest;
-                    HapticFeedback.selectionClick();
+                    HapticFeedback.lightImpact();
                   }
                 },
                 onHorizontalDragEnd: (details) {
@@ -1591,6 +1601,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                   _statusSegDragAccumX = 0;
                   _statusSegDragStartVal = currentVal;
                   _lastStatusHapticIndex = currentVal.round();
+                  HapticFeedback.lightImpact();
                 },
                 onHorizontalDragUpdate: (details) {
                   _statusSegDragAccumX += details.delta.dx;
@@ -1602,7 +1613,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                   final int nearest = newVal.round().clamp(0, 2);
                   if (nearest != _lastStatusHapticIndex) {
                     _lastStatusHapticIndex = nearest;
-                    HapticFeedback.selectionClick();
+                    HapticFeedback.lightImpact();
                   }
                 },
                 onHorizontalDragEnd: (details) {

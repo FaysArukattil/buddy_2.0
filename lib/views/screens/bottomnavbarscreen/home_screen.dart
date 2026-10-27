@@ -165,7 +165,7 @@ class HomeScreenState extends State<HomeScreen>
     final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
     if (_balanceViewMode == mode && pageAlreadyThere) return;
     if (isUserAction) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
     }
     if (_balanceViewMode != mode) {
       setState(() => _balanceViewMode = mode);
@@ -177,7 +177,11 @@ class HomeScreenState extends State<HomeScreen>
         mode,
         duration: Duration(milliseconds: isUserAction ? 260 : 450),
         curve: Curves.easeOutCubic,
-      );
+      ).then((_) {
+        if (mounted && isUserAction) {
+          HapticFeedback.mediumImpact();
+        }
+      });
     }
   }
 
@@ -800,6 +804,7 @@ class HomeScreenState extends State<HomeScreen>
                         ? (_balancePageController.page ?? _balanceViewMode.toDouble())
                         : _balanceViewMode.toDouble();
                     _lastHeaderHapticIndex = _headerDragStartPage.round();
+                    HapticFeedback.lightImpact();
                   },
                   onHorizontalDragUpdate: (details) {
                     _headerDragAccumX += details.delta.dx;
@@ -820,7 +825,7 @@ class HomeScreenState extends State<HomeScreen>
                     final int nearest = newPage.round().clamp(0, 2);
                     if (nearest != _lastHeaderHapticIndex) {
                       _lastHeaderHapticIndex = nearest;
-                      HapticFeedback.selectionClick();
+                      HapticFeedback.lightImpact();
                     }
                   },
                   onHorizontalDragEnd: (details) {
@@ -1459,6 +1464,7 @@ class HomeScreenState extends State<HomeScreen>
                   _segDragAccumX = 0;
                   _segDragStartPage = currentPage;
                   _lastSegHapticIndex = currentPage.round();
+                  HapticFeedback.lightImpact();
                 },
                 onHorizontalDragUpdate: (details) {
                   _segDragAccumX += details.delta.dx;
@@ -1475,7 +1481,7 @@ class HomeScreenState extends State<HomeScreen>
                   final int nearest = newPage.round().clamp(0, 2);
                   if (nearest != _lastSegHapticIndex) {
                     _lastSegHapticIndex = nearest;
-                    HapticFeedback.selectionClick();
+                    HapticFeedback.lightImpact();
                   }
                 },
                 onHorizontalDragEnd: (details) {

@@ -911,8 +911,9 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Icons.brightness_auto_rounded,
                         isSelected: selectedIndex == 0,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           ThemeService.setThemeMode(ThemeMode.system);
+                          HapticFeedback.mediumImpact();
                         },
                         isDark: isDark,
                       ),
@@ -921,8 +922,9 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Icons.light_mode_rounded,
                         isSelected: selectedIndex == 1,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           ThemeService.setThemeMode(ThemeMode.light);
+                          HapticFeedback.mediumImpact();
                         },
                         isDark: isDark,
                       ),
@@ -931,8 +933,9 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Icons.dark_mode_rounded,
                         isSelected: selectedIndex == 2,
                         onTap: () {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           ThemeService.setThemeMode(ThemeMode.dark);
+                          HapticFeedback.mediumImpact();
                         },
                         isDark: isDark,
                       ),

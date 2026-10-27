@@ -68,5 +68,28 @@ void main() {
         await file.delete();
       } catch (_) {}
     });
+
+    test('generateSingleTransactionPdf generates single receipt PDF', () async {
+      final sampleTxn = {
+        'id': 'txn_single_123',
+        'amount': 450.0,
+        'type': 'expense',
+        'category': 'Food & Dining',
+        'date': '2026-10-27T14:30:00.000',
+        'note': 'Coffee & sandwich',
+        'notificationSource': 'HDFC Bank',
+        'auto_detected': true,
+      };
+
+      final file = await PdfService.generateSingleTransactionPdf(sampleTxn);
+      expect(file, isNotNull);
+      expect(await file.exists(), isTrue);
+      final fileSize = await file.length();
+      expect(fileSize, greaterThan(500));
+
+      try {
+        await file.delete();
+      } catch (_) {}
+    });
   });
 }

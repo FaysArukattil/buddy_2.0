@@ -520,7 +520,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
   }
 
   void _navigateDate(int delta) {
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact();
     final c = _selectedDate;
     final now = DateTime.now();
     DateTime next;
@@ -544,11 +544,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
     if (next.isAfter(now)) next = now;
     setState(() => _selectedDate = next);
     _computeData();
+    HapticFeedback.mediumImpact();
   }
 
   void _selectTab(int i) {
     _stopAutoCycle();
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact();
     setState(() {
       _selectedTab = i;
       final now = DateTime.now();
@@ -557,13 +558,15 @@ class StatisticsScreenState extends State<StatisticsScreen>
       }
     });
     _computeData();
+    HapticFeedback.mediumImpact();
   }
 
   void _selectType(int i) {
     _stopAutoCycle();
-    HapticFeedback.selectionClick();
+    HapticFeedback.lightImpact();
     setState(() => _type = i == 0 ? 'Expense' : 'Income');
     _computeData();
+    HapticFeedback.mediumImpact();
   }
 
   // ───────────────────────── PDF export ─────────────────────────
@@ -1172,6 +1175,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         _heroVisualIndex.toDouble())
                     : _heroVisualIndex.toDouble();
                 _lastHeroHapticIndex = _heroDragStartPage.round();
+                HapticFeedback.lightImpact();
               },
               onHorizontalDragUpdate: (details) {
                 _heroDragAccumX += details.delta.dx;
@@ -1192,7 +1196,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 final int nearest = newPage.round().clamp(0, 1);
                 if (nearest != _lastHeroHapticIndex) {
                   _lastHeroHapticIndex = nearest;
-                  HapticFeedback.selectionClick();
+                  HapticFeedback.lightImpact();
                 }
                 if (nearest != _heroVisualIndex) {
                   setState(() => _heroVisualIndex = nearest);
@@ -1317,7 +1321,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                       onTap: () {
                         _stopAutoCycle();
                         if (!isExpense) {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           _selectType(0);
                         }
                       },
@@ -1354,7 +1358,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                       onTap: () {
                         _stopAutoCycle();
                         if (isExpense) {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           _selectType(1);
                         }
                       },
@@ -1449,7 +1453,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                       onTap: () {
                         _stopAutoCycle();
                         if (!isSelected) {
-                          HapticFeedback.selectionClick();
+                          HapticFeedback.lightImpact();
                           _selectTab(i);
                         }
                       },
@@ -1571,7 +1575,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
   void _onToggleVisualMode(int index) {
     _stopAutoCycle();
     if (_heroVisualIndex != index) {
-      HapticFeedback.selectionClick();
+      HapticFeedback.lightImpact();
       setState(() => _heroVisualIndex = index);
     }
     if (_heroVisualPageController.hasClients &&
@@ -1581,7 +1585,11 @@ class StatisticsScreenState extends State<StatisticsScreen>
         index,
         duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
-      );
+      ).then((_) {
+        if (mounted) {
+          HapticFeedback.mediumImpact();
+        }
+      });
     }
   }
 

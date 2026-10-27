@@ -56,6 +56,7 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
       refreshTriggerPullDistance: widget.refreshTriggerPullDistance + widget.topPadding,
       refreshIndicatorExtent: widget.refreshIndicatorExtent + widget.topPadding,
       onRefresh: () async {
+        HapticFeedback.mediumImpact();
         if (!_spinController.isAnimating) {
           _spinController.repeat();
         }
@@ -66,6 +67,7 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
           await Future.delayed(const Duration(milliseconds: 320));
           if (mounted) {
             _spinController.stop();
+            HapticFeedback.lightImpact();
           }
         }
       },
@@ -76,24 +78,6 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
         double refreshTriggerPullDistance,
         double refreshIndicatorExtent,
       ) {
-        if (refreshState == RefreshIndicatorMode.inactive) {
-          _hasHapticTriggered = false;
-          if (_spinController.isAnimating) {
-            _spinController.stop();
-          }
-          return const SizedBox.shrink();
-        }
-
-        if (refreshState == RefreshIndicatorMode.armed && !_hasHapticTriggered) {
-          _hasHapticTriggered = true;
-          HapticFeedback.mediumImpact();
-          if (!_spinController.isAnimating) {
-            _spinController.repeat();
-          }
-        } else if (refreshState == RefreshIndicatorMode.drag) {
-          _hasHapticTriggered = false;
-        }
-
         final double effectivePullDistance = math.max(
           1.0,
           refreshTriggerPullDistance - widget.topPadding,
@@ -104,6 +88,31 @@ class _BuddyRefreshControlState extends State<BuddyRefreshControl>
         );
         final double progress =
             (effectivePulled / effectivePullDistance).clamp(0.0, 1.0);
+
+        if (refreshState == RefreshIndicatorMode.inactive) {
+          _hasHapticTriggered = false;
+          if (_spinController.isAnimating) {
+            _spinController.stop();
+          }
+          return const SizedBox.shrink();
+        }
+
+        if ((refreshState == RefreshIndicatorMode.armed ||
+                refreshState == RefreshIndicatorMode.refresh) &&
+            !_hasHapticTriggered) {
+          _hasHapticTriggered = true;
+          HapticFeedback.mediumImpact();
+          if (!_spinController.isAnimating) {
+            _spinController.repeat();
+          }
+        } else if (refreshState == RefreshIndicatorMode.drag) {
+          if (progress >= 1.0 && !_hasHapticTriggered) {
+            _hasHapticTriggered = true;
+            HapticFeedback.mediumImpact();
+          } else if (progress < 0.90) {
+            _hasHapticTriggered = false;
+          }
+        }
         final bool isRefreshing = refreshState == RefreshIndicatorMode.refresh ||
             refreshState == RefreshIndicatorMode.armed;
         final bool isDone = refreshState == RefreshIndicatorMode.done;
