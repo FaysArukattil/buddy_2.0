@@ -3923,7 +3923,6 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
   final TextEditingController _noteController = TextEditingController();
   final FocusNode _noteFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
-  double _horizontalSwipeDelta = 0;
 
   late int _typeIndex; // 0 = Lent, 1 = Borrowed
   late final AnimationController _sliderAnimController;
@@ -4642,18 +4641,23 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
       height: MediaQuery.of(context).size.height * 0.85,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: (_) => _horizontalSwipeDelta = 0,
         onHorizontalDragUpdate: (details) {
-          _horizontalSwipeDelta += details.delta.dx;
+          const double dragSensitivity = 180.0;
+          final double delta = details.delta.dx / dragSensitivity;
+          _sliderAnimController.value =
+              (_sliderAnimController.value + delta).clamp(0.0, 1.0);
+          final int nearest = _sliderAnimController.value.round();
+          if (nearest != _typeIndex) {
+            setState(() => _typeIndex = nearest);
+            HapticFeedback.selectionClick();
+          }
         },
         onHorizontalDragEnd: (details) {
-          final velocity = details.primaryVelocity ?? 0;
-          if (velocity < -200 || _horizontalSwipeDelta < -50) {
-            if (_typeIndex != 1) _setSliderIndex(1);
-          } else if (velocity > 200 || _horizontalSwipeDelta > 50) {
-            if (_typeIndex != 0) _setSliderIndex(0);
-          }
-          _horizontalSwipeDelta = 0;
+          final double v = details.primaryVelocity ?? 0;
+          int target = _sliderAnimController.value.round();
+          if (v > 200) target = 1;
+          if (v < -200) target = 0;
+          _setSliderIndex(target);
         },
         child: Container(
         clipBehavior: Clip.antiAlias,
