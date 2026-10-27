@@ -39,6 +39,7 @@ class ProfileScreenState extends State<ProfileScreen>
   final ScrollController _scrollController = ScrollController();
 
   bool _isAccountActionLoading = false;
+  String _accountActionMessage = 'Please wait...';
   String _name = '';
   String _email = '';
   String? _photoUrl;
@@ -281,28 +282,61 @@ class ProfileScreenState extends State<ProfileScreen>
                             : _handleDeleteAccount,
                       ),
                     ]),
-                    if (_isAccountActionLoading) ...[
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const BuddyLoadingIndicator(size: 18),
-                          const SizedBox(width: 10),
-                          Text(
-                            'Please wait…',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondaryOf(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ]),
                 ),
               ),
             ],
           ),
+          if (_isAccountActionLoading)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.65),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2631) : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const BuddyLoadingIndicator(size: 88),
+                        const SizedBox(height: 16),
+                        Text(
+                          _accountActionMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimaryOf(context),
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Please wait a moment...',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.textSecondaryOf(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -989,7 +1023,10 @@ class ProfileScreenState extends State<ProfileScreen>
           );
 
     if (!confirmed || !mounted) return;
-    setState(() => _isAccountActionLoading = true);
+    setState(() {
+      _isAccountActionLoading = true;
+      _accountActionMessage = isGuest ? 'Clearing guest data...' : 'Logging out...';
+    });
 
     try {
       // Guests have no account to return to, so wipe their data instead.
@@ -1022,7 +1059,10 @@ class ProfileScreenState extends State<ProfileScreen>
     final second = await _showTypeToConfirmDialog();
     if (!second || !mounted) return;
 
-    setState(() => _isAccountActionLoading = true);
+    setState(() {
+      _isAccountActionLoading = true;
+      _accountActionMessage = 'Deleting account...';
+    });
     try {
       await _authService.deleteAccount();
       if (!mounted) return;
@@ -1071,7 +1111,10 @@ class ProfileScreenState extends State<ProfileScreen>
 
     if (!reauthed || !mounted) return;
 
-    setState(() => _isAccountActionLoading = true);
+    setState(() {
+      _isAccountActionLoading = true;
+      _accountActionMessage = 'Deleting account...';
+    });
     try {
       await _authService.deleteAccount();
       if (!mounted) return;

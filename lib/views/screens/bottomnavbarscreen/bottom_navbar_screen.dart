@@ -143,6 +143,7 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     final double fabIconSize = (28 * s).clamp(22.0, 34.0);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       extendBody: true,
       backgroundColor: AppColors.backgroundOf(context),
       body: Stack(

@@ -78,71 +78,111 @@ class AppColors {
   static Color textMutedOf(BuildContext context) =>
       isDark(context) ? darkTextLight : textLight;
 
-  // ── Category Color Palette ──
+  // ── Distinct Category Color Palette (Zero duplicates across all categories) ──
   static const Map<String, Color> categoryColors = {
     // Expense categories
-    'Food & Dining': Color(0xFFFF8A65),
-    'Groceries': Color(0xFF66BB6A),
-    'Grocery': Color(0xFF4CAF50),
-    'Swiggy': Color(0xFFFF6D00),
-    'Zomato': Color(0xFFE23744),
-    'Zepto': Color(0xFF7C4DFF),
-    'Instamart': Color(0xFFFF9100),
-    'Amazon': Color(0xFFFF9800),
-    'Flipkart': Color(0xFF2962FF),
-    'Myntra': Color(0xFFE91E63),
-    'Transport': Color(0xFF5C6BC0),
-    'Uber': Color(0xFF263238),
-    'Ola': Color(0xFF43A047),
-    'Rapido': Color(0xFFFDD835),
-    'Fuel': Color(0xFFFFA726),
-    'Netflix': Color(0xFFE50914),
-    'YouTube': Color(0xFFFF0000),
-    'Spotify': Color(0xFF1DB954),
-    'Hotstar': Color(0xFF1976D2),
-    'Gym & Fitness': Color(0xFF26A69A),
-    'Medical': Color(0xFF42A5F5),
-    'Education': Color(0xFF5C6BC0),
-    'Rent': Color(0xFF8D6E63),
-    'Bills & Utilities': Color(0xFF26A69A),
-    'Recharge': Color(0xFF29B6F6),
-    'Coffee': Color(0xFF795548),
-    'Travel': Color(0xFF42A5F5),
-    'Party': Color(0xFFAB47BC),
-    'Gifts & Charity': Color(0xFFEC407A),
-    'Subscriptions': Color(0xFF78909C),
-    'Clothing': Color(0xFFE91E63),
-    'Pets': Color(0xFFFF7043),
-    'Local Food': Color(0xFFFF9E80),
-    'Jio Internet': Color(0xFF005AE0),
-    'WiFi': Color(0xFF00ACC1),
-    'Lending': Color(0xFF00897B),
-    'Other': Color(0xFF90A4AE),
+    'Food & Dining': Color(0xFFFF7A45),     // Coral Orange
+    'Groceries': Color(0xFF43A047),         // Medium Green
+    'Grocery': Color(0xFF2E7D32),           // Dark Forest Green
+    'Swiggy': Color(0xFFFC8019),            // Brand Orange
+    'Zomato': Color(0xFFCB202D),            // Brand Crimson Red
+    'Zepto': Color(0xFF6B21A8),             // Electric Violet
+    'Instamart': Color(0xFFFF9100),         // Amber Orange
+    'Amazon': Color(0xFFFF9900),            // Amazon Deep Gold
+    'Flipkart': Color(0xFF2874F0),          // Flipkart Royal Blue
+    'Myntra': Color(0xFFFF3F6C),            // Brand Magenta
+    'Transport': Color(0xFF3F51B5),         // Deep Indigo
+    'Uber': Color(0xFF263238),              // Charcoal Black
+    'Ola': Color(0xFF7CB342),               // Light Olive Green
+    'Rapido': Color(0xFFFFD600),            // Bright Yellow
+    'Fuel': Color(0xFFE65100),              // Deep Rust Orange
+    'Netflix': Color(0xFFE50914),           // Pure Netflix Red
+    'YouTube': Color(0xFFFF0000),           // Vivid Bright Red
+    'Spotify': Color(0xFF1DB954),           // Spotify Mint
+    'Hotstar': Color(0xFF0038A8),           // Deep Hotstar Navy
+    'Gym & Fitness': Color(0xFF00897B),      // Deep Mint Teal
+    'Medical': Color(0xFF00BCD4),           // Cyan
+    'Education': Color(0xFF5E35B1),         // Deep Violet
+    'Rent': Color(0xFF795548),              // Warm Espresso
+    'Bills & Utilities': Color(0xFF009688), // Sea Green / Teal
+    'Recharge': Color(0xFF0288D1),          // Cerulean Blue
+    'Coffee': Color(0xFF4E342E),            // Dark Coffee Brown
+    'Travel': Color(0xFF1E88E5),            // Azure Blue
+    'Party': Color(0xFFAB47BC),             // Lavender Purple
+    'Gifts & Charity': Color(0xFFF06292),   // Rose Pink
+    'Subscriptions': Color(0xFF607D8B),     // Slate Steel
+    'Clothing': Color(0xFFD81B60),          // Rich Ruby Pink
+    'Pets': Color(0xFFFF8F00),              // Warm Amber
+    'Local Food': Color(0xFFFF6E40),        // Deep Peach
+    'Jio Internet': Color(0xFF0A2885),      // Jio Midnight Blue
+    'WiFi': Color(0xFF0097A7),              // Ocean Cyan
+    'Lending': Color(0xFF10B981),           // Bright Emerald
+    'Other': Color(0xFF78909C),             // Cool Silver Slate
     // Income categories
-    'Salary': Color(0xFF4CAF50),
-    'Freelance': Color(0xFF7E57C2),
-    'Business': Color(0xFF1565C0),
-    'Investment': Color(0xFF2E7D32),
-    'Interest': Color(0xFFFFB300),
-    'Refund': Color(0xFF26A69A),
-    'Gift': Color(0xFFEC407A),
-    'Cashback': Color(0xFF00BFA5),
-    'Rental Income': Color(0xFF8D6E63),
-    'Borrowing': Color(0xFFE65100),
+    'Salary': Color(0xFF16A34A),            // Rich Grass Green
+    'Freelance': Color(0xFF8B5CF6),         // Purple Iris
+    'Business': Color(0xFF0284C7),          // Corporate Sky
+    'Investment': Color(0xFF059669),        // Mountain Green
+    'Interest': Color(0xFFD97706),          // Honey Topaz
+    'Refund': Color(0xFF0D9488),            // Dark Aquamarine
+    'Gift': Color(0xFFEC4899),              // Bubblegum Pink
+    'Cashback': Color(0xFF14B8A6),          // Caribbean Aqua
+    'Rental Income': Color(0xFF92400E),     // Burnished Bronze
+    'Borrowing': Color(0xFFEA580C),         // Burnt Sienna
   };
 
-  /// Get color for a category name, with fallback
+  /// Curated palette for creating custom categories with distinct colors
+  static const List<Color> curatedCategoryColors = [
+    Color(0xFFFF7A45), // Coral
+    Color(0xFFFC8019), // Orange
+    Color(0xFFFFD600), // Yellow
+    Color(0xFF10B981), // Emerald
+    Color(0xFF059669), // Green
+    Color(0xFF00BCD4), // Cyan
+    Color(0xFF0284C7), // Sky Blue
+    Color(0xFF3F51B5), // Indigo
+    Color(0xFF8B5CF6), // Purple
+    Color(0xFFAB47BC), // Lavender
+    Color(0xFFEC4899), // Pink
+    Color(0xFFE11D48), // Rose Red
+    Color(0xFFCB202D), // Crimson
+    Color(0xFF92400E), // Bronze
+    Color(0xFF795548), // Brown
+    Color(0xFF4E342E), // Dark Mocha
+    Color(0xFF607D8B), // Slate
+    Color(0xFF00897B), // Deep Teal
+    Color(0xFF7CB342), // Olive Lime
+    Color(0xFFD97706), // Amber
+  ];
+
+  /// In-memory cache for custom category colors created by user
+  static final Map<String, Color> _customColors = {};
+
+  /// Register custom category color
+  static void registerCategoryColor(String name, Color color) {
+    _customColors[name] = color;
+  }
+
+  /// Get color for a category name, with fallback to registered or deterministic color
   static Color getCategoryColor(String categoryName) {
-    return categoryColors[categoryName] ?? const Color(0xFF90A4AE);
+    if (_customColors.containsKey(categoryName)) {
+      return _customColors[categoryName]!;
+    }
+    if (categoryColors.containsKey(categoryName)) {
+      return categoryColors[categoryName]!;
+    }
+    // Deterministic selection from curated palette so any user category has a distinct vibrant color
+    final hash = categoryName.hashCode.abs();
+    return curatedCategoryColors[hash % curatedCategoryColors.length];
   }
 
   /// Get a lighter tint of the category color for backgrounds
   static Color getCategoryBgColor(String categoryName, [BuildContext? context]) {
     final color = getCategoryColor(categoryName);
     if (context != null && isDark(context)) {
-      return color.withAlpha(45);
+      return color.withValues(alpha: 0.18);
     }
-    return color.withAlpha(30);
+    return color.withValues(alpha: 0.12);
   }
 
   // Shadow presets

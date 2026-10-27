@@ -29,6 +29,7 @@ class _SettingsModalState extends State<SettingsModal> {
   bool _isLoading = true;
   bool _isToggling = false; // Prevents rapid-fire toggle spam
   bool _isAccountActionLoading = false;
+  String _accountActionMessage = 'Please wait...';
   String _appVersion = 'v1.0.0';
   final AuthService _authService = AuthService();
 
@@ -90,6 +91,7 @@ class _SettingsModalState extends State<SettingsModal> {
 
         if (!hasAccess) {
           // Open settings — DON'T show snackbar repeatedly
+          NotificationService.awaitingPermissionReturn = true;
           await NotificationService.requestNotificationAccess();
 
           if (!mounted) { _isToggling = false; return; }
@@ -256,7 +258,10 @@ class _SettingsModalState extends State<SettingsModal> {
 
     if (!confirmed) return;
 
-    setState(() => _isAccountActionLoading = true);
+    setState(() {
+      _isAccountActionLoading = true;
+      _accountActionMessage = 'Logging out...';
+    });
 
     try {
       await _authService.signOut();
@@ -294,7 +299,10 @@ class _SettingsModalState extends State<SettingsModal> {
 
     if (!secondConfirm || !mounted) return;
 
-    setState(() => _isAccountActionLoading = true);
+    setState(() {
+      _isAccountActionLoading = true;
+      _accountActionMessage = 'Deleting account...';
+    });
 
     try {
       await _authService.deleteAccount();
@@ -337,7 +345,10 @@ class _SettingsModalState extends State<SettingsModal> {
 
       final success = await _authService.reauthenticate();
       if (success && mounted) {
-        setState(() => _isAccountActionLoading = true);
+        setState(() {
+          _isAccountActionLoading = true;
+          _accountActionMessage = 'Deleting account...';
+        });
         try {
           await _authService.deleteAccount();
           if (!mounted) return;
@@ -363,7 +374,10 @@ class _SettingsModalState extends State<SettingsModal> {
         password: password,
       );
       if (success && mounted) {
-        setState(() => _isAccountActionLoading = true);
+        setState(() {
+          _isAccountActionLoading = true;
+          _accountActionMessage = 'Deleting account...';
+        });
         try {
           await _authService.deleteAccount();
           if (!mounted) return;
@@ -647,13 +661,16 @@ class _SettingsModalState extends State<SettingsModal> {
     final isDark = AppColors.isDark(context);
 
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
+      child: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
             padding: const EdgeInsets.fromLTRB(24.0, 16.0, 24.0, 24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1057,39 +1074,6 @@ class _SettingsModalState extends State<SettingsModal> {
                   isDangerous: true,
                 ),
 
-                // Loading overlay for account actions
-                if (_isAccountActionLoading) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? const Color(0xFF1E2631)
-                          : Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const BuddyLoadingIndicator(size: 24),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            'Processing... Please wait.',
-                            style: TextStyle(
-                              color: textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
                 const SizedBox(height: 24),
 
                 // ── App Version ──
@@ -1110,8 +1094,60 @@ class _SettingsModalState extends State<SettingsModal> {
           ),
         ),
       ),
-    );
-  }
+      if (_isAccountActionLoading)
+        Positioned.fill(
+          child: Container(
+            color: Colors.black.withValues(alpha: 0.65),
+            child: Center(
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E2631) : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.35),
+                      blurRadius: 28,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const BuddyLoadingIndicator(size: 88),
+                    const SizedBox(height: 16),
+                    Text(
+                      _accountActionMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimaryOf(context),
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Please wait a moment...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  ),
+);
+}
 
   Widget _buildThemeOption({
     required String title,

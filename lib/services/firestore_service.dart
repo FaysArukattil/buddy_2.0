@@ -470,6 +470,7 @@ class FirestoreService {
       final category = cat.Category.fromFirestore(doc);
       if (!seen.contains(category.name)) {
         seen.add(category.name);
+        AppColors.registerCategoryColor(category.name, category.color);
         categories.add(category);
       }
     }
@@ -491,13 +492,18 @@ class FirestoreService {
         .orderBy('order')
         .snapshots()
         .map((snapshot) => snapshot.docs
-            .map((doc) => cat.Category.fromFirestore(doc))
+            .map((doc) {
+              final c = cat.Category.fromFirestore(doc);
+              AppColors.registerCategoryColor(c.name, c.color);
+              return c;
+            })
             .toList());
   }
 
   /// Add a custom category
   Future<String> addCategory(cat.Category category) async {
     final doc = await _catCol.add(category.toFirestore());
+    AppColors.registerCategoryColor(category.name, category.color);
     clearCategoryCache();
     debugPrint('✅ FIRESTORE: Category "${category.name}" added');
     return doc.id;

@@ -26,6 +26,11 @@ typedef OnTransactionDetected =
 class NotificationService {
   static bool get isSupportedPlatform => !kIsWeb && Platform.isAndroid;
 
+  /// Tracks whether the user explicitly initiated enabling notification access
+  /// and the app is awaiting return from system settings. Prevents snackbars from
+  /// popping up randomly on normal app resume or launch.
+  static bool awaitingPermissionReturn = false;
+
   static const _channel = MethodChannel('notification_channel');
 
   // ── Permission Management ──

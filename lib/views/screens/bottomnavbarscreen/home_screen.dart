@@ -43,7 +43,6 @@ class HomeScreenState extends State<HomeScreen>
   int _autoCycleDirection = 1; // 1 = forward (0 -> 1 -> 2), -1 = backward (2 -> 1 -> 0)
   bool _userInteractedWithMode = false;
   bool _includeDebtsInBalance = true;
-  bool _notifiedGranted = false;
   final ScrollController _scrollController = ScrollController();
   double _segDragAccumX = 0;
   double _segDragStartPage = 0;
@@ -385,11 +384,15 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _checkAccessGrantedAfterReturn() async {
-    if (_notifiedGranted) return;
+    // Only verify and notify if user just explicitly tapped 'Turn On'
+    if (!NotificationService.awaitingPermissionReturn) return;
+    NotificationService.awaitingPermissionReturn = false;
+
     try {
       final isGranted = await NotificationService.isNotificationAccessGranted();
       if (isGranted && mounted) {
-        _notifiedGranted = true;
+        await NotificationService.setAutoDetectionEnabled(true);
+        if (!mounted) return;
         AppSnackbar.showSuccess(
           context,
           'Auto-tracking is active! Bank & UPI SMS will log automatically.',
@@ -546,6 +549,7 @@ class HomeScreenState extends State<HomeScreen>
                     await prefs.setBool('prompted_auto_tracking_popup', true);
                     await NotificationService.setAutoDetectionEnabled(true);
                     await NotificationHelper.requestNotificationPermission();
+                    NotificationService.awaitingPermissionReturn = true;
                     await NotificationService.requestNotificationAccess();
 
                     if (!mounted) return;
