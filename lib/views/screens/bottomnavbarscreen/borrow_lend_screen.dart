@@ -4635,10 +4635,9 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
     final hasMoreContacts = sortedContacts.length > 3 &&
         _personController.text.trim().isEmpty;
     final moreCount = sortedContacts.length - 3;
-    final viewInsetsBottom = MediaQuery.of(context).viewInsets.bottom;
 
     return SizedBox(
-      height: MediaQuery.of(context).size.height * 0.85,
+      height: MediaQuery.sizeOf(context).height * 0.85,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragUpdate: (details) {
@@ -4732,15 +4731,8 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
               child: SingleChildScrollView(
                 controller: _scrollController,
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  0,
-                  16,
-                  viewInsetsBottom > 0
-                      ? 20
-                      : MediaQuery.of(context).padding.bottom + 16,
-                ),
+                physics: const ClampingScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: Form(
                 key: _formKey,
                 child: Column(
@@ -5371,7 +5363,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                               controller: _noteController,
                               focusNode: _noteFocusNode,
                               scrollPadding:
-                                  const EdgeInsets.only(bottom: 120),
+                                  const EdgeInsets.only(bottom: 40),
                               style: TextStyle(
                                 fontSize: 13.5,
                                 color: AppColors.textPrimaryOf(context),
@@ -5479,7 +5471,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
               ),
             ),
           ),
-          SizedBox(height: viewInsetsBottom),
+          const _KeyboardSpacer(),
         ],
       ),
     ),
@@ -5584,6 +5576,24 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── KEYBOARD SPACER (Isolates insets listener from main sheet) ───
+class _KeyboardSpacer extends StatelessWidget {
+  const _KeyboardSpacer();
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final targetHeight = bottomInset > 0 ? bottomInset : bottomPadding;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      height: targetHeight,
     );
   }
 }
