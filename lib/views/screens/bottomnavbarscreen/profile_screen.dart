@@ -462,13 +462,17 @@ class ProfileScreenState extends State<ProfileScreen>
                               color: Colors.white.withValues(alpha: 0.85),
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              'Member since ${_memberSinceLabel()}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.1,
+                            Flexible(
+                              child: Text(
+                                'Member since ${_memberSinceLabel()}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.1,
+                                ),
                               ),
                             ),
                           ],
@@ -1304,7 +1308,8 @@ class _ModernConfirmDialog extends StatelessWidget {
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isDark
@@ -1317,18 +1322,23 @@ class _ModernConfirmDialog extends StatelessWidget {
                           ),
                         ),
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppColors.textPrimaryOf(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Cancel',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: AppColors.textPrimaryOf(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: InkWell(
                     onTap: () {
@@ -1337,7 +1347,8 @@ class _ModernConfirmDialog extends StatelessWidget {
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: accentColor,
@@ -1350,12 +1361,17 @@ class _ModernConfirmDialog extends StatelessWidget {
                           ),
                         ],
                       ),
-                      child: Text(
-                        confirmLabel,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          confirmLabel,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -1530,7 +1546,8 @@ class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
                     onTap: () => Navigator.pop(context),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isDark
@@ -1543,24 +1560,30 @@ class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
                           ),
                         ),
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppColors.textPrimaryOf(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Cancel',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: AppColors.textPrimaryOf(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: InkWell(
                     onTap: _submit,
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.primary,
@@ -1573,12 +1596,17 @@ class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
                           ),
                         ],
                       ),
-                      child: const Text(
-                        'Save',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                      child: const FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Save',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -1763,7 +1791,8 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                     onTap: () => Navigator.pop(context, false),
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isDark
@@ -1776,18 +1805,23 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                           ),
                         ),
                       ),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: AppColors.textPrimaryOf(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Cancel',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: AppColors.textPrimaryOf(context),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: InkWell(
                     onTap: _isValid
@@ -1799,7 +1833,8 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                     borderRadius: BorderRadius.circular(14),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      height: 46,
+                      constraints: const BoxConstraints(minHeight: 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: _isValid
@@ -1816,14 +1851,19 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                               ]
                             : null,
                       ),
-                      child: Text(
-                        'Delete Everything',
-                        style: TextStyle(
-                          color: _isValid
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.6),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Delete Everything',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: _isValid
+                                ? Colors.white
+                                : Colors.white.withValues(alpha: 0.6),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

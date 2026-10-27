@@ -92,7 +92,7 @@ class AppColors {
     'Flipkart': Color(0xFF2874F0),          // Flipkart Royal Blue
     'Myntra': Color(0xFFFF3F6C),            // Brand Magenta
     'Transport': Color(0xFF3F51B5),         // Deep Indigo
-    'Uber': Color(0xFF263238),              // Charcoal Black
+    'Uber': Color(0xFF455A64),              // Charcoal Slate
     'Ola': Color(0xFF7CB342),               // Light Olive Green
     'Rapido': Color(0xFFFFD600),            // Bright Yellow
     'Fuel': Color(0xFFE65100),              // Deep Rust Orange

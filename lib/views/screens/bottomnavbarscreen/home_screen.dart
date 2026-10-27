@@ -411,209 +411,225 @@ class HomeScreenState extends State<HomeScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, -8),
-              ),
-            ],
+        final screenHeight = MediaQuery.of(ctx).size.height;
+        final isShortScreen = screenHeight < 720;
+
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: screenHeight * 0.90,
           ),
-          padding: EdgeInsets.fromLTRB(
-            24,
-            12,
-            24,
-            MediaQuery.of(ctx).padding.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4.5,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderOf(context),
-                    borderRadius: BorderRadius.circular(10),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.cardOf(context),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.15),
+                  blurRadius: 30,
+                  offset: const Offset(0, -8),
+                ),
+              ],
+            ),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                12,
+                20,
+                MediaQuery.of(ctx).padding.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderOf(context),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 20),
+                  SizedBox(height: isShortScreen ? 14 : 20),
 
-              // Glowing Icon Badge
-              Container(
-                width: 68,
-                height: 68,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF69AEA9), Color(0xFF3F8782)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+                  // Glowing Icon Badge
+                  Container(
+                    width: isShortScreen ? 56 : 68,
+                    height: isShortScreen ? 56 : 68,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF69AEA9), Color(0xFF3F8782)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: isShortScreen ? 28 : 34,
+                    ),
                   ),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
+                  SizedBox(height: isShortScreen ? 12 : 18),
+
+                  // Title
+                  Text(
+                    'Turn On Auto-Tracking?',
+                    style: TextStyle(
+                      fontSize: isShortScreen ? 19 : 21,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimaryOf(context),
+                      letterSpacing: -0.4,
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 34,
-                ),
-              ),
-              const SizedBox(height: 18),
-
-              // Title
-              Text(
-                'Turn On Auto-Tracking?',
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimaryOf(context),
-                  letterSpacing: -0.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-
-              // Description
-              Text(
-                'Buddy can automatically track your expenses by securely reading bank & UPI notifications so you never have to log them manually.',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.45,
-                  color: AppColors.textSecondaryOf(context),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-
-              // Benefits Card
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceOf(context),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    _buildPromptFeatureRow(
-                      context,
-                      icon: Icons.flash_on_rounded,
-                      iconColor: const Color(0xFFFFB300),
-                      title: 'Instant & Hands-Free',
-                      desc: 'Auto-logs expenses from GPay, PhonePe, Paytm & SMS',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPromptFeatureRow(
-                      context,
-                      icon: Icons.security_rounded,
-                      iconColor: const Color(0xFF4CAF50),
-                      title: '100% Private & On-Device',
-                      desc: 'Notifications are read locally. No SMS data ever leaves your device',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildPromptFeatureRow(
-                      context,
-                      icon: Icons.tune_rounded,
-                      iconColor: const Color(0xFF2196F3),
-                      title: 'Full Control Anytime',
-                      desc: 'Pause or turn it off whenever you want in Settings',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+                  const SizedBox(height: 8),
 
-              // Turn On Button
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    HapticFeedback.mediumImpact();
-                    Navigator.pop(ctx);
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('prompted_auto_tracking_popup', true);
-                    await NotificationService.setAutoDetectionEnabled(true);
-                    await NotificationHelper.requestNotificationPermission();
-                    NotificationService.awaitingPermissionReturn = true;
-                    await NotificationService.requestNotificationAccess();
+                  // Description
+                  Text(
+                    'Buddy can automatically track your expenses by securely reading bank & UPI notifications so you never have to log them manually.',
+                    style: TextStyle(
+                      fontSize: isShortScreen ? 12.5 : 13.5,
+                      height: 1.4,
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: isShortScreen ? 14 : 20),
 
-                    if (!mounted) return;
-                    AppSnackbar.showInfo(
-                      context,
-                      'Enable "Buddy" in Notification Access settings to start auto-tracking!',
-                      duration: const Duration(seconds: 4),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    elevation: 3,
-                    shadowColor: AppColors.primary.withValues(alpha: 0.4),
-                    shape: RoundedRectangleBorder(
+                  // Benefits Card
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(context),
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildPromptFeatureRow(
+                          context,
+                          icon: Icons.flash_on_rounded,
+                          iconColor: const Color(0xFFFFB300),
+                          title: 'Instant & Hands-Free',
+                          desc: 'Auto-logs expenses from GPay, PhonePe, Paytm & SMS',
+                        ),
+                        const SizedBox(height: 10),
+                        _buildPromptFeatureRow(
+                          context,
+                          icon: Icons.security_rounded,
+                          iconColor: const Color(0xFF4CAF50),
+                          title: '100% Private & On-Device',
+                          desc: 'Notifications are read locally. No SMS data ever leaves your device',
+                        ),
+                        const SizedBox(height: 10),
+                        _buildPromptFeatureRow(
+                          context,
+                          icon: Icons.tune_rounded,
+                          iconColor: const Color(0xFF2196F3),
+                          title: 'Full Control Anytime',
+                          desc: 'Pause or turn it off whenever you want in Settings',
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.bolt_rounded, size: 22),
-                      SizedBox(width: 8),
-                      Text(
-                        'Turn On Auto-Tracking',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
+                  SizedBox(height: isShortScreen ? 16 : 22),
+
+                  // Turn On Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        HapticFeedback.mediumImpact();
+                        Navigator.pop(ctx);
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('prompted_auto_tracking_popup', true);
+                        await NotificationService.setAutoDetectionEnabled(true);
+                        await NotificationHelper.requestNotificationPermission();
+                        NotificationService.awaitingPermissionReturn = true;
+                        await NotificationService.requestNotificationAccess();
+
+                        if (!mounted) return;
+                        AppSnackbar.showInfo(
+                          context,
+                          'Enable "Buddy" in Notification Access settings to start auto-tracking!',
+                          duration: const Duration(seconds: 4),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        elevation: 3,
+                        shadowColor: AppColors.primary.withValues(alpha: 0.4),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                    ],
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.bolt_rounded, size: 22),
+                          SizedBox(width: 8),
+                          Flexible(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Turn On Auto-Tracking',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
-              // Maybe Later Button
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: TextButton(
-                  onPressed: () async {
-                    HapticFeedback.lightImpact();
-                    Navigator.pop(ctx);
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('prompted_auto_tracking_popup', true);
-                  },
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondaryOf(context),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                  // Maybe Later Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: TextButton(
+                      onPressed: () async {
+                        HapticFeedback.lightImpact();
+                        Navigator.pop(ctx);
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.setBool('prompted_auto_tracking_popup', true);
+                      },
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.textSecondaryOf(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Maybe Later',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
-                  child: const Text(
-                    'Maybe Later',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },

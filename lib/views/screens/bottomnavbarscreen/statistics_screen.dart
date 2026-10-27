@@ -1169,7 +1169,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                 return false;
               },
               child: SizedBox(
-                height: (285 * s).clamp(270.0, 315.0),
+                height: (295 * s).clamp(275.0, 325.0),
                 child: PageView(
                   controller: _heroVisualPageController,
                   onPageChanged: (idx) {
@@ -1919,42 +1919,45 @@ class StatisticsScreenState extends State<StatisticsScreen>
                     ]
                   : null,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: sub != null
-                        ? (11.0 * s).clamp(10.0, 12.5)
-                        : (12.0 * s).clamp(11.0, 13.5),
-                    fontWeight: (intensity > 0.5 || today || selected)
-                        ? FontWeight.w800
-                        : FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                if (sub != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1.5),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        sub,
-                        maxLines: 1,
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 1.5, vertical: 1.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        label,
                         style: TextStyle(
-                          fontSize: 8.5,
-                          fontWeight: sub != '–'
-                              ? FontWeight.w700
-                              : FontWeight.w500,
-                          color: sub != '–'
-                              ? Colors.white.withValues(alpha: 0.95)
-                              : Colors.white.withValues(alpha: 0.40),
+                          fontSize: sub != null
+                              ? (11.0 * s).clamp(10.0, 12.5)
+                              : (12.0 * s).clamp(11.0, 13.5),
+                          fontWeight: (intensity > 0.5 || today || selected)
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: Colors.white,
                         ),
                       ),
-                    ),
+                      if (sub != null)
+                        Text(
+                          sub,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: 8.5,
+                            fontWeight: sub != '–'
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: sub != '–'
+                                ? Colors.white.withValues(alpha: 0.95)
+                                : Colors.white.withValues(alpha: 0.40),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
+                ),
+              ),
             ),
           ),
         ),
@@ -2033,7 +2036,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   i,
                   '${i + 1}',
                   sub: points[i] > 0 ? _compact(points[i]) : '–',
-                  height: (36 * s).clamp(32.0, 42.0),
+                  height: (38 * s).clamp(34.0, 44.0),
                 ),
             ]),
           ],

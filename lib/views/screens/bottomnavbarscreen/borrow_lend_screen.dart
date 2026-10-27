@@ -1197,230 +1197,241 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
+        final screenHeight = MediaQuery.of(ctx).size.height;
+        final isShort = screenHeight < 720;
+
         return StatefulBuilder(
           builder: (modalContext, setModalState) {
-            return Container(
-              decoration: BoxDecoration(
-                color: AppColors.cardOf(context),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
-                    blurRadius: 28,
-                    offset: const Offset(0, -8),
-                  ),
-                ],
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: screenHeight * 0.88,
               ),
-              padding: EdgeInsets.fromLTRB(
-                22,
-                12,
-                22,
-                MediaQuery.of(ctx).padding.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4.5,
-                      decoration: BoxDecoration(
-                        color: AppColors.borderOf(context),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.cardOf(context),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.12),
+                      blurRadius: 28,
+                      offset: const Offset(0, -8),
                     ),
+                  ],
+                ),
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    12,
+                    20,
+                    MediaQuery.of(ctx).padding.bottom + 16,
                   ),
-                  const SizedBox(height: 18),
-
-                  // Icon badge
-                  Container(
-                    width: 54,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF69AEA9), Color(0xFF3F8782)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.account_balance_wallet_rounded,
-                      color: Colors.white,
-                      size: 26,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Title & Subtitle
-                  Text(
-                    'Keep Dues Separate?',
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimaryOf(context),
-                      letterSpacing: -0.3,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Choose if personal borrow & lend money changes your main wallet balance.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: AppColors.textSecondaryOf(context),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Interactive Switch Card
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _isSeparate
-                            ? AppColors.primary.withValues(alpha: 0.45)
-                            : AppColors.borderOf(context),
-                        width: _isSeparate ? 1.5 : 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4.5,
                           decoration: BoxDecoration(
-                            color: (_isSeparate
-                                    ? AppColors.primary
-                                    : AppColors.textLightOf(context))
-                                .withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
+                            color: AppColors.borderOf(context),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: Icon(
-                            _isSeparate
-                                ? Icons.layers_clear_outlined
-                                : Icons.account_balance_wallet_outlined,
-                            size: 20,
+                        ),
+                      ),
+                      SizedBox(height: isShort ? 12 : 18),
+
+                      // Icon badge
+                      Container(
+                        width: isShort ? 46 : 54,
+                        height: isShort ? 46 : 54,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF69AEA9), Color(0xFF3F8782)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.primary.withValues(alpha: 0.35),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.account_balance_wallet_rounded,
+                          color: Colors.white,
+                          size: isShort ? 22 : 26,
+                        ),
+                      ),
+                      SizedBox(height: isShort ? 10 : 14),
+
+                      // Title & Subtitle
+                      Text(
+                        'Keep Dues Separate?',
+                        style: TextStyle(
+                          fontSize: isShort ? 17.5 : 19,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryOf(context),
+                          letterSpacing: -0.3,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        'Choose if personal borrow & lend money changes your main wallet balance.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: isShort ? 12 : 13,
+                          height: 1.35,
+                          color: AppColors.textSecondaryOf(context),
+                        ),
+                      ),
+                      SizedBox(height: isShort ? 12 : 18),
+
+                      // Interactive Switch Card
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceOf(context),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
                             color: _isSeparate
-                                ? AppColors.primary
-                                : AppColors.textSecondaryOf(context),
+                                ? AppColors.primary.withValues(alpha: 0.45)
+                                : AppColors.borderOf(context),
+                            width: _isSeparate ? 1.5 : 1.0,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Keep Separate',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.textPrimaryOf(context),
-                                ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: (_isSeparate
+                                        ? AppColors.primary
+                                        : AppColors.textLightOf(context))
+                                    .withValues(alpha: 0.15),
+                                shape: BoxShape.circle,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
+                              child: Icon(
                                 _isSeparate
-                                    ? 'ON: Dues stay only in this tab'
-                                    : 'OFF (Default): Dues are combined with your wallet balance',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: _isSeparate
-                                      ? AppColors.primary
-                                      : AppColors.textSecondaryOf(context),
-                                ),
+                                    ? Icons.layers_clear_outlined
+                                    : Icons.account_balance_wallet_outlined,
+                                size: 18,
+                                color: _isSeparate
+                                    ? AppColors.primary
+                                    : AppColors.textSecondaryOf(context),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Keep Separate',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _isSeparate
+                                        ? 'ON: Dues stay only in this tab'
+                                        : 'OFF (Default): Dues are combined with your wallet balance',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: _isSeparate
+                                          ? AppColors.primary
+                                          : AppColors.textSecondaryOf(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch.adaptive(
+                              value: _isSeparate,
+                              activeTrackColor: AppColors.primary,
+                              activeThumbColor: Colors.white,
+                              onChanged: (val) async {
+                                await _toggleSeparatePreference(val);
+                                setModalState(() {});
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: isShort ? 10 : 14),
+
+                      // Explanatory points in plain English
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceOf(context).withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: AppColors.borderOf(context).withValues(alpha: 0.6),
                           ),
                         ),
-                        Switch.adaptive(
-                          value: _isSeparate,
-                          activeTrackColor: AppColors.primary,
-                          activeThumbColor: Colors.white,
-                          onChanged: (val) async {
-                            await _toggleSeparatePreference(val);
-                            setModalState(() {});
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Explanatory points in plain English
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceOf(context).withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: AppColors.borderOf(context).withValues(alpha: 0.6),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        _buildInfoBullet(
-                          icon: Icons.check_circle_outline_rounded,
-                          iconColor: const Color(0xFF10B981),
-                          title: 'When OFF (Default — Combined)',
-                          desc:
-                              'Money friends owe you is added to your total balance. Money you owe others is taken out. Both reflect in Home and Statistics.',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildInfoBullet(
-                          icon: Icons.visibility_off_outlined,
-                          iconColor: AppColors.expense,
-                          title: 'When ON (Separate)',
-                          desc:
-                              'Borrow & Lend stays only in this tab. Your main wallet balance and statistics will ignore your friend dues completely.',
-                        ),
-                        const SizedBox(height: 12),
-                        _buildInfoBullet(
-                          icon: Icons.cloud_done_rounded,
-                          iconColor: AppColors.primary,
-                          title: 'Saved to Your Account',
-                          desc:
-                              'Your choice is automatically remembered across app restarts and re-installs.',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                        child: Column(
+                          children: [
+                            _buildInfoBullet(
+                              icon: Icons.check_circle_outline_rounded,
+                              iconColor: const Color(0xFF10B981),
+                              title: 'When OFF (Default — Combined)',
+                              desc:
+                                  'Money friends owe you is added to your total balance. Money you owe others is taken out. Both reflect in Home and Statistics.',
+                            ),
+                            SizedBox(height: isShort ? 8 : 12),
+                            _buildInfoBullet(
+                              icon: Icons.visibility_off_outlined,
+                              iconColor: AppColors.expense,
+                              title: 'When ON (Separate)',
+                              desc:
+                                  'Borrow & Lend stays only in this tab. Your main wallet balance and statistics will ignore your friend dues completely.',
+                            ),
+                            SizedBox(height: isShort ? 8 : 12),
+                            _buildInfoBullet(
+                              icon: Icons.cloud_done_rounded,
+                              iconColor: AppColors.primary,
+                              title: 'Saved to Your Account',
+                              desc:
+                                  'Your choice is automatically remembered across app restarts and re-installs.',
+                            ),
+                          ],
                         ),
                       ),
-                      child: const Text(
-                        'Got It',
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      SizedBox(height: isShort ? 12 : 18),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: const Text(
+                            'Got It',
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             );
           },
@@ -2045,11 +2056,15 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       ),
                       const SizedBox(height: 8),
 
-                      // Bottom Action Row
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Bottom Action Row (Responsive Wrap to prevent Settle button overflow)
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
                                 Icons.event_outlined,
@@ -2069,6 +2084,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                           ),
 
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               // Remind Button (Only for Lent and Pending)
                               if (isLend && !isRepaid) ...[
@@ -2080,7 +2096,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                                   borderColor: const Color(0xFF25D366).withValues(alpha: 0.3),
                                   onTap: () => _sendReminder(debt),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                               ],
 
                               // Settle button — opens partial settle sheet for pending, reopen for settled
@@ -2136,21 +2152,21 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4.5),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(9),
           border: Border.all(color: borderColor),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: color),
-            const SizedBox(width: 4),
+            Icon(icon, size: 12.5, color: color),
+            const SizedBox(width: 3.5),
             Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w700,
                 color: color,
               ),
@@ -2683,15 +2699,18 @@ Please let me know once convenient to transfer. Thank you!''';
                           ),
                           elevation: 2,
                         ),
-                        child: Text(
-                          isFullSettle
-                              ? (isLend ? 'Confirm Full Settlement' : 'Confirm Full Repayment')
-                              : (isLend
-                                  ? 'Record Partial Settlement'
-                                  : 'Record Partial Repayment'),
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            isFullSettle
+                                ? (isLend ? 'Confirm Full Settlement' : 'Confirm Full Repayment')
+                                : (isLend
+                                    ? 'Record Partial Settlement'
+                                    : 'Record Partial Repayment'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ),
