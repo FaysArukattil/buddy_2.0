@@ -809,7 +809,7 @@ class HomeScreenState extends State<HomeScreen>
                         ? _balancePageController.position.viewportDimension
                         : MediaQuery.of(context).size.width;
                     final double deltaPages =
-                        -_headerDragAccumX / (w > 0 ? w : 300.0);
+                        _headerDragAccumX / (w > 0 ? w : 300.0);
                     final double newPage =
                         (_headerDragStartPage + deltaPages).clamp(0.0, 2.0);
                     if (_balancePageController.hasClients &&
@@ -831,9 +831,9 @@ class HomeScreenState extends State<HomeScreen>
                         ? (_balancePageController.page ?? _balanceViewMode.toDouble())
                         : _balanceViewMode.toDouble();
                     int target = currentP.round();
-                    if (velocity < -250) {
+                    if (velocity > 250) {
                       target = (currentP.floor() + 1).clamp(0, 2);
-                    } else if (velocity > 250) {
+                    } else if (velocity < -250) {
                       target = (currentP.ceil() - 1).clamp(0, 2);
                     }
                     _onToggleMode(target.clamp(0, 2));
