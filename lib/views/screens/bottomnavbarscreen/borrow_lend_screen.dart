@@ -2305,133 +2305,129 @@ Please let me know once convenient to transfer. Thank you!''';
 
             final isDark = Theme.of(context).brightness == Brightness.dark;
 
-            return Padding(
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom,
+            return ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(sheetContext).size.height * 0.90,
               ),
-              child: Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(
-                  color: AppColors.cardOf(context),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
-                      blurRadius: 28,
-                      offset: const Offset(0, -6),
-                    ),
-                  ],
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Signature Curved Gradient Header Banner ──
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isDark
-                              ? const [
-                                  Color(0xFF0F2624),
-                                  Color(0xFF163E3B),
-                                  Color(0xFF1E5D57),
-                                ]
-                              : const [
-                                  Color(0xFF0F3632),
-                                  Color(0xFF1E5D57),
-                                  Color(0xFF2C7A72),
-                                ],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                        ),
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardOf(sheetContext),
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
+                        blurRadius: 28,
+                        offset: const Offset(0, -6),
                       ),
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                      child: Column(
-                        children: [
-                          Center(
-                            child: Container(
-                              width: 42,
-                              height: 4.5,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.35),
-                                borderRadius: BorderRadius.circular(3),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // ── Unified Modal Header ──
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 38,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: AppColors.borderOf(context),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(9),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.payments_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      isLend
-                                          ? 'Settle Lent Amount'
-                                          : 'Record Repayment',
-                                      style: const TextStyle(
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.w800,
-                                        color: Colors.white,
-                                        letterSpacing: -0.4,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${debt.personName} • Remaining: ${_formatAmount(totalAmount)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: Colors.white.withValues(alpha: 0.78),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () => Navigator.pop(ctx),
-                                child: Container(
-                                  padding: const EdgeInsets.all(7),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.16),
+                                    color: accentColor.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.22),
-                                    ),
                                   ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    color: Colors.white,
-                                    size: 18,
+                                  child: Icon(
+                                    Icons.payments_rounded,
+                                    color: accentColor,
+                                    size: 20,
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        isLend
+                                            ? 'Settle Lent Amount'
+                                            : 'Record Repayment',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.textPrimaryOf(context),
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        '${debt.personName} • Remaining: ₹${_formatAmount(totalAmount)}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textSecondaryOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () => Navigator.pop(ctx),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceOf(context),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      color: AppColors.textSecondaryOf(context),
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                      Divider(
+                        height: 1,
+                        color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                      ),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                           // Amount input
                     Text(
                       isLend
@@ -2702,15 +2698,17 @@ Please let me know once convenient to transfer. Thank you!''';
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    },
-  );
-},
-);
-}
+      ),
+    ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   Widget _quickAmountChip(
     String label,
@@ -2792,480 +2790,952 @@ Please let me know once convenient to transfer. Thank you!''';
 
   // ─── DEBT DETAIL MODAL ───
   void _showDebtDetailModal(BuildContext context, DebtModel debt) {
+    HapticFeedback.lightImpact();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLend = debt.isLend;
+    final accentColor = isLend ? AppColors.income : AppColors.expense;
+
+    // Get initials for Avatar
+    final trimmedName = debt.personName.trim();
+    final nameParts = trimmedName.split(RegExp(r'\s+'));
+    final initials = nameParts.length > 1
+        ? '${nameParts[0][0]}${nameParts[1][0]}'.toUpperCase()
+        : (trimmedName.isNotEmpty ? trimmedName[0].toUpperCase() : '?');
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.15),
-                blurRadius: 28,
-                offset: const Offset(0, -6),
-              ),
-            ],
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.90,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Signature Curved Gradient Header Banner ──
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [
-                            Color(0xFF0F2624),
-                            Color(0xFF163E3B),
-                            Color(0xFF1E5D57),
-                          ]
-                        : const [
-                            Color(0xFF0F3632),
-                            Color(0xFF1E5D57),
-                            Color(0xFF2C7A72),
-                          ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                child: Column(
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 42,
-                        height: 4.5,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Debt Record Details',
-                                style: const TextStyle(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: -0.4,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${debt.personName} • ${debt.isLend ? "You Lent" : "You Borrowed"}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white.withValues(alpha: 0.78),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _openAddEditSheet(context, existingDebt: debt);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white,
-                                  size: 17,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _confirmDelete(context, debt);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.25),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFFEF4444).withValues(alpha: 0.40),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: Color(0xFFFF8A80),
-                                  size: 17,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => Navigator.pop(ctx),
-                              child: Container(
-                                padding: const EdgeInsets.all(7),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.close_rounded,
-                                  color: Colors.white,
-                                  size: 17,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-              _buildDetailRow(
-                context,
-                'Person',
-                debt.personName,
-                Icons.person_outline,
-              ),
-              _buildDetailRow(
-                context,
-                'Type',
-                debt.isLend ? 'Lent (You gave money)' : 'Borrowed (You took money)',
-                debt.isLend ? Icons.arrow_outward_rounded : Icons.arrow_downward_rounded,
-                valueColor: debt.isLend ? AppColors.income : AppColors.expense,
-              ),
-              _buildDetailRow(
-                context,
-                'Initial Amount',
-                '${debt.isLend ? '+' : '-'}${_formatAmount(debt.originalAmount)}',
-                Icons.currency_rupee_rounded,
-                valueColor: debt.isLend ? AppColors.income : AppColors.expense,
-              ),
-              if (debt.hasPartialSettlements || debt.isRepaid) ...[
-                _buildDetailRow(
-                  context,
-                  'Total Paid',
-                  '${_formatAmount(debt.totalPaid)} (${(debt.progressPercent * 100).toInt()}%)',
-                  Icons.task_alt_rounded,
-                  valueColor: AppColors.income,
-                ),
-                _buildDetailRow(
-                  context,
-                  'Remaining Balance',
-                  debt.isRepaid
-                      ? '₹0 (Fully Settled)'
-                      : '${debt.isLend ? '+' : '-'}${_formatAmount(debt.amount)}',
-                  Icons.account_balance_wallet_outlined,
-                  valueColor: debt.isRepaid
-                      ? AppColors.income
-                      : (debt.isLend ? AppColors.income : AppColors.expense),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: AppColors.cardOf(context),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.5 : 0.16),
+                  blurRadius: 30,
+                  offset: const Offset(0, -8),
                 ),
               ],
-              _buildDetailRow(
-                context,
-                'Date Initiated',
-                DateFormat('EEEE, dd MMMM yyyy').format(debt.date),
-                Icons.calendar_today_outlined,
-              ),
-              _buildDetailRow(
-                context,
-                'Repayment Expected',
-                DateFormat('EEEE, dd MMMM yyyy').format(debt.dueDate),
-                Icons.event_outlined,
-              ),
-              _buildDetailRow(
-                context,
-                'Repayment Urgency',
-                debt.isUrgent
-                    ? '🔴 Strict (Urgent / Expected on date)'
-                    : (debt.isLenient
-                        ? '🟢 Lenient (Flexible / No rush)'
-                        : '🟡 Normal (Standard due date)'),
-                Icons.bolt_rounded,
-                valueColor: debt.urgencyColor,
-              ),
-              _buildDetailRow(
-                context,
-                'Status',
-                debt.isRepaid
-                    ? (debt.isRepaidOnTime
-                        ? '✅ Paid on time (${debt.repaidDate != null ? DateFormat('dd MMM yyyy').format(debt.repaidDate!) : "Settled"})'
-                        : (debt.isRepaidLate
-                            ? '⚠️ Paid ${debt.daysLateRepaid}d late (${debt.repaidDate != null ? DateFormat('dd MMM yyyy').format(debt.repaidDate!) : "Settled"})'
-                            : '✅ Settled'))
-                    : (debt.isDueToday
-                        ? '⏰ Due Today!'
-                        : (debt.isOverdue
-                            ? '⚠️ Overdue by ${debt.daysDifference.abs()} days'
-                            : 'Pending (Due in ${debt.daysDifference} days)')),
-                Icons.info_outline,
-                valueColor: debt.isRepaid
-                    ? (debt.isRepaidOnTime ? AppColors.income : const Color(0xFFFF9800))
-                    : (debt.isOverdue
-                        ? AppColors.expense
-                        : (debt.isDueToday ? const Color(0xFFFF9800) : const Color(0xFF00897B))),
-              ),
-              if (debt.note != null && debt.note!.isNotEmpty)
-                _buildDetailRow(
-                  context,
-                  'Note',
-                  debt.note!,
-                  Icons.notes_rounded,
-                ),
-
-              // Settlement History Timeline
-              if (debt.settlements.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceOf(context),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: AppColors.borderOf(context).withValues(alpha: 0.5),
-                    ),
-                  ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ── Unified Modal Header ──
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 16, 12),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Drag handle
+                      Center(
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.borderOf(context),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Due Record Details',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimaryOf(context),
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${debt.personName} • ${isLend ? "Money Lent" : "Money Borrowed"}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.textSecondaryOf(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.history_rounded,
-                                size: 16,
-                                color: AppColors.textSecondaryOf(context),
+                              // Edit button
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _openAddEditSheet(context, existingDebt: debt);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceOf(context),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.edit_outlined,
+                                    color: AppColors.textPrimaryOf(context),
+                                    size: 16,
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Settlement History (${debt.settlements.length})',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textPrimaryOf(context),
+                              const SizedBox(width: 8),
+                              // Delete button
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _confirmDelete(context, debt);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEF4444).withValues(alpha: 0.12),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.delete_outline_rounded,
+                                    color: Color(0xFFEF4444),
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Close button
+                              GestureDetector(
+                                onTap: () => Navigator.pop(ctx),
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surfaceOf(context),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    color: AppColors.textSecondaryOf(context),
+                                    size: 16,
+                                  ),
                                 ),
                               ),
                             ],
-                          ),
-                          Text(
-                            'Paid: ${_formatAmount(debt.totalSettled)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: debt.isLend ? AppColors.income : AppColors.expense,
-                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      ...debt.settlements.asMap().entries.map((entry) {
-                        final idx = entry.key + 1;
-                        final s = entry.value;
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardOf(context),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: AppColors.borderOf(context).withValues(alpha: 0.3),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 10,
-                                    backgroundColor: (debt.isLend
-                                            ? AppColors.income
-                                            : AppColors.expense)
-                                        .withValues(alpha: 0.15),
-                                    child: Text(
-                                      '$idx',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w800,
-                                        color: debt.isLend
-                                            ? AppColors.income
-                                            : AppColors.expense,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        DateFormat('dd MMMM yyyy').format(s.date),
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.textPrimaryOf(context),
-                                        ),
-                                      ),
-                                      if (s.note != null && s.note!.trim().isNotEmpty)
-                                        Text(
-                                          s.note!.trim(),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textLightOf(context),
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                '+${_formatAmount(s.amount)}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: debt.isLend
-                                      ? AppColors.income
-                                      : AppColors.expense,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
                     ],
                   ),
                 ),
-              ],
-              const SizedBox(height: 20),
+                Divider(
+                  height: 1,
+                  color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                ),
 
-              // Action buttons in detail modal
-              if (!debt.isRepaid) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _showPartialSettleSheet(context, debt);
-                    },
-                    icon: const Icon(Icons.payments_rounded, size: 18),
-                    label: Text(
-                      debt.isLend ? 'Settle / Partial Repayment' : 'Record Repayment',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          debt.isLend ? AppColors.income : AppColors.expense,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                // ── Scrollable Body ──
+                Flexible(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── 1. Hero Card (Person & Big Amount) ──
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppColors.surfaceOf(context)
+                                : accentColor.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: accentColor.withValues(alpha: isDark ? 0.25 : 0.15),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  // Initials Avatar
+                                  Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: isLend
+                                            ? const [Color(0xFF10B981), Color(0xFF059669)]
+                                            : const [Color(0xFFFF7A45), Color(0xFFE65100)],
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                      ),
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: accentColor.withValues(alpha: 0.25),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 3),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        initials,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          debt.personName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.textPrimaryOf(context),
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              isLend
+                                                  ? Icons.arrow_outward_rounded
+                                                  : Icons.arrow_downward_rounded,
+                                              size: 13,
+                                              color: accentColor,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Flexible(
+                                              child: Text(
+                                                isLend
+                                                    ? 'Lent (To Receive)'
+                                                    : 'Borrowed (To Pay)',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: accentColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Urgency Pill
+                                  _buildUrgencyPill(context, debt),
+                                ],
+                              ),
+                              const SizedBox(height: 14),
+                              Divider(
+                                color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                                height: 1,
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Amount Block
+                              Text(
+                                debt.isRepaid
+                                    ? 'Fully Settled'
+                                    : (debt.hasPartialSettlements
+                                        ? 'Remaining Balance'
+                                        : (isLend ? 'Amount to Receive' : 'Amount to Repay')),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondaryOf(context),
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      debt.isRepaid ? '₹0' : '₹${_formatAmount(debt.amount)}',
+                                      style: TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.w900,
+                                        color: debt.isRepaid ? AppColors.income : accentColor,
+                                        letterSpacing: -1,
+                                      ),
+                                    ),
+                                    if (debt.hasPartialSettlements && !debt.isRepaid) ...[
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'of ₹${_formatAmount(debt.originalAmount)}',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textLightOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Status Pill
+                              _buildStatusBadge(context, debt),
+
+                              // Progress bar if partial or settled
+                              if (debt.hasPartialSettlements || debt.isRepaid) ...[
+                                const SizedBox(height: 14),
+                                Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            'Paid: ₹${_formatAmount(debt.totalPaid)} (${(debt.progressPercent * 100).toInt()}%)',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 11.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.income,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          debt.isRepaid
+                                              ? '100% Repaid'
+                                              : 'Left: ₹${_formatAmount(debt.amount)}',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textSecondaryOf(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: LinearProgressIndicator(
+                                        value: debt.isRepaid ? 1.0 : debt.progressPercent.clamp(0.0, 1.0),
+                                        minHeight: 7,
+                                        backgroundColor: AppColors.borderOf(context),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          debt.isRepaid ? AppColors.income : accentColor,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // ── 2. Dates & Timeline Info Tile ──
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceOf(context),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildMetaItem(
+                                      context,
+                                      icon: Icons.calendar_today_rounded,
+                                      iconColor: const Color(0xFF00897B),
+                                      label: 'Date Initiated',
+                                      value: DateFormat('dd MMM yyyy').format(debt.date),
+                                      subvalue: DateFormat('EEEE').format(debt.date),
+                                    ),
+                                  ),
+                                  Container(
+                                    width: 1,
+                                    height: 44,
+                                    color: AppColors.borderOf(context),
+                                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                                  ),
+                                  Expanded(
+                                    child: _buildMetaItem(
+                                      context,
+                                      icon: Icons.event_available_rounded,
+                                      iconColor: debt.isOverdue
+                                          ? AppColors.expense
+                                          : (debt.isDueToday ? const Color(0xFFFF9800) : AppColors.primary),
+                                      label: 'Repayment Date',
+                                      value: DateFormat('dd MMM yyyy').format(debt.dueDate),
+                                      subvalue: debt.isRepaid
+                                          ? (debt.repaidDate != null
+                                              ? 'Repaid ${DateFormat('dd MMM').format(debt.repaidDate!)}'
+                                              : 'Settled')
+                                          : (debt.isDueToday
+                                              ? 'Due today'
+                                              : (debt.isOverdue
+                                                  ? '${debt.daysDifference.abs()}d overdue'
+                                                  : 'In ${debt.daysDifference} days')),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (debt.remindOnDueDate) ...[
+                                const SizedBox(height: 10),
+                                Divider(
+                                  color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                                  height: 1,
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_active_rounded,
+                                      size: 15,
+                                      color: AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Due date push notification reminder is active',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textSecondaryOf(context),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        // ── 3. Note Bubble ──
+                        if (debt.note != null && debt.note!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceOf(context),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.format_quote_rounded,
+                                  size: 18,
+                                  color: AppColors.textLightOf(context),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Note',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.textLightOf(context),
+                                          letterSpacing: 0.4,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        debt.note!.trim(),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          height: 1.35,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textPrimaryOf(context),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // ── 4. Settlement History Timeline ──
+                        if (debt.settlements.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceOf(context),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.history_rounded,
+                                          size: 17,
+                                          color: AppColors.income,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Settlement History (${debt.settlements.length})',
+                                          style: TextStyle(
+                                            fontSize: 13.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textPrimaryOf(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.income.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        'Total: +₹${_formatAmount(debt.totalSettled)}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: AppColors.income,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                ...debt.settlements.asMap().entries.map((entry) {
+                                  final idx = entry.key + 1;
+                                  final s = entry.value;
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardOf(context),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.income.withValues(alpha: 0.14),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '$idx',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w800,
+                                                color: AppColors.income,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                DateFormat('dd MMMM yyyy').format(s.date),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: AppColors.textPrimaryOf(context),
+                                                ),
+                                              ),
+                                              if (s.note != null && s.note!.trim().isNotEmpty)
+                                                Text(
+                                                  s.note!.trim(),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors.textSecondaryOf(context),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            '+₹${_formatAmount(s.amount)}',
+                                            style: const TextStyle(
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w800,
+                                              color: AppColors.income,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+
+                        // ── 5. Action Buttons ──
+                        if (!debt.isRepaid) ...[
+                          // Primary Settle / Partial repayment button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                _showPartialSettleSheet(context, debt);
+                              },
+                              icon: const Icon(Icons.check_circle_rounded, size: 20),
+                              label: Text(
+                                isLend ? 'Record Settlement' : 'Record Repayment',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accentColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+
+                          // Compact WhatsApp reminder button for Lent debts
+                          if (isLend) ...[
+                            const SizedBox(height: 10),
+                            Center(
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  _sendReminder(debt);
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF25D366).withValues(alpha: isDark ? 0.16 : 0.08),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: const Color(0xFF25D366).withValues(alpha: 0.35),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.chat_bubble_outline_rounded,
+                                        size: 15,
+                                        color: Color(0xFF25D366),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Send WhatsApp Reminder',
+                                        style: TextStyle(
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: isDark ? const Color(0xFF4ADE80) : const Color(0xFF15803D),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ] else ...[
+                          // Reopen button for settled debts
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                Navigator.pop(ctx);
+                                await _toggleSettled(debt);
+                              },
+                              icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                              label: const Text(
+                                'Reopen as Pending Due',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.textPrimaryOf(context),
+                                side: BorderSide(
+                                  color: AppColors.borderOf(context),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
               ],
-
-              if (debt.isLend && !debt.isRepaid)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      _sendReminder(debt);
-                    },
-                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
-                    label: const Text('Send Reminder Message'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF25D366),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    ),
-  );
-},
-);
-  }
-
-  Widget _buildDetailRow(
-    BuildContext context,
-    String label,
-    String value,
-    IconData icon, {
-    Color? valueColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: AppColors.textLightOf(context)),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppColors.textSecondaryOf(context),
-              ),
             ),
           ),
-          Expanded(
+        );
+      },
+    );
+  }
+
+  Widget _buildUrgencyPill(BuildContext context, DebtModel debt) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
+
+    if (debt.isUrgent) {
+      bg = const Color(0xFFEF4444).withValues(alpha: 0.14);
+      fg = const Color(0xFFEF4444);
+      label = 'Strict';
+      icon = Icons.bolt_rounded;
+    } else if (debt.isLenient) {
+      bg = const Color(0xFF10B981).withValues(alpha: 0.14);
+      fg = const Color(0xFF10B981);
+      label = 'Flexible';
+      icon = Icons.spa_rounded;
+    } else {
+      bg = const Color(0xFFF59E0B).withValues(alpha: 0.14);
+      fg = const Color(0xFFD97706);
+      label = 'Normal';
+      icon = Icons.schedule_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(BuildContext context, DebtModel debt) {
+    Color bg;
+    Color fg;
+    String label;
+    IconData icon;
+
+    if (debt.isRepaid) {
+      bg = AppColors.income.withValues(alpha: 0.14);
+      fg = AppColors.income;
+      label = debt.isRepaidOnTime
+          ? 'Paid on time'
+          : (debt.isRepaidLate ? 'Paid ${debt.daysLateRepaid}d late' : 'Settled');
+      icon = Icons.check_circle_rounded;
+    } else if (debt.isDueToday) {
+      bg = const Color(0xFFF59E0B).withValues(alpha: 0.14);
+      fg = const Color(0xFFD97706);
+      label = 'Due Today';
+      icon = Icons.access_time_filled_rounded;
+    } else if (debt.isOverdue) {
+      bg = const Color(0xFFEF4444).withValues(alpha: 0.14);
+      fg = const Color(0xFFEF4444);
+      label = 'Overdue by ${debt.daysDifference.abs()} days';
+      icon = Icons.warning_rounded;
+    } else {
+      bg = const Color(0xFF00897B).withValues(alpha: 0.14);
+      fg = const Color(0xFF00897B);
+      label = 'Pending • Due in ${debt.daysDifference} days';
+      icon = Icons.timelapse_rounded;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: fg),
+          const SizedBox(width: 5),
+          Flexible(
             child: Text(
-              value,
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: valueColor ?? AppColors.textPrimaryOf(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: fg,
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMetaItem(
+    BuildContext context, {
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+    String? subvalue,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, size: 15, color: iconColor),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textLightOf(context),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimaryOf(context),
+                ),
+              ),
+              if (subvalue != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  subvalue,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: AppColors.textSecondaryOf(context),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -3800,7 +4270,13 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
 
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              physics: const BouncingScrollPhysics(),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 32,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
