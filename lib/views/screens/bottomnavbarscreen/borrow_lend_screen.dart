@@ -1,5 +1,14 @@
 // lib/views/screens/bottomnavbarscreen/borrow_lend_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'
+    show
+        showCupertinoModalPopup,
+        CupertinoDatePicker,
+        CupertinoDatePickerMode,
+        CupertinoTheme,
+        CupertinoThemeData,
+        CupertinoTextThemeData,
+        CupertinoButton;
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -30,7 +39,6 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
 
   int _typeFilter = 0; // 0 = All, 1 = Lent (To Receive), 2 = Borrowed (To Pay)
   int _statusFilter = 0; // 0 = All (default), 1 = Pending, 2 = Settled
-  List<String> _recentContacts = [];
   bool _includeDebtsInHome = true;
 
   late final PageController _typeFilterPageController;
@@ -191,13 +199,6 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
           final allDebts = snapshot.data ?? _cachedDebts;
           if (snapshot.hasData && snapshot.data != null) {
             _cachedDebts = snapshot.data!;
-            final contacts = <String>{};
-            for (final d in _cachedDebts) {
-              if (d.personName.trim().isNotEmpty) {
-                contacts.add(d.personName.trim());
-              }
-            }
-            _recentContacts = contacts.toList();
           }
           final isLoading =
               snapshot.connectionState == ConnectionState.waiting &&
@@ -3885,14 +3886,11 @@ Please let me know once convenient to transfer. Thank you!''';
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return FractionallySizedBox(
-          heightFactor: 0.9,
-          child: _AddEditDebtSheet(
-            existingDebt: existingDebt,
-            initialType: initialType,
-            recentContacts: _recentContacts,
-            onSaved: () {},
-          ),
+        return _AddEditDebtSheet(
+          existingDebt: existingDebt,
+          initialType: initialType,
+          allDebts: _cachedDebts,
+          onSaved: () {},
         );
       },
     );
@@ -3903,13 +3901,13 @@ Please let me know once convenient to transfer. Thank you!''';
 class _AddEditDebtSheet extends StatefulWidget {
   final DebtModel? existingDebt;
   final int initialType; // 0=Lend, 1=Borrow
-  final List<String> recentContacts;
+  final List<DebtModel> allDebts;
   final VoidCallback onSaved;
 
   const _AddEditDebtSheet({
     this.existingDebt,
     this.initialType = 0,
-    required this.recentContacts,
+    this.allDebts = const [],
     required this.onSaved,
   });
 
@@ -3917,13 +3915,15 @@ class _AddEditDebtSheet extends StatefulWidget {
   State<_AddEditDebtSheet> createState() => _AddEditDebtSheetState();
 }
 
-class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
+class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _personController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
-  late int _typeIndex; // 0 = Lent (I gave), 1 = Borrowed (I took)
+  late int _typeIndex; // 0 = Lent, 1 = Borrowed
+  late final AnimationController _sliderAnimController;
   String _urgency = 'medium'; // 'low', 'medium', 'high'
   DateTime _loanDate = DateTime.now();
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
@@ -3948,45 +3948,376 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
       _dueDate = d.dueDate;
       _remindOnDueDate = d.remindOnDueDate;
     }
+    _sliderAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: _typeIndex.toDouble(),
+    );
   }
 
   @override
   void dispose() {
+    _sliderAnimController.dispose();
     _amountController.dispose();
     _personController.dispose();
     _noteController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickDate(bool isDueDate) async {
-    final initial = isDueDate ? _dueDate : _loanDate;
-    final picked = await showDatePicker(
+  void _setSliderIndex(int idx) {
+    if (_typeIndex == idx && _sliderAnimController.value == idx.toDouble()) return;
+    HapticFeedback.selectionClick();
+    setState(() => _typeIndex = idx);
+    _sliderAnimController.animateTo(
+      idx.toDouble(),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Map<String, int> get _contactFrequencies {
+    final Map<String, int> freq = {};
+    for (final d in widget.allDebts) {
+      final name = d.personName.trim();
+      if (name.isNotEmpty) {
+        freq[name] = (freq[name] ?? 0) + 1;
+      }
+    }
+    return freq;
+  }
+
+  List<String> get _sortedContacts {
+    final freq = _contactFrequencies;
+    final list = freq.keys.toList();
+    list.sort((a, b) {
+      final c = (freq[b] ?? 0).compareTo(freq[a] ?? 0);
+      if (c != 0) return c;
+      return a.toLowerCase().compareTo(b.toLowerCase());
+    });
+    return list;
+  }
+
+  void _showAllContactsModal(BuildContext context) {
+    final contacts = _sortedContacts;
+    final freqs = _contactFrequencies;
+    HapticFeedback.lightImpact();
+
+    showModalBottomSheet(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: AppColors.primary,
-              brightness: Theme.of(context).brightness,
-            ),
-          ),
-          child: child!,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final filtered = contacts.where((name) {
+              return name
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase().trim());
+            }).toList();
+
+            final isDark = Theme.of(ctx).brightness == Brightness.dark;
+            final isLend = _typeIndex == 0;
+            final activeColor =
+                isLend ? AppColors.income : const Color(0xFFE65100);
+
+            return Container(
+              height: MediaQuery.of(ctx).size.height * 0.58,
+              padding: EdgeInsets.fromLTRB(
+                16,
+                12,
+                16,
+                MediaQuery.of(ctx).padding.bottom + 12,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.cardOf(ctx),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderOf(ctx),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select Past Contact',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryOf(ctx),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(ctx),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceOf(ctx),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: AppColors.textSecondaryOf(ctx),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Search Bar
+                  Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(ctx),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.borderOf(ctx).withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
+                          size: 16,
+                          color: AppColors.textSecondaryOf(ctx),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              color: AppColors.textPrimaryOf(ctx),
+                            ),
+                            decoration: InputDecoration(
+                              hintText: 'Search contact name...',
+                              hintStyle: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textLightOf(ctx),
+                              ),
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            onChanged: (val) {
+                              setModalState(() => searchQuery = val);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No contacts found',
+                              style: TextStyle(
+                                color: AppColors.textLightOf(ctx),
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: AppColors.borderOf(ctx)
+                                  .withValues(alpha: 0.3),
+                            ),
+                            itemBuilder: (context, idx) {
+                              final name = filtered[idx];
+                              final count = freqs[name] ?? 1;
+                              final isSelected =
+                                  _personController.text.trim().toLowerCase() ==
+                                      name.toLowerCase();
+
+                              return ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 0),
+                                leading: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor:
+                                      activeColor.withValues(alpha: 0.14),
+                                  child: Text(
+                                    _getPersonInitials(name),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: activeColor,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    fontSize: 13.5,
+                                    color: isSelected
+                                        ? activeColor
+                                        : AppColors.textPrimaryOf(ctx),
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  '$count due record${count > 1 ? 's' : ''}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppColors.textSecondaryOf(ctx),
+                                  ),
+                                ),
+                                trailing: isSelected
+                                    ? Icon(
+                                        Icons.check_circle_rounded,
+                                        color: activeColor,
+                                        size: 18,
+                                      )
+                                    : null,
+                                onTap: () {
+                                  HapticFeedback.selectionClick();
+                                  setState(() => _personController.text = name);
+                                  Navigator.pop(ctx);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
+  }
 
-    if (picked != null) {
-      setState(() {
-        if (isDueDate) {
-          _dueDate = picked;
-        } else {
-          _loanDate = picked;
-        }
-      });
-    }
+  Future<void> _pickDate(bool isDueDate) async {
+    HapticFeedback.lightImpact();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isLend = _typeIndex == 0;
+    final initial = isDueDate ? _dueDate : _loanDate;
+    DateTime temp = initial;
+
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (BuildContext ctx) {
+        return Container(
+          height: 280,
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                height: 46,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          color: AppColors.textSecondaryOf(context),
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      isDueDate
+                          ? 'Repayment Date'
+                          : (isLend ? 'Lent Date' : 'Borrowed Date'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        setState(() {
+                          if (isDueDate) {
+                            _dueDate = temp;
+                          } else {
+                            _loanDate = temp;
+                          }
+                        });
+                        HapticFeedback.selectionClick();
+                      },
+                      child: Text(
+                        'Done',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: _typeIndex == 0
+                              ? AppColors.income
+                              : const Color(0xFFE65100),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: CupertinoTheme(
+                  data: CupertinoThemeData(
+                    brightness: isDark ? Brightness.dark : Brightness.light,
+                    textTheme: CupertinoTextThemeData(
+                      dateTimePickerTextStyle: TextStyle(
+                        color: AppColors.textPrimaryOf(context),
+                        fontSize: 19,
+                      ),
+                    ),
+                  ),
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.date,
+                    initialDateTime: initial,
+                    minimumDate: DateTime(2020),
+                    maximumDate: DateTime(2035),
+                    onDateTimeChanged: (DateTime newDate) {
+                      temp = newDate;
+                      HapticFeedback.selectionClick();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _setQuickDueDate(int days) {
@@ -3994,6 +4325,13 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
     setState(() {
       _dueDate = DateTime.now().add(Duration(days: days));
     });
+  }
+
+  bool _isQuickDateSelected(int days) {
+    final now = DateTime.now();
+    final target = DateTime(now.year, now.month, now.day + days);
+    final due = DateTime(_dueDate.year, _dueDate.month, _dueDate.day);
+    return due.difference(target).inDays == 0;
   }
 
   Future<void> _save() async {
@@ -4007,7 +4345,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
 
     final personName = _personController.text.trim();
     if (personName.isEmpty) {
-      AppSnackbar.showError(context, 'Please enter friend or lender name');
+      AppSnackbar.showError(context, 'Please enter contact name');
       return;
     }
 
@@ -4081,6 +4419,188 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
     return trimmed[0].toUpperCase();
   }
 
+  Widget _buildSlidableTypeBar() {
+    return Container(
+      height: 38,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.16),
+          width: 1.0,
+        ),
+      ),
+      padding: const EdgeInsets.all(2.5),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final pillWidth = (totalWidth - 2) / 2;
+
+          return AnimatedBuilder(
+            animation: _sliderAnimController,
+            builder: (context, _) {
+              final double t = _sliderAnimController.value.clamp(0.0, 1.0);
+              final double leftOffset = t * pillWidth;
+
+              final Color c1 = Color.lerp(
+                const Color(0xFF10B981),
+                const Color(0xFFFF7043),
+                t,
+              )!;
+              final Color c2 = Color.lerp(
+                const Color(0xFF059669),
+                const Color(0xFFE64A19),
+                t,
+              )!;
+              final Color borderC = Color.lerp(
+                const Color(0xFF10B981).withValues(alpha: 0.60),
+                const Color(0xFFFF7043).withValues(alpha: 0.60),
+                t,
+              )!;
+              final Color glowC = Color.lerp(
+                const Color(0xFF10B981).withValues(alpha: 0.35),
+                const Color(0xFFE64A19).withValues(alpha: 0.35),
+                t,
+              )!;
+
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (details) {
+                  final double delta = details.delta.dx / pillWidth;
+                  _sliderAnimController.value =
+                      (_sliderAnimController.value + delta).clamp(0.0, 1.0);
+                  final int nearest = _sliderAnimController.value.round();
+                  if (nearest != _typeIndex) {
+                    setState(() => _typeIndex = nearest);
+                    HapticFeedback.selectionClick();
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  final double v = details.primaryVelocity ?? 0;
+                  int target = _sliderAnimController.value.round();
+                  if (v > 200) target = 1;
+                  if (v < -200) target = 0;
+                  _setSliderIndex(target);
+                },
+                child: SizedBox(
+                  height: 38,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: leftOffset,
+                        width: pillWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [c1, c2],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: borderC, width: 1.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: glowC,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _setSliderIndex(0),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.north_east_rounded,
+                                      size: 14,
+                                      color: Color.lerp(
+                                        const Color(0xFF69F0AE),
+                                        Colors.white.withValues(alpha: 0.60),
+                                        t,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Lent',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: t < 0.5
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: Color.lerp(
+                                          Colors.white,
+                                          Colors.white.withValues(alpha: 0.65),
+                                          t,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _setSliderIndex(1),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.south_west_rounded,
+                                      size: 14,
+                                      color: Color.lerp(
+                                        Colors.white.withValues(alpha: 0.60),
+                                        const Color(0xFFFF8A80),
+                                        t,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Borrowed',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: t >= 0.5
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: Color.lerp(
+                                          Colors.white.withValues(alpha: 0.65),
+                                          Colors.white,
+                                          t,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLend = _typeIndex == 0;
@@ -4088,9 +4608,18 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
     const accentGreen = Color(0xFF69F0AE);
     const accentCoral = Color(0xFFFF8A80);
     final themeAccent = isLend ? accentGreen : accentCoral;
-    final primaryBtnColor = isLend ? const Color(0xFF10B981) : const Color(0xFFE65100);
+    final primaryBtnColor =
+        isLend ? const Color(0xFF10B981) : const Color(0xFFE65100);
+
+    final sortedContacts = _sortedContacts;
+    final frequentContacts = sortedContacts.take(3).toList();
+    final hasMoreContacts = sortedContacts.length > 3;
+    final moreCount = sortedContacts.length - 3;
 
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.90,
+      ),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.cardOf(context),
@@ -4103,811 +4632,699 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
           ),
         ],
       ),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            // ─── 1. Signature Page-Style Top Hero Container (Top Bar + Type Slider + Hero Amount Card) ───
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? const [
-                          Color(0xFF0F2624),
-                          Color(0xFF163E3B),
-                          Color(0xFF1E5D57),
-                        ]
-                      : const [
-                          Color(0xFF0F3632),
-                          Color(0xFF1E5D57),
-                          Color(0xFF2C7A72),
-                        ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(28),
-                  topRight: Radius.circular(28),
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (isDark ? const Color(0xFF0F2624) : const Color(0xFF0F3632))
-                        .withValues(alpha: 0.32),
-                    blurRadius: 22,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ─── 1. Signature Page-Style Top Hero Container (with Integrated Name & Amount) ───
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: isDark
+                    ? const [
+                        Color(0xFF0F2624),
+                        Color(0xFF163E3B),
+                        Color(0xFF1E5D57),
+                      ]
+                    : const [
+                        Color(0xFF0F3632),
+                        Color(0xFF1E5D57),
+                        Color(0xFF2C7A72),
+                      ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              child: Column(
-                children: [
-                  // Frosted Drag Handle
-                  Center(
-                    child: Container(
-                      width: 42,
-                      height: 4.5,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(28),
+                topRight: Radius.circular(28),
+                bottomLeft: Radius.circular(22),
+                bottomRight: Radius.circular(22),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (isDark
+                          ? const Color(0xFF0F2624)
+                          : const Color(0xFF0F3632))
+                      .withValues(alpha: 0.28),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Frosted Drag Handle
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                ),
+                const SizedBox(height: 8),
 
-                  // Header Bar: Title, Subtitle & Frosted Close Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Header Bar: Title + Close Button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      isEditing
+                          ? 'Edit Due Record'
+                          : (isLend ? 'New Lent Record' : 'New Borrow Record'),
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.22),
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Colors.white,
+                          size: 15,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Minimal Slidable Segmented Bar (Lent | Borrowed)
+                _buildSlidableTypeBar(),
+
+                const SizedBox(height: 8),
+
+                // Amount Input Row with Clear Badge / Hint in Right Portion
+                Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              isEditing ? 'Edit Due Record' : 'Record Loan or Due',
-                              style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              isEditing
-                                  ? 'Update record details, amounts & repayment timeline'
-                                  : (isLend
-                                      ? 'Track money you gave to receive back'
-                                      : 'Track money you borrowed to repay'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withValues(alpha: 0.78),
-                              ),
-                            ),
-                          ],
+                      Text(
+                        '₹',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: themeAccent,
                         ),
                       ),
                       const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.22),
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
+                      Expanded(
+                        child: TextFormField(
+                          controller: _amountController,
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
                             color: Colors.white,
-                            size: 16,
+                            letterSpacing: -0.3,
                           ),
+                          cursorColor: themeAccent,
+                          decoration: InputDecoration(
+                            hintText: '0.00',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Enter amount';
+                            }
+                            if (double.tryParse(val.trim()) == null) {
+                              return 'Enter valid number';
+                            }
+                            return null;
+                          },
                         ),
                       ),
+                      if (_amountController.text.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _amountController.clear());
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(7),
+                          ),
+                          child: Text(
+                            'Amount',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                ),
 
-                  // Integrated Frosted Slider (I Lent vs I Borrowed)
-                  Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.26),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        width: 1.0,
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(3.5),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _typeIndex = 0);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              decoration: BoxDecoration(
-                                gradient: isLend
-                                    ? const LinearGradient(
-                                        colors: [
-                                          Color(0xFF10B981),
-                                          Color(0xFF059669),
-                                        ],
-                                      )
-                                    : null,
-                                borderRadius: BorderRadius.circular(13),
-                                boxShadow: isLend
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFF10B981)
-                                              .withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.arrow_outward_rounded,
-                                      size: 15,
-                                      color: isLend
-                                          ? const Color(0xFF69F0AE)
-                                          : Colors.white.withValues(alpha: 0.65),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'I Lent (Receive)',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: isLend
-                                            ? FontWeight.w800
-                                            : FontWeight.w600,
-                                        color: isLend
-                                            ? Colors.white
-                                            : Colors.white.withValues(alpha: 0.70),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _typeIndex = 1);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              curve: Curves.easeOutCubic,
-                              decoration: BoxDecoration(
-                                gradient: !isLend
-                                    ? const LinearGradient(
-                                        colors: [
-                                          Color(0xFFFF7043),
-                                          Color(0xFFE64A19),
-                                        ],
-                                      )
-                                    : null,
-                                borderRadius: BorderRadius.circular(13),
-                                boxShadow: !isLend
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFFE64A19)
-                                              .withValues(alpha: 0.35),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.arrow_downward_rounded,
-                                      size: 15,
-                                      color: !isLend
-                                          ? const Color(0xFFFF8A80)
-                                          : Colors.white.withValues(alpha: 0.65),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'I Borrowed (Pay)',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        fontWeight: !isLend
-                                            ? FontWeight.w800
-                                            : FontWeight.w600,
-                                        color: !isLend
-                                            ? Colors.white
-                                            : Colors.white.withValues(alpha: 0.70),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                const SizedBox(height: 8),
+
+                // Name Input Row (Integrated into Top Portion!)
+                Container(
+                  height: 46,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      width: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 14),
-
-                  // Hero Frosted Amount Card
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.16),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              isLend ? 'AMOUNT TO LEND' : 'AMOUNT TO BORROW',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.6,
-                                color: Colors.white.withValues(alpha: 0.75),
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: themeAccent.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                isLend ? 'Receivable' : 'Payable',
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: themeAccent,
-                                ),
-                              ),
-                            ),
-                          ],
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: isLend
+                                ? const [Color(0xFF69F0AE), Color(0xFF10B981)]
+                                : const [Color(0xFFFFAB91), Color(0xFFFF5722)],
+                          ),
+                          shape: BoxShape.circle,
                         ),
-                        const SizedBox(height: 6),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '₹',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                color: themeAccent,
-                              ),
+                        child: Center(
+                          child: Text(
+                            _getPersonInitials(_personController.text),
+                            style: TextStyle(
+                              color: isLend
+                                  ? const Color(0xFF0F3632)
+                                  : Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextFormField(
-                                controller: _amountController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                  letterSpacing: -0.5,
-                                ),
-                                cursorColor: themeAccent,
-                                decoration: InputDecoration(
-                                  hintText: '0.00',
-                                  hintStyle: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.32),
-                                    fontSize: 32,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                onChanged: (_) => setState(() {}),
-                                validator: (val) {
-                                  if (val == null || val.trim().isEmpty) {
-                                    return 'Please enter an amount';
-                                  }
-                                  if (double.tryParse(val.trim()) == null) {
-                                    return 'Enter a valid amount';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ),
-                            if (_amountController.text.isNotEmpty)
-                              GestureDetector(
-                                onTap: () {
-                                  HapticFeedback.selectionClick();
-                                  setState(() => _amountController.clear());
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.18),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          isLend
-                              ? 'This amount will be logged under Money Lent to be returned to you.'
-                              : 'This amount will be logged under Money Borrowed to be repaid.',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.65),
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _personController,
+                          textCapitalization: TextCapitalization.words,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          cursorColor: themeAccent,
+                          decoration: InputDecoration(
+                            hintText: isLend
+                                ? 'Who did you lend to?'
+                                : 'Who did you borrow from?',
+                            hintStyle: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.45),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return 'Contact name is required';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
+                      if (_personController.text.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            setState(() => _personController.clear());
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            margin: const EdgeInsets.only(right: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 12,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      if (sortedContacts.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _showAllContactsModal(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.contacts_rounded,
+                                  size: 13,
+                                  color: themeAccent,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  'List',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Frequently Used Contacts Row
+                if (frequentContacts.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  SizedBox(
+                    height: 26,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [
+                        ...frequentContacts.map((name) {
+                          final isSelected =
+                              _personController.text.trim().toLowerCase() ==
+                                  name.toLowerCase();
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _personController.text = name);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 9, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? themeAccent.withValues(alpha: 0.25)
+                                      : Colors.white.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? themeAccent
+                                        : Colors.white.withValues(alpha: 0.20),
+                                    width: isSelected ? 1.4 : 0.8,
+                                  ),
+                                ),
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color:
+                                        isSelected ? themeAccent : Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                        if (hasMoreContacts)
+                          GestureDetector(
+                            onTap: () => _showAllContactsModal(context),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '+$moreCount more',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color:
+                                          Colors.white.withValues(alpha: 0.75),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 14,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.75),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
+          ),
 
-            // ─── 2. Lower Form Section (Contact, Due Date, Urgency, Notes, Actions) ───
-            Padding(
+          // ─── 2. Scrollable Form Area with Save Button Inside ───
+          Flexible(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               padding: EdgeInsets.fromLTRB(
-                20,
                 16,
-                20,
-                MediaQuery.of(context).viewInsets.bottom + 32,
+                12,
+                16,
+                MediaQuery.of(context).viewInsets.bottom > 0
+                    ? MediaQuery.of(context).viewInsets.bottom + 16
+                    : MediaQuery.of(context).padding.bottom + 16,
               ),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Person / Contact Header
-                    Text(
-                      isLend ? 'Who did you lend to?' : 'Who did you borrow from?',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Contact Input Card
+                    // Refined Repayment Timeline Card
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
+                          color: AppColors.borderOf(context)
+                              .withValues(alpha: 0.7),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      child: Row(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: isLend
-                                    ? const [Color(0xFF69F0AE), Color(0xFF10B981)]
-                                    : const [Color(0xFFFFAB91), Color(0xFFFF5722)],
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.calendar_month_rounded,
+                                    size: 15,
+                                    color: isLend
+                                        ? AppColors.income
+                                        : const Color(0xFFE65100),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Repayment Timeline',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                _getPersonInitials(_personController.text),
-                                style: TextStyle(
-                                  color: isLend ? const Color(0xFF0F3632) : Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (isLend
+                                          ? AppColors.income
+                                          : const Color(0xFFE65100))
+                                      .withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  _dueDate.isBefore(DateTime.now())
+                                      ? 'Overdue'
+                                      : '${_dueDate.difference(DateTime.now()).inDays + 1}d remaining',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: isLend
+                                        ? AppColors.income
+                                        : const Color(0xFFE65100),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: TextFormField(
-                              controller: _personController,
-                              textCapitalization: TextCapitalization.words,
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimaryOf(context),
-                              ),
-                              decoration: InputDecoration(
-                                hintText: isLend ? 'e.g. Alex, Rahul, Roommate' : 'e.g. Bank, Mom, Friend',
-                                hintStyle: TextStyle(
-                                  color: AppColors.textLightOf(context),
-                                  fontSize: 14,
+                          const SizedBox(height: 10),
+
+                          // 2 Milestone Tiles (Lent/Borrowed Date + Repayment Date)
+                          Row(
+                            children: [
+                              // Lent / Borrowed Date Tile (replaces "Initiated")
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _pickDate(false),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardOf(context),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: AppColors.borderOf(context)
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          isLend ? 'Lent Date' : 'Borrowed Date',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.textSecondaryOf(
+                                                context),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          DateFormat('dd MMM yyyy')
+                                              .format(_loanDate),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.textPrimaryOf(
+                                                context),
+                                          ),
+                                        ),
+                                        Text(
+                                          DateFormat('EEEE').format(_loanDate),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color:
+                                                AppColors.textLightOf(context),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                                border: InputBorder.none,
                               ),
-                              onChanged: (_) => setState(() {}),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Contact name is required';
-                                }
-                                return null;
-                              },
-                            ),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 6),
+                                child: Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 15,
+                                  color: AppColors.textLightOf(context),
+                                ),
+                              ),
+                              // Repayment Date Tile
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => _pickDate(true),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cardOf(context),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isLend
+                                            ? AppColors.income
+                                                .withValues(alpha: 0.5)
+                                            : const Color(0xFFE65100)
+                                                .withValues(alpha: 0.5),
+                                      ),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Repayment Date',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: isLend
+                                                ? AppColors.income
+                                                : const Color(0xFFE65100),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          DateFormat('dd MMM yyyy')
+                                              .format(_dueDate),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.textPrimaryOf(
+                                                context),
+                                          ),
+                                        ),
+                                        Text(
+                                          'In ${_dueDate.difference(DateTime.now()).inDays + 1} days',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: isLend
+                                                ? AppColors.income
+                                                : const Color(0xFFE65100),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Refined Days / Week Quick Options
+                          Row(
+                            children: [
+                              _buildQuickDateChip('+3 Days', 3, isLend),
+                              const SizedBox(width: 6),
+                              _buildQuickDateChip('+1 Week', 7, isLend),
+                              const SizedBox(width: 6),
+                              _buildQuickDateChip('+2 Weeks', 14, isLend),
+                              const SizedBox(width: 6),
+                              _buildQuickDateChip('+1 Month', 30, isLend),
+                            ],
                           ),
                         ],
                       ),
                     ),
 
-                    // Recent Contacts Chips
-                    if (widget.recentContacts.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        height: 34,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: widget.recentContacts.length,
-                          separatorBuilder: (_, __) => const SizedBox(width: 6),
-                          itemBuilder: (context, idx) {
-                            final name = widget.recentContacts[idx];
-                            final isSelected = _personController.text.trim() == name;
-                            return GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() => _personController.text = name);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? (isLend
-                                          ? AppColors.income.withValues(alpha: 0.15)
-                                          : const Color(0xFFE65100).withValues(alpha: 0.15))
-                                      : AppColors.surfaceOf(context),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? (isLend ? AppColors.income : const Color(0xFFE65100))
-                                        : AppColors.borderOf(context).withValues(alpha: 0.6),
-                                    width: isSelected ? 1.5 : 1.0,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 18,
-                                      height: 18,
-                                      decoration: BoxDecoration(
-                                        color: isLend
-                                            ? AppColors.income.withValues(alpha: 0.2)
-                                            : const Color(0xFFE65100).withValues(alpha: 0.2),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          _getPersonInitials(name),
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w800,
-                                            color: isLend ? AppColors.income : const Color(0xFFE65100),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      name,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                                        color: isSelected
-                                            ? (isLend ? AppColors.income : const Color(0xFFE65100))
-                                            : AppColors.textPrimaryOf(context),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                    const SizedBox(height: 12),
 
-                    const SizedBox(height: 18),
-
-                    // Expected Repayment Date Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Expected Repayment Date',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimaryOf(context),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () => _pickDate(true),
-                          child: Text(
-                            'Change Date',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: isLend ? AppColors.income : const Color(0xFFE65100),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Date Card
-                    GestureDetector(
-                      onTap: () => _pickDate(true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.borderOf(context).withValues(alpha: 0.7),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(7),
-                                  decoration: BoxDecoration(
-                                    color: (isLend ? AppColors.income : const Color(0xFFE65100))
-                                        .withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    Icons.event_available_rounded,
-                                    size: 18,
-                                    color: isLend ? AppColors.income : const Color(0xFFE65100),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      DateFormat('EEEE, dd MMMM yyyy').format(_dueDate),
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textPrimaryOf(context),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Due in ${_dueDate.difference(DateTime.now()).inDays.abs() + 1} days',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondaryOf(context),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Icon(
-                              Icons.calendar_month_outlined,
-                              size: 18,
-                              color: AppColors.textSecondaryOf(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Quick Due Date Shortcuts
-                    Row(
-                      children: [
-                        _buildQuickDateChip('+3 Days', 3, isLend),
-                        const SizedBox(width: 6),
-                        _buildQuickDateChip('+1 Week', 7, isLend),
-                        const SizedBox(width: 6),
-                        _buildQuickDateChip('+2 Weeks', 14, isLend),
-                        const SizedBox(width: 6),
-                        _buildQuickDateChip('+1 Month', 30, isLend),
-                      ],
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Repayment Urgency Header
-                    Text(
-                      'Repayment Urgency',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Set expectations for repayment timeline & reminder priority',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textLightOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Urgency Options
+                    // Urgency Options (Flexible, Normal, Strict)
                     Row(
                       children: [
                         _buildUrgencyOption(
                           value: 'low',
-                          label: 'Lenient',
-                          subtitle: 'Flexible',
+                          label: 'Flexible',
                           color: const Color(0xFF10B981),
                           icon: Icons.spa_rounded,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _buildUrgencyOption(
                           value: 'medium',
                           label: 'Normal',
-                          subtitle: 'Due date',
                           color: const Color(0xFFF59E0B),
                           icon: Icons.schedule_rounded,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _buildUrgencyOption(
                           value: 'high',
                           label: 'Strict',
-                          subtitle: 'Urgent',
                           color: const Color(0xFFEF4444),
                           icon: Icons.bolt_rounded,
                         ),
                       ],
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 12),
 
-                    // Date Lent / Borrowed (Initiation Date)
-                    Text(
-                      isLend ? 'Date Lent (Initiated)' : 'Date Borrowed (Initiated)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => _pickDate(false),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceOf(context),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.borderOf(context).withValues(alpha: 0.7),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(7),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surfaceOf(context),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    Icons.calendar_today_rounded,
-                                    size: 16,
-                                    color: AppColors.textSecondaryOf(context),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      DateFormat('dd MMMM yyyy').format(_loanDate),
-                                      style: TextStyle(
-                                        fontSize: 13.5,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textPrimaryOf(context),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      DateFormat('EEEE').format(_loanDate),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.textSecondaryOf(context),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Icon(
-                              Icons.edit_calendar_outlined,
-                              size: 18,
-                              color: AppColors.textSecondaryOf(context),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // Note / Reason Field
-                    Text(
-                      'Note / Reason (optional)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    // Note Field
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
+                          color: AppColors.borderOf(context)
+                              .withValues(alpha: 0.7),
                         ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 2),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Icon(
                             Icons.format_quote_rounded,
-                            size: 18,
+                            size: 16,
                             color: AppColors.textLightOf(context),
                           ),
                           const SizedBox(width: 8),
@@ -4915,16 +5332,17 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                             child: TextFormField(
                               controller: _noteController,
                               style: TextStyle(
-                                fontSize: 13.5,
+                                fontSize: 13,
                                 color: AppColors.textPrimaryOf(context),
                               ),
                               decoration: InputDecoration(
-                                hintText: 'e.g. Dinner bill, Emergency cash, Rent share',
+                                hintText: 'Note or reason (optional)',
                                 hintStyle: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.textLightOf(context),
                                 ),
                                 border: InputBorder.none,
+                                isDense: true,
                               ),
                             ),
                           ),
@@ -4932,143 +5350,105 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
                       ),
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
 
-                    // Remind on due date toggle
+                    // Remind on Repayment Day Switch
                     Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.surfaceOf(context),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: AppColors.borderOf(context).withValues(alpha: 0.7),
-                        ),
-                      ),
-                      child: SwitchListTile(
-                        value: _remindOnDueDate,
-                        onChanged: (val) => setState(() => _remindOnDueDate = val),
-                        activeTrackColor: isLend ? AppColors.income : const Color(0xFFE65100),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                        secondary: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: (isLend ? AppColors.income : const Color(0xFFE65100))
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            Icons.notifications_active_rounded,
-                            size: 18,
-                            color: isLend ? AppColors.income : const Color(0xFFE65100),
-                          ),
-                        ),
-                        title: Text(
-                          'Remind me on repayment day',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimaryOf(context),
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Push notification reminder on ${DateFormat('dd MMM yyyy').format(_dueDate)}',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textSecondaryOf(context),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Auto-transaction info banner
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isLend
-                            ? AppColors.income.withValues(alpha: 0.10)
-                            : const Color(0xFFE65100).withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isLend
-                              ? AppColors.income.withValues(alpha: 0.28)
-                              : const Color(0xFFE65100).withValues(alpha: 0.28),
+                          color: AppColors.borderOf(context)
+                              .withValues(alpha: 0.7),
                         ),
                       ),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(
-                            Icons.sync_rounded,
-                            size: 18,
-                            color: isLend ? AppColors.income : const Color(0xFFE65100),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              isLend
-                                  ? '✨ Lending automatically logs an Expense of ₹${_amountController.text.trim().isEmpty ? "0" : _amountController.text.trim()} under "Lending".'
-                                  : '✨ Borrowing automatically logs an Income of ₹${_amountController.text.trim().isEmpty ? "0" : _amountController.text.trim()} under "Borrowing".',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: isLend ? AppColors.income : const Color(0xFFE65100),
-                                height: 1.35,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.notifications_active_rounded,
+                                size: 15,
+                                color: isLend
+                                    ? AppColors.income
+                                    : const Color(0xFFE65100),
                               ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Remind on repayment day',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimaryOf(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Transform.scale(
+                            scale: 0.82,
+                            child: Switch(
+                              value: _remindOnDueDate,
+                              onChanged: (val) =>
+                                  setState(() => _remindOnDueDate = val),
+                              activeTrackColor: isLend
+                                  ? AppColors.income
+                                  : const Color(0xFFE65100),
                             ),
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 16),
 
-                    // Primary Save Button
+                    // ─── 3. Save Button (Inside the scrollable view) ───
                     SizedBox(
                       width: double.infinity,
-                      height: 52,
+                      height: 50,
                       child: ElevatedButton.icon(
                         onPressed: _isSaving ? null : _save,
                         icon: _isSaving
                             ? const SizedBox.shrink()
-                            : const Icon(Icons.check_circle_rounded, size: 20),
+                            : const Icon(Icons.check_circle_rounded, size: 18),
                         label: _isSaving
-                            ? const BuddyLoadingIndicator(size: 24)
+                            ? const BuddyLoadingIndicator(size: 22)
                             : Text(
                                 isEditing
                                     ? 'Update Record'
-                                    : (isLend ? 'Save Lent Record' : 'Save Borrow Record'),
+                                    : (isLend
+                                        ? 'Save Lent Record'
+                                        : 'Save Borrow Record'),
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 15,
+                                  fontSize: 14.5,
                                 ),
                               ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryBtnColor,
                           foregroundColor: Colors.white,
-                          elevation: 2,
-                          shadowColor: primaryBtnColor.withValues(alpha: 0.4),
+                          elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildQuickDateChip(String label, int days, bool isLend) {
-    final targetDate = DateTime.now().add(Duration(days: days));
-    final isSelected = _dueDate.year == targetDate.year &&
-        _dueDate.month == targetDate.month &&
-        _dueDate.day == targetDate.day;
+    final isSelected = _isQuickDateSelected(days);
     final activeColor = isLend ? AppColors.income : const Color(0xFFE65100);
 
     return Expanded(
@@ -5076,24 +5456,37 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
         onTap: () => _setQuickDueDate(days),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 7),
+          padding: const EdgeInsets.symmetric(vertical: 6),
           decoration: BoxDecoration(
             color: isSelected
-                ? activeColor.withValues(alpha: 0.14)
-                : AppColors.surfaceOf(context),
+                ? activeColor.withValues(alpha: 0.15)
+                : AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: isSelected ? activeColor : AppColors.borderOf(context).withValues(alpha: 0.6),
-              width: isSelected ? 1.5 : 1,
+              color: isSelected
+                  ? activeColor
+                  : AppColors.borderOf(context).withValues(alpha: 0.6),
+              width: isSelected ? 1.4 : 1.0,
             ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: activeColor.withValues(alpha: 0.2),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Center(
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? activeColor : AppColors.textSecondaryOf(context),
+                color: isSelected
+                    ? activeColor
+                    : AppColors.textSecondaryOf(context),
               ),
             ),
           ),
@@ -5105,7 +5498,6 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
   Widget _buildUrgencyOption({
     required String value,
     required String label,
-    required String subtitle,
     required Color color,
     required IconData icon,
   }) {
@@ -5118,53 +5510,35 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
                 ? color.withValues(alpha: 0.14)
                 : AppColors.surfaceOf(context),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? color : AppColors.borderOf(context).withValues(alpha: 0.6),
-              width: isSelected ? 1.8 : 1,
+              color: isSelected
+                  ? color
+                  : AppColors.borderOf(context).withValues(alpha: 0.6),
+              width: isSelected ? 1.6 : 1.0,
             ),
           ),
-          child: Column(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    size: 15,
-                    color: isSelected
-                        ? color
-                        : AppColors.textSecondaryOf(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected
-                          ? color
-                          : AppColors.textPrimaryOf(context),
-                    ),
-                  ),
-                ],
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected ? color : AppColors.textSecondaryOf(context),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(width: 5),
               Text(
-                subtitle,
+                label,
                 style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: isSelected ? color : AppColors.textLightOf(context),
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  color: isSelected ? color : AppColors.textPrimaryOf(context),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
