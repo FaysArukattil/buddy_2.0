@@ -58,6 +58,45 @@ class FeedbackService {
     return 'v$version';
   }
 
+  /// Google Play Store package identifier for Buddy.
+  static const String playStorePackageName = 'com.faysarukattil.buddy';
+
+  /// Opens the Buddy listing on Google Play Store directly for ratings and reviews.
+  static Future<void> openPlayStore(BuildContext context) async {
+    final marketUri = Uri.parse('market://details?id=$playStorePackageName');
+    final webUri = Uri.parse('https://play.google.com/store/apps/details?id=$playStorePackageName');
+
+    try {
+      final launched = await launchUrl(
+        marketUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        final webLaunched = await launchUrl(
+          webUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!webLaunched && context.mounted) {
+          AppSnackbar.showError(context, 'Could not open Google Play Store');
+        }
+      }
+    } catch (_) {
+      try {
+        final webLaunched = await launchUrl(
+          webUri,
+          mode: LaunchMode.externalApplication,
+        );
+        if (!webLaunched && context.mounted) {
+          AppSnackbar.showError(context, 'Could not open Google Play Store');
+        }
+      } catch (e) {
+        if (context.mounted) {
+          AppSnackbar.showError(context, 'Could not open Google Play Store');
+        }
+      }
+    }
+  }
+
   /// Opens the user's email client to report a bug with the current installed version and device specs.
   static Future<void> reportBug(BuildContext context) async {
     final info = await getAppInfo();

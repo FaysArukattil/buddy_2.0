@@ -969,6 +969,16 @@ class _SettingsModalState extends State<SettingsModal> {
                 ),
                 const SizedBox(height: 12),
 
+                // Rate on Google Play
+                _buildActionTile(
+                  icon: Icons.star_rate_rounded,
+                  title: 'Rate on Google Play',
+                  subtitle: 'If you love Buddy, please leave a review and rating',
+                  color: const Color(0xFFFFB300),
+                  onTap: () => FeedbackService.openPlayStore(context),
+                ),
+                const SizedBox(height: 12),
+
                 // Report a Bug
                 _buildActionTile(
                   icon: Icons.bug_report_rounded,

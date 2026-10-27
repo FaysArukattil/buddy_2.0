@@ -249,6 +249,12 @@ class ProfileScreenState extends State<ProfileScreen>
                     _sectionLabel('Help & support'),
                     _group([
                       _tile(
+                        icon: Icons.star_rate_rounded,
+                        title: 'Rate us on Play Store',
+                        subtitle: 'If you love Buddy, please leave a review',
+                        onTap: () => FeedbackService.openPlayStore(context),
+                      ),
+                      _tile(
                         icon: Icons.bug_report_outlined,
                         title: 'Report a bug',
                         onTap: () => FeedbackService.reportBug(context),

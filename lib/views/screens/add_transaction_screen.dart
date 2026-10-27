@@ -35,6 +35,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   bool _loadingCategories = true;
 
   late final AnimationController _saveAnimController;
+  late final AnimationController _sliderAnimController;
+  final ScrollController _scrollController = ScrollController();
 
   List<cat.Category> get _currentCategories =>
       _typeIndex == 0 ? _expenseCategories : _incomeCategories;
@@ -48,6 +50,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
+
+    _sliderAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+      value: _typeIndex.toDouble(),
+    )..addListener(() {
+        if (mounted) setState(() {});
+      });
 
     // Initialize categories instantly with 0ms latency from cache/preset
     final instantExpense = FirestoreService.getInstantCategories('expense');
@@ -69,28 +79,45 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       _selectedDate = tx['date'] as DateTime;
       final type = (tx['type'] as String).toLowerCase().trim();
       _typeIndex = type == 'income' ? 1 : 0;
+      _sliderAnimController.value = _typeIndex.toDouble();
       _selectedCategoryName = tx['category'] as String?;
       final iconCode = tx['icon'] as int?;
       if (iconCode != null) {
         _selectedCategoryIcon = IconHelper.getIcon(iconCode);
       }
     }
-
-    // Auto-focus amount field
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_isEditing) {
-        _amountFocus.requestFocus();
-      }
-    });
   }
 
   @override
   void dispose() {
+    _sliderAnimController.dispose();
+    _scrollController.dispose();
     _saveAnimController.dispose();
     _noteController.dispose();
     _amountController.dispose();
     _amountFocus.dispose();
     super.dispose();
+  }
+
+  void _setSliderIndex(int index) {
+    if (_typeIndex != index) {
+      HapticFeedback.selectionClick();
+      setState(() {
+        _typeIndex = index;
+        _setDefaultCategory();
+      });
+      _sliderAnimController.animateTo(
+        index.toDouble(),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _sliderAnimController.animateTo(
+        index.toDouble(),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
   }
 
   void _setDefaultCategory() {
@@ -193,69 +220,77 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       context: context,
       builder: (ctx) {
         final isDark = AppColors.isDark(context);
-        return Container(
-          height: 320,
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            children: [
-              Container(
-                height: 52,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(color: AppColors.textSecondaryOf(context)),
+        return Material(
+          type: MaterialType.transparency,
+          child: Container(
+            height: 320,
+            decoration: BoxDecoration(
+              color: AppColors.cardOf(context),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  height: 52,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: AppColors.textSecondaryOf(context),
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
                       ),
-                    ),
-                    CupertinoButton(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        setState(() => _selectedDate = temp);
-                      },
-                      child: Text(
-                        'Done',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primary,
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          setState(() => _selectedDate = temp);
+                        },
+                        child: const Text(
+                          'Done',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: CupertinoTheme(
+                    data: CupertinoThemeData(
+                      brightness: isDark ? Brightness.dark : Brightness.light,
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          color: AppColors.textPrimaryOf(context),
+                          fontSize: 20,
+                          decoration: TextDecoration.none,
                         ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: CupertinoTheme(
-                  data: CupertinoThemeData(
-                    brightness: isDark ? Brightness.dark : Brightness.light,
-                    textTheme: CupertinoTextThemeData(
-                      dateTimePickerTextStyle: TextStyle(
-                        color: AppColors.textPrimaryOf(context),
-                        fontSize: 20,
-                      ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      use24hFormat: false,
+                      initialDateTime: _selectedDate,
+                      maximumDate: DateTime.now().add(const Duration(days: 1)),
+                      onDateTimeChanged: (d) {
+                        temp = d;
+                        HapticFeedback.selectionClick();
+                      },
                     ),
                   ),
-                  child: CupertinoDatePicker(
-                    mode: CupertinoDatePickerMode.date,
-                    use24hFormat: false,
-                    initialDateTime: _selectedDate,
-                    maximumDate: DateTime.now().add(const Duration(days: 1)),
-                    onDateTimeChanged: (d) {
-                      temp = d;
-                      HapticFeedback.selectionClick();
-                    },
-                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -264,346 +299,430 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final double t = _sliderAnimController.value.clamp(0.0, 1.0);
+    final themeAccent = t < 0.5 ? AppColors.expense : AppColors.income;
+
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.backgroundOf(context),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: Row(
-                children: [
-                  _buildCloseButton(),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
+        top: true,
+        bottom: false,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onHorizontalDragUpdate: (details) {
+            final screenWidth = MediaQuery.sizeOf(context).width;
+            final delta = details.delta.dx / (screenWidth / 2);
+            _sliderAnimController.value =
+                (_sliderAnimController.value + delta).clamp(0.0, 1.0);
+            final int nearest = _sliderAnimController.value.round();
+            if (nearest != _typeIndex) {
+              setState(() {
+                _typeIndex = nearest;
+                _setDefaultCategory();
+              });
+              HapticFeedback.selectionClick();
+            }
+          },
+          onHorizontalDragEnd: (details) {
+            final double v = details.primaryVelocity ?? 0;
+            int target = _sliderAnimController.value.round();
+            if (v > 200) target = 1;
+            if (v < -200) target = 0;
+            _setSliderIndex(target);
+          },
+          child: Column(
+            children: [
+              // ── Header (Unified with Sheet Surface) ──
+              const SizedBox(height: 10),
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderOf(context),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           _isEditing ? 'Edit Transaction' : 'New Transaction',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             fontWeight: FontWeight.w800,
                             color: AppColors.textPrimaryOf(context),
-                            letterSpacing: -0.4,
+                            letterSpacing: -0.3,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           _typeIndex == 0
                               ? 'Record an expense you made'
                               : 'Record income you received',
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w500,
                             color: AppColors.textSecondaryOf(context),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── Type Toggle ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildTypeToggle(),
-            ),
-            const SizedBox(height: 14),
-
-            // ── Scrollable Content ──
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Amount Card ──
-                    _buildAmountCard(),
-                    const SizedBox(height: 18),
-
-                    // ── Category Section ──
-                    _buildCategorySection(),
-                    const SizedBox(height: 20),
-
-                    // ── Note ──
-                    _buildSectionLabel('Note (optional)'),
-                    const SizedBox(height: 8),
-                    _buildNoteField(),
-                    const SizedBox(height: 18),
-
-                    // ── Date ──
-                    _buildDateSelector(),
-                    const SizedBox(height: 24),
-
-                    // ── Save Button ──
-                    _buildSaveButton(),
-                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceOf(context),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: AppColors.textSecondaryOf(context),
+                          size: 16,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+
+              // ── Scrollable Body ──
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const ClampingScrollPhysics(),
+                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Slidable Segmented Bar (Expense | Income)
+                      _buildSlidableTypeBar(),
+                      const SizedBox(height: 12),
+
+                      // Amount Card with Quick Chips
+                      _buildAmountCard(themeAccent),
+                      const SizedBox(height: 14),
+
+                      // Category Section
+                      _buildCategorySection(),
+                      const SizedBox(height: 14),
+
+                      // Note (optional)
+                      _buildSectionLabel('Note (optional)'),
+                      const SizedBox(height: 8),
+                      _buildNoteField(themeAccent),
+                      const SizedBox(height: 14),
+
+                      // Date
+                      _buildDateSelector(themeAccent),
+                      const SizedBox(height: 20),
+
+                      // Save Button
+                      _buildSaveButton(themeAccent),
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+              const _KeyboardSpacer(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCloseButton() {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).pop(),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceOf(context),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          Icons.close_rounded,
-          size: 20,
-          color: AppColors.textPrimaryOf(context),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTypeToggle() {
+  Widget _buildSlidableTypeBar() {
     return Container(
-      height: 46,
+      height: 40,
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.surfaceOf(context),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.5),
+          color: AppColors.borderOf(context).withValues(alpha: 0.8),
+          width: 1.0,
+        ),
+      ),
+      padding: const EdgeInsets.all(2.5),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final totalWidth = constraints.maxWidth;
+          final pillWidth = (totalWidth - 2) / 2;
+
+          return AnimatedBuilder(
+            animation: _sliderAnimController,
+            builder: (context, _) {
+              final double t = _sliderAnimController.value.clamp(0.0, 1.0);
+              final double leftOffset = t * pillWidth;
+
+              final Color c1 = Color.lerp(
+                const Color(0xFFEF4444),
+                const Color(0xFF10B981),
+                t,
+              )!;
+              final Color c2 = Color.lerp(
+                const Color(0xFFDC2626),
+                const Color(0xFF059669),
+                t,
+              )!;
+              final Color borderC = Color.lerp(
+                const Color(0xFFEF4444).withValues(alpha: 0.70),
+                const Color(0xFF10B981).withValues(alpha: 0.70),
+                t,
+              )!;
+              final Color glowC = Color.lerp(
+                const Color(0xFFEF4444).withValues(alpha: 0.35),
+                const Color(0xFF10B981).withValues(alpha: 0.35),
+                t,
+              )!;
+
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (details) {
+                  final double delta = details.delta.dx / pillWidth;
+                  _sliderAnimController.value =
+                      (_sliderAnimController.value + delta).clamp(0.0, 1.0);
+                  final int nearest = _sliderAnimController.value.round();
+                  if (nearest != _typeIndex) {
+                    setState(() {
+                      _typeIndex = nearest;
+                      _setDefaultCategory();
+                    });
+                    HapticFeedback.selectionClick();
+                  }
+                },
+                onHorizontalDragEnd: (details) {
+                  final double v = details.primaryVelocity ?? 0;
+                  int target = _sliderAnimController.value.round();
+                  if (v > 200) target = 1;
+                  if (v < -200) target = 0;
+                  _setSliderIndex(target);
+                },
+                child: SizedBox(
+                  height: 40,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        left: leftOffset,
+                        width: pillWidth,
+                        top: 0,
+                        bottom: 0,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [c1, c2],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: borderC, width: 1.0),
+                            boxShadow: [
+                              BoxShadow(
+                                color: glowC,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _setSliderIndex(0),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.south_west_rounded,
+                                      size: 14,
+                                      color: Color.lerp(
+                                        Colors.white,
+                                        AppColors.textSecondaryOf(context),
+                                        t,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Expense',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: t < 0.5
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: Color.lerp(
+                                          Colors.white,
+                                          AppColors.textSecondaryOf(context),
+                                          t,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _setSliderIndex(1),
+                              child: Center(
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.north_east_rounded,
+                                      size: 14,
+                                      color: Color.lerp(
+                                        AppColors.textSecondaryOf(context),
+                                        Colors.white,
+                                        t,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Income',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        fontWeight: t >= 0.5
+                                            ? FontWeight.w800
+                                            : FontWeight.w600,
+                                        color: Color.lerp(
+                                          AppColors.textSecondaryOf(context),
+                                          Colors.white,
+                                          t,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAmountCard(Color themeAccent) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.8),
+          width: 1.0,
         ),
       ),
       child: Row(
-        children: [
-          _buildToggleOption('Expense', 0),
-          _buildToggleOption('Income', 1),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleOption(String label, int index) {
-    final isSelected = _typeIndex == index;
-    final color = index == 0 ? AppColors.expense : AppColors.income;
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          if (_typeIndex != index) {
-            HapticFeedback.selectionClick();
-            setState(() {
-              _typeIndex = index;
-              _setDefaultCategory();
-            });
-          }
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-          margin: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            color: isSelected ? color : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
-                : null,
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : AppColors.textSecondaryOf(context),
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAmountCard() {
-    final typeColor = _typeIndex == 0 ? AppColors.expense : AppColors.income;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 20),
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.5),
-        ),
-        boxShadow: AppColors.cardShadowOf(context),
-      ),
-      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            _typeIndex == 0 ? 'How much did you spend?' : 'How much did you earn?',
+            '₹',
             style: TextStyle(
-              color: AppColors.textSecondaryOf(context),
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: themeAccent,
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  '₹',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: typeColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              IntrinsicWidth(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 60, maxWidth: 260),
-                  child: TextField(
-                    controller: _amountController,
-                    focusNode: _amountFocus,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w800,
-                      color: typeColor,
-                      letterSpacing: -1,
-                    ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-                    ],
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: '0',
-                      hintStyle: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w800,
-                        color: typeColor.withValues(alpha: 0.25),
-                        letterSpacing: -1,
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Quick amount addition chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _buildQuickAmountChip('+100', 100, typeColor),
-              _buildQuickAmountChip('+500', 500, typeColor),
-              _buildQuickAmountChip('+1,000', 1000, typeColor),
-              _buildQuickAmountChip('+2,000', 2000, typeColor),
-              _buildQuickClearChip(typeColor),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildQuickAmountChip(String label, double addVal, Color typeColor) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        final current = double.tryParse(_amountController.text.trim()) ?? 0.0;
-        final newVal = (current + addVal);
-        final text = newVal == newVal.truncate()
-            ? newVal.toInt().toString()
-            : newVal.toStringAsFixed(2);
-        _amountController.text = text;
-        _amountController.selection = TextSelection.fromPosition(
-          TextPosition(offset: text.length),
-        );
-        setState(() {});
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: typeColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: typeColor.withValues(alpha: 0.22),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: typeColor,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickClearChip(Color typeColor) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        _amountController.clear();
-        setState(() {});
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceOf(context),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: AppColors.borderOf(context),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.backspace_outlined,
-              size: 13,
-              color: AppColors.textSecondaryOf(context),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Clear',
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              controller: _amountController,
+              focusNode: _amountFocus,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondaryOf(context),
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: AppColors.textPrimaryOf(context),
+                letterSpacing: -0.3,
+              ),
+              cursorColor: themeAccent,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+              ],
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: '0.00',
+                hintStyle: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textLightOf(context),
+                  letterSpacing: -0.3,
+                ),
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          if (_amountController.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _amountController.clear());
+              },
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: AppColors.textSecondaryOf(context),
+                ),
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                'Amount',
+                style: TextStyle(
+                  color: AppColors.textSecondaryOf(context),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                ),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -730,38 +849,32 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: isSelected
               ? catColor
               : catColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? catColor : catColor.withValues(alpha: 0.22),
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 1.8 : 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: catColor.withValues(alpha: 0.35),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+                    color: catColor.withValues(alpha: 0.30),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
                   )
                 ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  )
-                ],
+              : null,
         ),
         child: Row(
           children: [
             Container(
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.22)
@@ -770,14 +883,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               ),
               child: Icon(
                 category.icon,
-                size: 19,
+                size: 17,
                 color: isSelected ? Colors.white : catColor,
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
@@ -786,30 +900,36 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 12.5,
+                      height: 1.2,
                       color: isSelected
                           ? Colors.white
                           : AppColors.textPrimaryOf(context),
                     ),
                   ),
-                  if (isSelected)
+                  if (isSelected) ...[
+                    const SizedBox(height: 2),
                     Text(
                       'Selected',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 9.5,
                         fontWeight: FontWeight.w600,
+                        height: 1.1,
                         color: Colors.white.withValues(alpha: 0.85),
                       ),
                     ),
+                  ],
                 ],
               ),
             ),
-            if (isSelected)
+            if (isSelected) ...[
+              const SizedBox(width: 2),
               const Icon(
                 Icons.check_circle_rounded,
-                size: 16,
+                size: 15,
                 color: Colors.white,
               ),
+            ],
           ],
         ),
       ),
@@ -820,14 +940,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return GestureDetector(
       onTap: () => _showAllCategoriesSheet(context),
       child: Container(
-        height: 56,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: AppColors.primary.withValues(alpha: 0.35),
-            width: 1.5,
+            width: 1.2,
           ),
           boxShadow: [
             BoxShadow(
@@ -840,15 +960,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.grid_view_rounded,
-                size: 18,
+                size: 16,
                 color: AppColors.primary,
               ),
             ),
@@ -856,38 +976,42 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     'More Categories',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
+                      fontSize: 12.5,
                       color: AppColors.primary,
+                      height: 1.2,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     remainingCount > 0
                         ? '+$remainingCount more options'
                         : 'View all category options',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: FontWeight.w500,
                       color: AppColors.textSecondaryOf(context),
+                      height: 1.2,
                     ),
                   ),
                 ],
               ),
             ),
             Container(
-              padding: const EdgeInsets.all(5),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.arrow_forward_ios_rounded,
-                size: 11,
+                size: 10,
                 color: AppColors.primary,
               ),
             ),
@@ -901,28 +1025,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return GestureDetector(
       onTap: () => _showAllCategoriesSheet(context),
       child: Container(
-        height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: AppColors.cardOf(context),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: AppColors.primary.withValues(alpha: 0.35),
-            width: 1.5,
+            width: 1.2,
           ),
         ),
         child: Row(
           children: [
             Container(
-              width: 34,
-              height: 34,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.grid_view_rounded,
-                size: 18,
+                size: 16,
                 color: AppColors.primary,
               ),
             ),
@@ -934,7 +1058,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   color: AppColors.primary,
                 ),
               ),
@@ -1224,6 +1348,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                             },
                           ),
                   ),
+                  const _KeyboardSpacer(),
                 ],
               ),
             );
@@ -1450,35 +1575,46 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
-  Widget _buildNoteField() {
-    return TextField(
-      controller: _noteController,
-      textCapitalization: TextCapitalization.sentences,
-      maxLines: 1,
-      style: TextStyle(color: AppColors.textPrimaryOf(context), fontSize: 15),
-      decoration: InputDecoration(
-        hintText: 'e.g., Lunch with friends',
-        hintStyle: TextStyle(color: AppColors.textLightOf(context), fontSize: 14),
-        filled: true,
-        fillColor: AppColors.cardOf(context),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+  Widget _buildNoteField(Color themeAccent) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceOf(context),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.borderOf(context).withValues(alpha: 0.8),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      child: TextField(
+        controller: _noteController,
+        textCapitalization: TextCapitalization.sentences,
+        maxLines: 2,
+        minLines: 1,
+        scrollPadding: const EdgeInsets.only(bottom: 40),
+        style: TextStyle(
+          fontSize: 13.5,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimaryOf(context),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+        cursorColor: themeAccent,
+        decoration: InputDecoration(
+          hintText: 'e.g., Lunch with friends, Groceries...',
+          hintStyle: TextStyle(
+            fontSize: 13,
+            color: AppColors.textLightOf(context),
+          ),
+          border: InputBorder.none,
+          icon: Icon(
+            Icons.edit_note_rounded,
+            size: 20,
+            color: themeAccent,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildDateSelector() {
+  Widget _buildDateSelector(Color themeAccent) {
     final now = DateTime.now();
     final isToday = _selectedDate.year == now.year &&
         _selectedDate.month == now.month &&
@@ -1487,119 +1623,134 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final isYesterday = _selectedDate.year == yesterday.year &&
         _selectedDate.month == yesterday.month &&
         _selectedDate.day == yesterday.day;
+    final isCustom = !isToday && !isYesterday;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionLabel('Date'),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Row(
           children: [
-            _buildDateChip('Today', isToday, () {
+            _buildDateChip('Today', isToday, themeAccent, () {
               HapticFeedback.selectionClick();
               setState(() => _selectedDate = now);
             }),
             const SizedBox(width: 8),
-            _buildDateChip('Yesterday', isYesterday, () {
+            _buildDateChip('Yesterday', isYesterday, themeAccent, () {
               HapticFeedback.selectionClick();
               setState(() => _selectedDate = yesterday);
             }),
             const Spacer(),
-            GestureDetector(
-              onTap: _pickDate,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: (!isToday && !isYesterday)
-                      ? AppColors.primary.withValues(alpha: 0.1)
-                      : AppColors.cardOf(context),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: (!isToday && !isYesterday)
-                        ? AppColors.primary.withValues(alpha: 0.4)
-                        : AppColors.borderOf(context),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today_rounded,
-                      size: 16,
-                      color: (!isToday && !isYesterday)
-                          ? AppColors.primary
-                          : AppColors.textSecondaryOf(context),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      _formatDate(_selectedDate),
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: (!isToday && !isYesterday)
-                            ? AppColors.primary
-                            : AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildCustomDateButton(isCustom, themeAccent),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildDateChip(String label, bool isSelected, VoidCallback onTap) {
+  Widget _buildDateChip(
+    String label,
+    bool isSelected,
+    Color themeAccent,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : AppColors.cardOf(context),
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? themeAccent.withValues(alpha: 0.14)
+              : AppColors.surfaceOf(context),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.borderOf(context),
+            color: isSelected
+                ? themeAccent
+                : AppColors.borderOf(context).withValues(alpha: 0.8),
+            width: isSelected ? 1.4 : 1.0,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textSecondaryOf(context),
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
+            color: isSelected ? themeAccent : AppColors.textSecondaryOf(context),
+            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+            fontSize: 12.5,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildSaveButton() {
-    final typeColor = _typeIndex == 0 ? AppColors.expense : AppColors.income;
+  Widget _buildCustomDateButton(bool isCustom, Color themeAccent) {
+    return GestureDetector(
+      onTap: _pickDate,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isCustom
+              ? themeAccent.withValues(alpha: 0.14)
+              : AppColors.surfaceOf(context),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isCustom
+                ? themeAccent
+                : AppColors.borderOf(context).withValues(alpha: 0.8),
+            width: isCustom ? 1.4 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today_rounded,
+              size: 14,
+              color: isCustom ? themeAccent : AppColors.textSecondaryOf(context),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              _formatDate(_selectedDate),
+              style: TextStyle(
+                fontWeight: isCustom ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 12.5,
+                color: isCustom ? themeAccent : AppColors.textPrimaryOf(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Widget _buildSaveButton(Color themeAccent) {
     return SizedBox(
       width: double.infinity,
-      height: 54,
-      child: ElevatedButton(
+      height: 50,
+      child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: typeColor,
+          backgroundColor: themeAccent,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
           ),
           elevation: 0,
         ),
         onPressed: _isSaving ? null : _saveTransaction,
-        child: _isSaving
-            ? const BuddyLoadingIndicator(size: 24)
+        icon: _isSaving
+            ? const SizedBox.shrink()
+            : const Icon(Icons.check_circle_rounded, size: 18),
+        label: _isSaving
+            ? const BuddyLoadingIndicator(size: 22)
             : Text(
                 _isEditing
                     ? 'Update ${_typeIndex == 0 ? 'Expense' : 'Income'}'
-                    : 'Add ${_typeIndex == 0 ? 'Expense' : 'Income'}',
+                    : 'Save ${_typeIndex == 0 ? 'Expense' : 'Income'}',
                 style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14.5,
                 ),
               ),
       ),
@@ -2186,3 +2337,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 }
+
+// ─── KEYBOARD SPACER (Isolates insets listener from main sheet) ───
+class _KeyboardSpacer extends StatelessWidget {
+  const _KeyboardSpacer();
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final targetHeight = bottomInset > 0 ? bottomInset : bottomPadding;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      height: targetHeight,
+    );
+  }
+}
+

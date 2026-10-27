@@ -248,7 +248,7 @@ class SupportService {
                     ),
                     onPressed: () {
                       Navigator.of(ctx).pop();
-                      FeedbackService.reportBug(context);
+                      FeedbackService.openPlayStore(context);
                     },
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
