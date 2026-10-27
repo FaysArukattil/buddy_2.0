@@ -107,406 +107,861 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final isDark = AppColors.isDark(context);
+    final mq = MediaQuery.of(context);
+    final screenW = mq.size.width;
+    final topPadding = mq.padding.top;
+    final double s = (screenW / 390.0).clamp(0.85, 1.25);
+    final topHeaderColor = isDark
+        ? const Color(0xFF0F2624)
+        : const Color(0xFF0F3632);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
-      body: SafeArea(
-        child: StreamBuilder<List<DebtModel>>(
-          stream: _debtsStream,
-          initialData: _cachedDebts.isNotEmpty ? _cachedDebts : null,
-          builder: (context, snapshot) {
-            final allDebts = snapshot.data ?? _cachedDebts;
-            if (snapshot.hasData && snapshot.data != null) {
-              _cachedDebts = snapshot.data!;
-              final contacts = <String>{};
-              for (final d in _cachedDebts) {
-                if (d.personName.trim().isNotEmpty) {
-                  contacts.add(d.personName.trim());
-                }
-              }
-              _recentContacts = contacts.toList();
-            }
-            final isLoading =
-                snapshot.connectionState == ConnectionState.waiting &&
-                    !snapshot.hasData &&
-                    _cachedDebts.isEmpty;
-
-            // Compute summary metrics (only pending counts towards active balance)
-            double totalLentPending = 0;
-            double totalBorrowedPending = 0;
-            final dueTodayOrOverdue = <DebtModel>[];
-
-            for (final d in allDebts) {
-              if (!d.isRepaid) {
-                if (d.isLend) {
-                  totalLentPending += d.amount;
-                } else {
-                  totalBorrowedPending += d.amount;
-                }
-                if (d.isDueToday || d.isOverdue) {
-                  dueTodayOrOverdue.add(d);
-                }
+      body: StreamBuilder<List<DebtModel>>(
+        stream: _debtsStream,
+        initialData: _cachedDebts.isNotEmpty ? _cachedDebts : null,
+        builder: (context, snapshot) {
+          final allDebts = snapshot.data ?? _cachedDebts;
+          if (snapshot.hasData && snapshot.data != null) {
+            _cachedDebts = snapshot.data!;
+            final contacts = <String>{};
+            for (final d in _cachedDebts) {
+              if (d.personName.trim().isNotEmpty) {
+                contacts.add(d.personName.trim());
               }
             }
+            _recentContacts = contacts.toList();
+          }
+          final isLoading =
+              snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData &&
+                  _cachedDebts.isEmpty;
 
-            final netBalance = totalLentPending - totalBorrowedPending;
+          // Compute summary metrics (only pending counts towards active balance)
+          double totalLentPending = 0;
+          double totalBorrowedPending = 0;
+          int lentPendingCount = 0;
+          int borrowPendingCount = 0;
+          final dueTodayOrOverdue = <DebtModel>[];
 
-            // Filter debts
-            final filteredDebts = allDebts.where((d) {
-              if (_typeFilter == 1 && !d.isLend) return false;
-              if (_typeFilter == 2 && !d.isBorrow) return false;
-              if (_statusFilter == 0 && d.isRepaid) return false;
-              if (_statusFilter == 1 && !d.isRepaid) return false;
-              if (_searchQuery.isNotEmpty) {
-                final query = _searchQuery.toLowerCase();
-                final nameMatches =
-                    d.personName.toLowerCase().contains(query);
-                final noteMatches =
-                    d.note?.toLowerCase().contains(query) ?? false;
-                if (!nameMatches && !noteMatches) return false;
+          for (final d in allDebts) {
+            if (!d.isRepaid) {
+              if (d.isLend) {
+                totalLentPending += d.amount;
+                lentPendingCount++;
+              } else {
+                totalBorrowedPending += d.amount;
+                borrowPendingCount++;
               }
-              return true;
-            }).toList();
+              if (d.isDueToday || d.isOverdue) {
+                dueTodayOrOverdue.add(d);
+              }
+            }
+          }
 
-            // Build header items list for efficient rendering
-            final headerWidgets = <Widget>[
-              _buildSummaryCards(
-                context,
-                totalLentPending: totalLentPending,
-                totalBorrowedPending: totalBorrowedPending,
-                netBalance: netBalance,
-              ),
-              const SizedBox(height: 14),
-              if (dueTodayOrOverdue.isNotEmpty) ...[
-                _buildDueAlertBanner(context, dueTodayOrOverdue),
-                const SizedBox(height: 14),
-              ],
-              _buildSearchBar(context),
-              const SizedBox(height: 12),
-              _buildTypeFilters(context, allDebts),
-              const SizedBox(height: 10),
-              _buildStatusFilters(context, allDebts),
-              const SizedBox(height: 16),
-            ];
+          final netBalance = totalLentPending - totalBorrowedPending;
 
-            final headerCount = headerWidgets.length;
-            final debtCount = filteredDebts.length;
-            final totalCount = headerCount + (debtCount == 0 ? 1 : debtCount);
+          // Filter debts
+          final filteredDebts = allDebts.where((d) {
+            if (_typeFilter == 1 && !d.isLend) return false;
+            if (_typeFilter == 2 && !d.isBorrow) return false;
+            if (_statusFilter == 0 && d.isRepaid) return false;
+            if (_statusFilter == 1 && !d.isRepaid) return false;
+            if (_searchQuery.isNotEmpty) {
+              final query = _searchQuery.toLowerCase();
+              final nameMatches =
+                  d.personName.toLowerCase().contains(query);
+              final noteMatches =
+                  d.note?.toLowerCase().contains(query) ?? false;
+              if (!nameMatches && !noteMatches) return false;
+            }
+            return true;
+          }).toList();
 
-            return Column(
-              children: [
-                _buildHeader(context),
-                Expanded(
-                  child: isLoading
-                      ? const Center(
-                          child: BuddyLoadingIndicator(size: 56),
-                        )
-                      : CustomScrollView(
-                          controller: _scrollController,
-                          physics: const AlwaysScrollableScrollPhysics(
-                            parent: BouncingScrollPhysics(),
-                          ),
-                          slivers: [
-                            BuddyRefreshControl(
-                              onRefresh: refreshData,
-                              backgroundColor: AppColors.backgroundOf(context),
-                            ),
-                            SliverPadding(
-                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                              sliver: SliverList(
-                                delegate: SliverChildBuilderDelegate(
-                                  (context, index) {
-                                    if (index < headerCount) {
-                                      return headerWidgets[index];
-                                    }
-                                    final debtIndex = index - headerCount;
-                                    if (debtCount == 0) {
-                                      return _buildEmptyState(context);
-                                    }
-                                    return _buildDebtCard(
-                                      context,
-                                      filteredDebts[debtIndex],
-                                      isDark,
-                                    );
-                                  },
-                                  childCount: totalCount,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+          return Stack(
+            children: [
+              // Dynamic overscroll header backdrop: ONLY visible when pulling down past top
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: AnimatedBuilder(
+                  animation: _scrollController,
+                  builder: (context, _) {
+                    final offset =
+                        _scrollController.hasClients ? _scrollController.offset : 0.0;
+                    final overscroll = offset < 0 ? -offset : 0.0;
+                    if (overscroll <= 0) return const SizedBox.shrink();
+                    return Container(
+                      height: topPadding + overscroll + 40,
+                      color: topHeaderColor,
+                    );
+                  },
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+
+              CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                slivers: [
+                  // Dynamic pull-to-refresh matching signature emerald header
+                  BuddyRefreshControl(
+                    onRefresh: refreshData,
+                    backgroundColor: topHeaderColor,
+                    topPadding: topPadding,
+                  ),
+
+                  // ── Signature Curved Hero Header ──
+                  SliverToBoxAdapter(
+                    child: RepaintBoundary(
+                      child: _buildHeroHeader(
+                        context: context,
+                        isDark: isDark,
+                        topPadding: topPadding,
+                        s: s,
+                        netBalance: netBalance,
+                        totalLentPending: totalLentPending,
+                        totalBorrowedPending: totalBorrowedPending,
+                        lentPendingCount: lentPendingCount,
+                        borrowPendingCount: borrowPendingCount,
+                        allDebtsCount: allDebts.length,
+                      ),
+                    ),
+                  ),
+
+                  // ── Sub-header: Due Alert Banner & Consolidated Search/Filter Toolbar ──
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, (14 * s).clamp(10.0, 16.0), 16, 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (dueTodayOrOverdue.isNotEmpty) ...[
+                            _buildDueAlertBanner(context, dueTodayOrOverdue),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildSearchAndFilters(context, allDebts),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Debts List, Loading, or Empty State ──
+                  if (isLoading)
+                    const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: BuddyLoadingIndicator(size: 56),
+                      ),
+                    )
+                  else if (filteredDebts.isEmpty)
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: _buildEmptyState(context),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 120),
+                      sliver: SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) {
+                            return _buildDebtCard(
+                              context,
+                              filteredDebts[index],
+                              isDark,
+                            );
+                          },
+                          childCount: filteredDebts.length,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
-      // No internal FAB — global FAB handles this tab via openAddSheet()
     );
   }
 
-  // ─── HEADER ───
-  Widget _buildHeader(BuildContext context) {
-    final isDark = AppColors.isDark(context);
+  // ─── TOP CURVED HERO HEADER (Matching HomeScreen & StatisticsScreen) ───
+  Widget _buildHeroHeader({
+    required BuildContext context,
+    required bool isDark,
+    required double topPadding,
+    required double s,
+    required double netBalance,
+    required double totalLentPending,
+    required double totalBorrowedPending,
+    required int lentPendingCount,
+    required int borrowPendingCount,
+    required int allDebtsCount,
+  }) {
+    final isAllSettled = netBalance.abs() < 0.01 &&
+        totalLentPending < 0.01 &&
+        totalBorrowedPending < 0.01;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Borrow & Lend',
-                      style: TextStyle(
-                        color: AppColors.textPrimaryOf(context),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 22,
-                        letterSpacing: -0.6,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showHomeSyncInfoDialog(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceOf(context),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.borderOf(context).withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.help_outline_rounded,
-                          size: 14,
-                          color: AppColors.textSecondaryOf(context),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Track friend dues, debts & repayments',
-                  style: TextStyle(
-                    color: AppColors.textSecondaryOf(context),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Modern Refined Home Sync Toggle Pill
-          GestureDetector(
-            onTap: _toggleHomeSyncPreference,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6.5),
-              decoration: BoxDecoration(
-                color: _includeDebtsInHome
-                    ? (isDark
-                        ? const Color(0xFF1E5D57).withValues(alpha: 0.35)
-                        : const Color(0xFF0F3632).withValues(alpha: 0.10))
-                    : AppColors.surfaceOf(context),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _includeDebtsInHome
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : AppColors.borderOf(context),
-                  width: _includeDebtsInHome ? 1.4 : 1.0,
-                ),
-                boxShadow: _includeDebtsInHome
-                    ? [
-                        BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.14),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        )
-                      ]
-                    : null,
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _includeDebtsInHome
-                          ? const Color(0xFF69F0AE)
-                          : AppColors.textLightOf(context),
-                      boxShadow: _includeDebtsInHome
-                          ? const [
-                              BoxShadow(
-                                color: Color(0xFF69F0AE),
-                                blurRadius: 4,
-                                spreadRadius: 0.5,
-                              )
-                            ]
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    _includeDebtsInHome
-                        ? Icons.home_rounded
-                        : Icons.home_outlined,
-                    size: 14,
-                    color: _includeDebtsInHome
-                        ? AppColors.primary
-                        : AppColors.textSecondaryOf(context),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _includeDebtsInHome ? 'On Home' : 'Separate',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
-                      color: _includeDebtsInHome
-                          ? AppColors.primary
-                          : AppColors.textSecondaryOf(context),
-                    ),
-                  ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [
+                  Color(0xFF0F2624), // Deep spruce/emerald
+                  Color(0xFF163E3B), // Signature deep teal
+                  Color(0xFF1E5D57), // Teal glow
+                ]
+              : const [
+                  Color(0xFF0F3632), // Signature dark emerald
+                  Color(0xFF1E5D57), // Signature primary teal
+                  Color(0xFF2C7A72), // Radiant teal highlight
                 ],
-              ),
-            ),
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular((32 * s).clamp(26.0, 38.0)),
+          bottomRight: Radius.circular((32 * s).clamp(26.0, 38.0)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F3632).withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-    );
-  }
-
-  /// Informational sheet explaining how "On Home" sync works & that it is remembered in Firebase.
-  void _showHomeSyncInfoDialog(BuildContext context) {
-    HapticFeedback.lightImpact();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderOf(context),
-                    borderRadius: BorderRadius.circular(2),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          (20 * s).clamp(16.0, 24.0),
+          topPadding + (10 * s).clamp(6.0, 14.0),
+          (20 * s).clamp(16.0, 24.0),
+          (20 * s).clamp(16.0, 24.0),
+        ),
+        child: Column(
+          children: [
+            // ── Top Bar: Title & Subtitle + Home Sync Button ──
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Borrow & Lend',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: (24 * s).clamp(21.0, 27.0),
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Track friend dues, debts & repayments',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: (11.5 * s).clamp(10.5, 12.5),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
+                const SizedBox(width: 8),
+
+                // Clear, self-explanatory Home Balance Sync Pill
+                GestureDetector(
+                  onTap: _toggleHomeSyncPreference,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: _includeDebtsInHome ? 0.20 : 0.12),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: _includeDebtsInHome ? 0.38 : 0.22),
+                        width: 1.1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.10),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.cloud_sync_rounded,
-                      color: AppColors.primary,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Home Screen Sync',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimaryOf(context),
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _includeDebtsInHome
+                                ? const Color(0xFF69F0AE)
+                                : Colors.white.withValues(alpha: 0.4),
+                            boxShadow: _includeDebtsInHome
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0xFF69F0AE),
+                                      blurRadius: 4,
+                                      spreadRadius: 0.5,
+                                    )
+                                  ]
+                                : null,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Icon(
+                          _includeDebtsInHome ? Icons.home_rounded : Icons.home_outlined,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 4),
                         Text(
-                          'Synced with your Firebase account',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondaryOf(context),
+                          _includeDebtsInHome ? 'Home: ON' : 'Home: OFF',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: () => _showHomeSyncInfoDialog(context),
+                          child: Icon(
+                            Icons.info_outline_rounded,
+                            size: 13,
+                            color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceOf(context),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.borderOf(context)),
                 ),
-                child: Column(
+              ],
+            ),
+
+            SizedBox(height: (16 * s).clamp(12.0, 20.0)),
+
+            // ── Net Outstanding Balance Centerpiece ──
+            Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildInfoBullet(
-                      icon: Icons.check_circle_rounded,
-                      iconColor: AppColors.income,
-                      title: 'When "On Home" is Active',
-                      desc:
-                          'Your pending loan receivables (Lent) and payables (Borrowed) are automatically calculated into your Home Screen net balance and monthly totals.',
+                    Icon(
+                      Icons.account_balance_wallet_outlined,
+                      size: 13,
+                      color: Colors.white.withValues(alpha: 0.75),
                     ),
-                    const SizedBox(height: 12),
-                    _buildInfoBullet(
-                      icon: Icons.remove_circle_outline_rounded,
-                      iconColor: AppColors.textSecondaryOf(context),
-                      title: 'When "Separate" is Selected',
-                      desc:
-                          'Loans and dues are managed exclusively in this tab. Your Home Screen only displays your regular income and expenses.',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildInfoBullet(
-                      icon: Icons.verified_user_rounded,
-                      iconColor: AppColors.primary,
-                      title: 'Always Remembered',
-                      desc:
-                          'Your preference is securely saved to Firebase and automatically restored even if the app is removed or reinstalled on any device.',
+                    const SizedBox(width: 5),
+                    Text(
+                      'NET OUTSTANDING POSITION',
+                      style: TextStyle(
+                        fontSize: (10.5 * s).clamp(9.5, 11.5),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Got it',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                const SizedBox(height: 4),
+                Text(
+                  isAllSettled
+                      ? '₹0.00'
+                      : '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
+                  style: TextStyle(
+                    fontSize: (30 * s).clamp(26.0, 36.0),
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.8,
                   ),
                 ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isAllSettled
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : (netBalance >= 0
+                            ? const Color(0xFF69F0AE).withValues(alpha: 0.22)
+                            : const Color(0xFFFF8A80).withValues(alpha: 0.22)),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isAllSettled
+                          ? Colors.white.withValues(alpha: 0.3)
+                          : (netBalance >= 0
+                              ? const Color(0xFF69F0AE).withValues(alpha: 0.5)
+                              : const Color(0xFFFF8A80).withValues(alpha: 0.5)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isAllSettled
+                            ? Icons.check_circle_outline_rounded
+                            : (netBalance >= 0
+                                ? Icons.arrow_circle_up_rounded
+                                : Icons.arrow_circle_down_rounded),
+                        size: 13,
+                        color: isAllSettled
+                            ? Colors.white
+                            : (netBalance >= 0
+                                ? const Color(0xFF69F0AE)
+                                : const Color(0xFFFF8A80)),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isAllSettled
+                            ? 'All Settled'
+                            : (netBalance >= 0 ? 'You are owed net' : 'You owe net'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isAllSettled
+                              ? Colors.white
+                              : (netBalance >= 0
+                                  ? const Color(0xFF69F0AE)
+                                  : const Color(0xFFFF8A80)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            SizedBox(height: (16 * s).clamp(12.0, 20.0)),
+
+            // ── Dual Interactive Metric Counters: Lent (To Receive) & Borrowed (To Pay) ──
+            Row(
+              children: [
+                // Lent Counter
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _typeFilter = _typeFilter == 1 ? 0 : 1;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _typeFilter == 1
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _typeFilter == 1
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.22),
+                          width: _typeFilter == 1 ? 1.8 : 1.0,
+                        ),
+                        boxShadow: _typeFilter == 1
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF69F0AE),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.arrow_upward_rounded,
+                                      size: 10,
+                                      color: Color(0xFF0F3632),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Text(
+                                    'To Receive',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_typeFilter == 1)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F3632),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '+${_formatAmount(totalLentPending)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            '$lentPendingCount pending',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 10),
+
+                // Borrowed Counter
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        _typeFilter = _typeFilter == 2 ? 0 : 2;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _typeFilter == 2
+                            ? Colors.white.withValues(alpha: 0.28)
+                            : Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _typeFilter == 2
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.22),
+                          width: _typeFilter == 2 ? 1.8 : 1.0,
+                        ),
+                        boxShadow: _typeFilter == 2
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFF8A80),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.arrow_downward_rounded,
+                                      size: 10,
+                                      color: Color(0xFF0F3632),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  const Text(
+                                    'To Pay',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              if (_typeFilter == 2)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'ACTIVE',
+                                    style: TextStyle(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF0F3632),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            '-${_formatAmount(totalBorrowedPending)}',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 1),
+                          Text(
+                            '$borrowPendingCount pending',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.white.withValues(alpha: 0.72),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Informational sheet explaining how "Home Screen Balance" sync works & that it is remembered in Firebase.
+  void _showHomeSyncInfoDialog(BuildContext context) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalContext, setModalState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.cardOf(context),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
-            ],
-          ),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderOf(context),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.home_work_rounded,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Home Balance Integration',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimaryOf(context),
+                              ),
+                            ),
+                            Text(
+                              'Choose whether dues affect your main balance',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondaryOf(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Interactive Switch Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: _includeDebtsInHome
+                            ? AppColors.primary.withValues(alpha: 0.45)
+                            : AppColors.borderOf(context),
+                        width: _includeDebtsInHome ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Include in Home Balance',
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimaryOf(context),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                _includeDebtsInHome
+                                    ? 'Active: Dues affect your total Home balance'
+                                    : 'Separate: Dues are only tracked in this tab',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: _includeDebtsInHome
+                                      ? AppColors.primary
+                                      : AppColors.textSecondaryOf(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch.adaptive(
+                          value: _includeDebtsInHome,
+                          activeTrackColor: AppColors.primary,
+                          activeThumbColor: Colors.white,
+                          onChanged: (val) async {
+                            HapticFeedback.lightImpact();
+                            await PreferenceService.setIncludeDebtsInHome(val);
+                            setModalState(() {});
+                            setState(() {
+                              _includeDebtsInHome = val;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // Explanation Cards
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceOf(context),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.borderOf(context)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildInfoBullet(
+                          icon: Icons.check_circle_rounded,
+                          iconColor: AppColors.income,
+                          title: 'When Turned ON',
+                          desc:
+                              'Money you lent to friends (+₹) is counted as an asset in your net balance. Money you borrowed (-₹) is subtracted.',
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoBullet(
+                          icon: Icons.remove_circle_outline_rounded,
+                          iconColor: AppColors.textSecondaryOf(context),
+                          title: 'When Turned OFF',
+                          desc:
+                              'Borrow & Lend is kept as an independent ledger. Your Home Screen strictly reflects regular wallet/bank income and expenses.',
+                        ),
+                        const SizedBox(height: 12),
+                        _buildInfoBullet(
+                          icon: Icons.cloud_done_rounded,
+                          iconColor: AppColors.primary,
+                          title: 'Synced with Firebase',
+                          desc:
+                              'Your choice is stored in your user profile and automatically restored if you reinstall the app or change phones.',
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                      ),
+                      child: const Text(
+                        'Done',
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -551,418 +1006,29 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     );
   }
 
-  // ─── SUMMARY HERO CARDS ───
-  Widget _buildSummaryCards(
-    BuildContext context, {
-    required double totalLentPending,
-    required double totalBorrowedPending,
-    required double netBalance,
-  }) {
-    final isDark = AppColors.isDark(context);
-    final isAllSettled = netBalance.abs() < 0.01 &&
-        totalLentPending < 0.01 &&
-        totalBorrowedPending < 0.01;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.6),
-        ),
-        boxShadow: AppColors.cardShadowOf(context),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Net Position Banner
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.account_balance_wallet_outlined,
-                        size: 13,
-                        color: AppColors.textLightOf(context),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        'NET OUTSTANDING POSITION',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                          color: AppColors.textLightOf(context),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isAllSettled
-                        ? '₹0.00'
-                        : '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: isAllSettled
-                          ? AppColors.textPrimaryOf(context)
-                          : (netBalance >= 0 ? AppColors.income : AppColors.expense),
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5.5),
-                decoration: BoxDecoration(
-                  color: isAllSettled
-                      ? AppColors.primary.withValues(alpha: isDark ? 0.15 : 0.10)
-                      : (netBalance >= 0 ? AppColors.income : AppColors.expense)
-                          .withValues(alpha: isDark ? 0.16 : 0.10),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isAllSettled
-                        ? AppColors.primary.withValues(alpha: 0.3)
-                        : (netBalance >= 0 ? AppColors.income : AppColors.expense)
-                            .withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isAllSettled
-                          ? Icons.check_circle_outline_rounded
-                          : (netBalance >= 0
-                              ? Icons.arrow_circle_up_rounded
-                              : Icons.arrow_circle_down_rounded),
-                      size: 14,
-                      color: isAllSettled
-                          ? AppColors.primary
-                          : (netBalance >= 0 ? AppColors.income : AppColors.expense),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isAllSettled
-                          ? 'All Settled'
-                          : (netBalance >= 0 ? 'You are owed net' : 'You owe net'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: isAllSettled
-                            ? AppColors.primary
-                            : (netBalance >= 0 ? AppColors.income : AppColors.expense),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 14),
-          Divider(
-            height: 1,
-            color: AppColors.borderOf(context).withValues(alpha: 0.45),
-          ),
-          const SizedBox(height: 12),
-
-          // Two Interactive Metric Cards: Lent (To Receive) & Borrowed (To Pay)
-          Row(
-            children: [
-              // Lent Card
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _typeFilter = _typeFilter == 1 ? 0 : 1;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _typeFilter == 1
-                          ? AppColors.income.withValues(alpha: isDark ? 0.22 : 0.14)
-                          : AppColors.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _typeFilter == 1
-                            ? AppColors.income
-                            : AppColors.borderOf(context).withValues(alpha: 0.45),
-                        width: _typeFilter == 1 ? 1.8 : 1.0,
-                      ),
-                      boxShadow: _typeFilter == 1
-                          ? [
-                              BoxShadow(
-                                color: AppColors.income.withValues(alpha: 0.15),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(3.5),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.income.withValues(alpha: 0.18),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_upward_rounded,
-                                    size: 11,
-                                    color: AppColors.income,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'To Receive',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.income,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_typeFilter == 1)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: AppColors.income,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'ACTIVE',
-                                  style: TextStyle(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '+${_formatAmount(totalLentPending)}',
-                          style: const TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.income,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Pending from friends',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textLightOf(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 10),
-
-              // Borrowed Card
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    setState(() {
-                      _typeFilter = _typeFilter == 2 ? 0 : 2;
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: _typeFilter == 2
-                          ? AppColors.expense.withValues(alpha: isDark ? 0.22 : 0.14)
-                          : AppColors.surfaceOf(context),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: _typeFilter == 2
-                            ? AppColors.expense
-                            : AppColors.borderOf(context).withValues(alpha: 0.45),
-                        width: _typeFilter == 2 ? 1.8 : 1.0,
-                      ),
-                      boxShadow: _typeFilter == 2
-                          ? [
-                              BoxShadow(
-                                color: AppColors.expense.withValues(alpha: 0.15),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              )
-                            ]
-                          : null,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(3.5),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.expense.withValues(alpha: 0.18),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.arrow_downward_rounded,
-                                    size: 11,
-                                    color: AppColors.expense,
-                                  ),
-                                ),
-                                const SizedBox(width: 5),
-                                const Text(
-                                  'To Pay',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.expense,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_typeFilter == 2)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                decoration: BoxDecoration(
-                                  color: AppColors.expense,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text(
-                                  'ACTIVE',
-                                  style: TextStyle(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '-${_formatAmount(totalBorrowedPending)}',
-                          style: const TextStyle(
-                            fontSize: 16.5,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.expense,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Pending you owe',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textLightOf(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          if (_typeFilter != 0) ...[
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _typeFilter = 0);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceOf(context),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.close_rounded,
-                      size: 12,
-                      color: AppColors.textSecondaryOf(context),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Filtered by ${_typeFilter == 1 ? "Lent" : "Borrowed"} • Tap to show all',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondaryOf(context),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
   // ─── DUE TODAY / OVERDUE ALERT BANNER ───
   Widget _buildDueAlertBanner(
     BuildContext context,
     List<DebtModel> dues,
   ) {
     final count = dues.length;
-    final firstPerson = dues.first.personName;
     final overdueCount = dues.where((d) => d.isOverdue).length;
     final dueTodayCount = dues.where((d) => d.isDueToday).length;
 
     String subtitle = '';
     if (overdueCount > 0 && dueTodayCount > 0) {
-      subtitle = '$dueTodayCount due today, $overdueCount overdue ($firstPerson & others)';
+      subtitle = '$dueTodayCount due today, $overdueCount overdue';
     } else if (overdueCount > 0) {
-      subtitle = '$overdueCount overdue repayment(s) need follow-up!';
+      subtitle = '$overdueCount overdue repayment${overdueCount == 1 ? "" : "s"} need follow-up!';
     } else {
-      subtitle = '$dueTodayCount repayment expected today ($firstPerson)';
+      subtitle = '$dueTodayCount repayment expected today';
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFFF9800).withValues(alpha: 0.16),
-            const Color(0xFFFF5722).withValues(alpha: 0.12),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
+        color: const Color(0xFFFF9800).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: const Color(0xFFFF9800).withValues(alpha: 0.35),
         ),
@@ -970,7 +1036,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: const Color(0xFFFF9800).withValues(alpha: 0.22),
               shape: BoxShape.circle,
@@ -978,10 +1044,10 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
             child: const Icon(
               Icons.notifications_active_rounded,
               color: Color(0xFFF57C00),
-              size: 20,
+              size: 16,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -989,35 +1055,34 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                 Row(
                   children: [
                     const Text(
-                      'Repayment Action Needed',
+                      'Action Needed',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
+                        fontSize: 12.5,
                         color: Color(0xFFE65100),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
+                        horizontal: 5,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE65100),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         '$count',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 9.5,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: TextStyle(
@@ -1028,19 +1093,16 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               ],
             ),
           ),
-          // Quick "View" filter button
           GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
-              setState(() {
-                _statusFilter = 0; // Filter to Pending
-              });
+              setState(() => _statusFilter = 0);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: const Color(0xFFE65100).withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: const Color(0xFFE65100).withValues(alpha: 0.3),
                 ),
@@ -1060,10 +1122,306 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     );
   }
 
+  // ─── SEARCH & FILTERS TOOLBAR ───
+  Widget _buildSearchAndFilters(BuildContext context, List<DebtModel> allDebts) {
+    final lentCount = allDebts.where((d) => d.isLend).length;
+    final borrowCount = allDebts.where((d) => d.isBorrow).length;
+    final pendingCount = allDebts.where((d) => !d.isRepaid).length;
+    final settledCount = allDebts.where((d) => d.isRepaid).length;
+
+    final isFiltered =
+        _searchQuery.isNotEmpty || _typeFilter != 0 || _statusFilter != 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Sleek Search Bar
+        _buildSearchBar(context),
+        const SizedBox(height: 10),
+
+        // 2. Compact Segmented Toolbar: Type Segments & Status Dropdown/Capsule
+        Row(
+          children: [
+            // Type Segment
+            Expanded(
+              child: Container(
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.cardOf(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.borderOf(context).withValues(alpha: 0.45),
+                  ),
+                ),
+                padding: const EdgeInsets.all(3),
+                child: Row(
+                  children: [
+                    _buildSegmentButton('All (${allDebts.length})', 0),
+                    _buildSegmentButton('Lent ($lentCount)', 1),
+                    _buildSegmentButton('Borrowed ($borrowCount)', 2),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+
+            // Status Filter Menu
+            PopupMenuButton<int>(
+              tooltip: 'Filter by Status',
+              initialValue: _statusFilter,
+              onSelected: (val) {
+                HapticFeedback.selectionClick();
+                setState(() => _statusFilter = val);
+              },
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              color: AppColors.cardOf(context),
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 0,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.schedule_rounded,
+                        size: 16,
+                        color: _statusFilter == 0
+                            ? AppColors.primary
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Pending ($pendingCount)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _statusFilter == 0
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: _statusFilter == 0
+                              ? AppColors.primary
+                              : AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 1,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 16,
+                        color: _statusFilter == 1
+                            ? AppColors.income
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Settled ($settledCount)',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _statusFilter == 1
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: _statusFilter == 1
+                              ? AppColors.income
+                              : AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 2,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.layers_outlined,
+                        size: 16,
+                        color: _statusFilter == 2
+                            ? AppColors.primary
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'All Statuses (${allDebts.length})',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: _statusFilter == 2
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: _statusFilter == 2
+                              ? AppColors.primary
+                              : AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: _statusFilter != 0
+                      ? AppColors.primary.withValues(alpha: 0.14)
+                      : AppColors.cardOf(context),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _statusFilter != 0
+                        ? AppColors.primary
+                        : AppColors.borderOf(context).withValues(alpha: 0.45),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _statusFilter == 0
+                          ? Icons.schedule_rounded
+                          : (_statusFilter == 1
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.layers_outlined),
+                      size: 14,
+                      color: _statusFilter != 0
+                          ? AppColors.primary
+                          : AppColors.textSecondaryOf(context),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      _statusFilter == 0
+                          ? 'Pending'
+                          : (_statusFilter == 1 ? 'Settled' : 'All'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _statusFilter != 0
+                            ? AppColors.primary
+                            : AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 14,
+                      color: _statusFilter != 0
+                          ? AppColors.primary
+                          : AppColors.textLightOf(context),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        // If filters or search active: show reset chip
+        if (isFiltered) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Text(
+                'Showing filtered results',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textLightOf(context),
+                ),
+              ),
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  _searchController.clear();
+                  setState(() {
+                    _searchQuery = '';
+                    _typeFilter = 0;
+                    _statusFilter = 0;
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceOf(context),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.restart_alt_rounded,
+                        size: 12,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Reset filters',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSegmentButton(String label, int index) {
+    final isSelected = _typeFilter == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _typeFilter = index);
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    )
+                  ]
+                : null,
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                color: isSelected
+                    ? Colors.white
+                    : AppColors.textSecondaryOf(context),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ─── SEARCH BAR ───
   Widget _buildSearchBar(BuildContext context) {
     return Container(
-      height: 46,
+      height: 44,
       decoration: BoxDecoration(
         color: AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(14),
@@ -1112,167 +1470,6 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                 color: AppColors.textLightOf(context),
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  // ─── TYPE FILTERS (Segmented) ───
-  Widget _buildTypeFilters(BuildContext context, List<DebtModel> allDebts) {
-    final lentCount = allDebts.where((d) => d.isLend).length;
-    final borrowCount = allDebts.where((d) => d.isBorrow).length;
-
-    final tabs = [
-      'All (${allDebts.length})',
-      'Lent ($lentCount)',
-      'Borrowed ($borrowCount)',
-    ];
-
-    return Container(
-      height: 42,
-      decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.45),
-        ),
-      ),
-      padding: const EdgeInsets.all(3.5),
-      child: Row(
-        children: List.generate(tabs.length, (idx) {
-          final isSelected = _typeFilter == idx;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                setState(() => _typeFilter = idx);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(11),
-                  boxShadow: isSelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.25),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Center(
-                  child: Text(
-                    tabs[idx],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          isSelected ? FontWeight.w800 : FontWeight.w600,
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.textSecondaryOf(context),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  // ─── STATUS FILTERS (Pills) ───
-  Widget _buildStatusFilters(
-    BuildContext context,
-    List<DebtModel> allDebts,
-  ) {
-    final pendingCount = allDebts.where((d) => !d.isRepaid).length;
-    final settledCount = allDebts.where((d) => d.isRepaid).length;
-
-    Widget buildPill(String label, int count, int index, {IconData? icon}) {
-      final isSelected = _statusFilter == index;
-      return GestureDetector(
-        onTap: () {
-          HapticFeedback.selectionClick();
-          setState(() => _statusFilter = index);
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.15)
-                : AppColors.cardOf(context),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isSelected
-                  ? AppColors.primary
-                  : AppColors.borderOf(context).withValues(alpha: 0.45),
-              width: isSelected ? 1.5 : 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(
-                  icon,
-                  size: 13,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondaryOf(context),
-                ),
-                const SizedBox(width: 5),
-              ],
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondaryOf(context),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.surfaceOf(context),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '$count',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: isSelected
-                        ? Colors.white
-                        : AppColors.textSecondaryOf(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          buildPill('Pending', pendingCount, 0, icon: Icons.schedule_rounded),
-          const SizedBox(width: 8),
-          buildPill('Settled', settledCount, 1, icon: Icons.check_circle_outline_rounded),
-          const SizedBox(width: 8),
-          buildPill('All Statuses', allDebts.length, 2, icon: Icons.layers_outlined),
         ],
       ),
     );
