@@ -16,6 +16,7 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/views/screens/filtered_transactions_screen.dart';
+import 'package:buddy/views/widgets/save_guest_account_modal.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -40,6 +41,7 @@ class ProfileScreenState extends State<ProfileScreen>
 
   bool _isAccountActionLoading = false;
   String _accountActionMessage = 'Please wait...';
+  bool _isGuest = false;
   String _name = '';
   String _email = '';
   String? _photoUrl;
@@ -94,8 +96,12 @@ class ProfileScreenState extends State<ProfileScreen>
         await prefs.setString('member_since', memberSince.toIso8601String());
       }
 
+      final isGuest = await _authService.isGuestUser();
+    if (!mounted) return;
+
       if (mounted) {
         setState(() {
+          _isGuest = isGuest;
           _name = name;
           _email = email;
           _photoUrl = user?.photoURL;
@@ -241,6 +247,10 @@ class ProfileScreenState extends State<ProfileScreen>
                 ),
                 sliver: SliverList(
                   delegate: SliverChildListDelegate([
+                    if (_isGuest) ...[
+                      _buildGuestSaveBanner(isDark),
+                      const SizedBox(height: 20),
+                    ],
                     _buildStatsRow(),
                     const SizedBox(height: 28),
                     _sectionLabel('Appearance'),
@@ -273,6 +283,14 @@ class ProfileScreenState extends State<ProfileScreen>
                     const SizedBox(height: 28),
                     _sectionLabel('Account'),
                     _group([
+                      if (_isGuest)
+                        _tile(
+                          icon: Icons.cloud_done_rounded,
+                          title: 'Sign In / Save Account',
+                          subtitle: 'Keep all your guest data permanently',
+                          color: _mint,
+                          onTap: _openSaveAccountModal,
+                        ),
                       _tile(
                         icon: Icons.logout_rounded,
                         title: 'Log out',
@@ -348,6 +366,99 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildGuestSaveBanner(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF162322) : const Color(0xFFE8F3F1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _mint.withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1E5D57).withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E5D57), Color(0xFF2C7A72)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.cloud_upload_rounded,
+                  size: 20,
+                  color: _mint,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Save Your Guest Data',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimaryOf(context),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Sign in or create an account to sync permanently.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondaryOf(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: _openSaveAccountModal,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+              label: const Text(
+                'Sign In / Save Account',
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E5D57),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ───────────────────────── Header ─────────────────────────
 
   Widget _buildHeader(bool isDark, double topPadding) {
@@ -370,74 +481,132 @@ class ProfileScreenState extends State<ProfileScreen>
       child: Column(
         children: [
           // Symmetrical Frosted Profile Card: Photo on left, balanced details & status on right
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.12),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.18),
-                width: 1.2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4),
+          InkWell(
+            onTap: _isGuest ? _openSaveAccountModal : null,
+            borderRadius: BorderRadius.circular(22),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: isDark ? 0.08 : 0.12),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: _isGuest
+                      ? _mint.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.18),
+                  width: _isGuest ? 1.4 : 1.2,
                 ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildPhotoCard(),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      GestureDetector(
-                        onTap: _editName,
-                        behavior: HitTestBehavior.opaque,
-                        child: Text(
-                          _name.isEmpty ? 'Add your name' : _name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 19.5,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
-                          ),
-                        ),
-                      ),
-                      if (_email.isNotEmpty) ...[
-                        const SizedBox(height: 5),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.alternate_email_rounded,
-                              size: 12,
-                              color: Colors.white.withValues(alpha: 0.72),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                _email,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.82),
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w400,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 14,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildPhotoCard(),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: _isGuest ? _openSaveAccountModal : _editName,
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _isGuest
+                                      ? 'Guest User'
+                                      : (_name.isEmpty ? 'Add your name' : _name),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 19.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.4,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              if (_isGuest) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _mint.withValues(alpha: 0.22),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: _mint.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.login_rounded,
+                                        size: 11,
+                                        color: _mint,
+                                      ),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Sign In',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w800,
+                                          color: _mint,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                      ],
+                        if (_isGuest) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Tap to sign in & save your transactions',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.85),
+                            ),
+                          ),
+                        ] else if (_email.isNotEmpty) ...[
+                          const SizedBox(height: 5),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.alternate_email_rounded,
+                                size: 12,
+                                color: Colors.white.withValues(alpha: 0.72),
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.82),
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       const SizedBox(height: 8),
                       // Member since pill
                       Container(
@@ -484,7 +653,8 @@ class ProfileScreenState extends State<ProfileScreen>
               ],
             ),
           ),
-          const SizedBox(height: 16),
+        ),
+        const SizedBox(height: 16),
           // Subtle horizontal divider line
           Container(
             height: 1,
@@ -991,6 +1161,16 @@ class ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  void _openSaveAccountModal() {
+    HapticFeedback.lightImpact();
+    SaveGuestAccountModal.show(
+      context,
+      onSuccess: () {
+        _loadProfile();
+      },
+    );
+  }
+
   // ───────────────────────── Name editing ─────────────────────────
 
   Future<void> _editName() async {
@@ -1019,23 +1199,58 @@ class ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _handleLogout() async {
     final isGuest = await _authService.isGuestUser();
+    if (!mounted) return;
 
-    final confirmed = isGuest
-        ? await _showConfirmDialog(
-            title: 'Log out as guest?',
-            message:
-                'All your transactions, categories and settings will be permanently deleted. '
-                'Create an account first if you want to keep your data.',
-            confirmLabel: 'Log out & delete',
-            isDangerous: true,
-          )
-        : await _showConfirmDialog(
-            title: 'Log out?',
-            message: 'You will need to sign in again to access your data.',
-            confirmLabel: 'Log out',
-          );
+    if (isGuest) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Log out as guest?'),
+          content: const Text(
+            'All your transactions, categories, and debts will be permanently deleted.\n\n'
+            'Save your account first to keep all your data safe!',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'delete'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD32F2F),
+              ),
+              child: const Text('Log out & delete'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, 'save'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E5D57),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Save Account First'),
+            ),
+          ],
+        ),
+      );
 
-    if (!confirmed || !mounted) return;
+      if (choice == 'save') {
+        _openSaveAccountModal();
+        return;
+      }
+      if (choice != 'delete' || !mounted) return;
+    } else {
+      final confirmed = await _showConfirmDialog(
+        title: 'Log out?',
+        message: 'You will need to sign in again to access your data.',
+        confirmLabel: 'Log out',
+      );
+      if (!confirmed || !mounted) return;
+    }
     setState(() {
       _isAccountActionLoading = true;
       _accountActionMessage = isGuest ? 'Clearing guest data...' : 'Logging out...';

@@ -2236,47 +2236,6 @@ class _GradientButton extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Donut chart painter
-// ─────────────────────────────────────────────────────────────
-class _DonutRingPainter extends CustomPainter {
-  final List<double> fractions;
-  final List<Color> colors;
-
-  const _DonutRingPainter({required this.fractions, required this.colors});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 5;
-    const strokeWidth = 8.0;
-    const gap = 0.12;
-
-    double startAngle = -math.pi / 2;
-    for (var i = 0; i < fractions.length; i++) {
-      final sweep = fractions[i] * 2 * math.pi;
-      final paint = Paint()
-        ..color = colors[i]
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle + gap / 2,
-        math.max(0.01, sweep - gap),
-        false,
-        paint,
-      );
-      startAngle += sweep;
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DonutRingPainter old) =>
-      old.colors != colors || old.fractions != fractions;
-}
-
-// ─────────────────────────────────────────────────────────────
 // Swiggy Logo Painter (official brand logo vector)
 // ─────────────────────────────────────────────────────────────
 class _SwiggyLogoPainter extends CustomPainter {

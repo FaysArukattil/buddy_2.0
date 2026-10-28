@@ -18,6 +18,7 @@ import 'package:buddy/views/screens/onboarding/login_screen.dart';
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
+import 'package:buddy/views/widgets/save_guest_account_modal.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -658,6 +659,19 @@ class _SettingsModalState extends State<SettingsModal> {
                       _sectionLabel('Account'),
                       _card(
                         children: [
+                          if (FirebaseAuth.instance.currentUser?.isAnonymous == true) ...[
+                            _tile(
+                              icon: Icons.cloud_done_rounded,
+                              title: 'Sign In / Save Account',
+                              subtitle: 'Preserve all your guest data permanently',
+                              color: AppColors.primary,
+                              onTap: () {
+                                Navigator.pop(context);
+                                SaveGuestAccountModal.show(context);
+                              },
+                            ),
+                            _divider(),
+                          ],
                           _tile(
                             icon: Icons.logout_rounded,
                             title: 'Sign out',

@@ -4,7 +4,16 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
-import 'app_init_helper.dart';
+import 'package:buddy/services/app_init_helper.dart';
+
+class AccountExistsException implements Exception {
+  final String email;
+  final AuthCredential? credential;
+  const AccountExistsException({required this.email, this.credential});
+
+  @override
+  String toString() => 'An account already exists for $email';
+}
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -29,9 +38,13 @@ class AuthService {
 
   // Check if user is guest
   Future<bool> isGuestUser() async {
+    final user = _auth.currentUser;
+    if (user != null && user.isAnonymous) return true;
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool('isGuest') ?? false;
   }
+
+  bool get isCurrentGuest => _auth.currentUser?.isAnonymous ?? false;
 
   // Sign up with email and password
   // Sign up with email and password
@@ -442,7 +455,7 @@ class AuthService {
     }
   }
 
-  // Convert guest account to permanent account
+  // Convert guest account to permanent account using Email/Password
   Future<UserCredential?> convertGuestToEmailPassword({
     required String name,
     required String email,
@@ -467,24 +480,305 @@ class AuthService {
       await userCredential.user?.updateDisplayName(name);
 
       // Update Firestore
-      await _firestore.collection('users').doc(user.uid).update({
+      await _firestore.collection('users').doc(user.uid).set({
         'name': name,
         'email': email,
         'isGuest': false,
         'convertedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       // Update SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('name', name);
       await prefs.setString('email', email);
       await prefs.setBool('isGuest', false);
+      await prefs.setBool('is_logged_in', true);
 
       return userCredential;
     } on FirebaseAuthException catch (e) {
+      if (e.code == 'email-already-in-use' || e.code == 'credential-already-in-use') {
+        throw AccountExistsException(email: email);
+      }
       throw _handleAuthException(e);
     } catch (e) {
+      if (e is AccountExistsException) rethrow;
       throw 'Failed to convert guest account. Please try again.';
+    }
+  }
+
+  // Convert guest account to permanent account using Google
+  Future<UserCredential?> convertGuestToGoogle() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null || !user.isAnonymous) {
+        throw 'No guest account found';
+      }
+
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        return null;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      if (googleAuth.accessToken == null && googleAuth.idToken == null) {
+        throw 'Failed to obtain Google authentication tokens.';
+      }
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      try {
+        final userCredential = await user.linkWithCredential(credential);
+
+        final name = userCredential.user?.displayName ?? googleUser.displayName ?? 'User';
+        final email = userCredential.user?.email ?? googleUser.email;
+        final photoUrl = userCredential.user?.photoURL ?? googleUser.photoUrl;
+
+        await _firestore.collection('users').doc(user.uid).set({
+          'name': name,
+          'email': email,
+          'photoURL': photoUrl,
+          'isGuest': false,
+          'convertedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('name', name);
+        if (email.isNotEmpty) await prefs.setString('email', email);
+        await prefs.setBool('isGuest', false);
+        await prefs.setBool('is_logged_in', true);
+
+        return userCredential;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'credential-already-in-use' ||
+            e.code == 'email-already-in-use') {
+          throw AccountExistsException(
+            email: googleUser.email,
+            credential: credential,
+          );
+        }
+        throw _handleAuthException(e);
+      }
+    } on AccountExistsException {
+      rethrow;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('❌ Google Link Error: $e');
+      throw 'Failed to link Google account. Please try again.';
+    }
+  }
+
+  // Sign in to existing account and merge all guest data
+  Future<UserCredential> signInAndMergeGuestWithEmail({
+    required String email,
+    required String password,
+  }) async {
+    try {
+      final guestUser = _auth.currentUser;
+      if (guestUser == null) throw 'No user is currently active';
+      final guestUid = guestUser.uid;
+
+      // 1. Fetch guest data while authenticated as guestUid
+      final guestData = await _fetchGuestData(guestUid);
+
+      // 2. Sign in to target account (token switches to targetUid)
+      final targetCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      final targetUid = targetCredential.user!.uid;
+
+      // 3. Write guest data into targetUid collections
+      await _writeGuestDataToTarget(targetUid, guestData);
+
+      // 4. Update local SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isGuest', false);
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('userId', targetUid);
+      final targetName =
+          targetCredential.user?.displayName ?? prefs.getString('name') ?? 'User';
+      await prefs.setString('name', targetName);
+      await prefs.setString('email', email);
+
+      // 5. Reinitialize app data for this user
+      await AppInitHelper.reinitializeForUser();
+
+      return targetCredential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('❌ SignIn & Merge Error: $e');
+      throw 'Failed to sign in and merge data. Please try again.';
+    }
+  }
+
+  // Sign in to existing Google account and merge all guest data
+  Future<UserCredential> signInAndMergeGuestWithGoogle(
+    AuthCredential credential,
+  ) async {
+    try {
+      final guestUser = _auth.currentUser;
+      if (guestUser == null) throw 'No user is currently active';
+      final guestUid = guestUser.uid;
+
+      // 1. Fetch guest data while authenticated as guestUid
+      final guestData = await _fetchGuestData(guestUid);
+
+      // 2. Sign in with Google credential (switches to targetUid)
+      final targetCredential = await _auth.signInWithCredential(credential);
+      final targetUid = targetCredential.user!.uid;
+
+      // 3. Write guest data into targetUid collections
+      await _writeGuestDataToTarget(targetUid, guestData);
+
+      // 4. Update SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isGuest', false);
+      await prefs.setBool('is_logged_in', true);
+      await prefs.setString('userId', targetUid);
+      final targetName = targetCredential.user?.displayName ?? 'User';
+      await prefs.setString('name', targetName);
+      if (targetCredential.user?.email != null) {
+        await prefs.setString('email', targetCredential.user!.email!);
+      }
+
+      // 5. Reinitialize app data
+      await AppInitHelper.reinitializeForUser();
+
+      return targetCredential;
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    } catch (e) {
+      debugPrint('❌ Google SignIn & Merge Error: $e');
+      throw 'Failed to sign in and merge data. Please try again.';
+    }
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>> _fetchGuestData(
+    String guestUid,
+  ) async {
+    final Map<String, List<Map<String, dynamic>>> data = {
+      'transactions': [],
+      'debts': [],
+      'categories': [],
+    };
+
+    try {
+      final txnSnap = await _firestore
+          .collection('users')
+          .doc(guestUid)
+          .collection('transactions')
+          .get();
+      for (final doc in txnSnap.docs) {
+        final d = Map<String, dynamic>.from(doc.data());
+        d['id'] = doc.id;
+        data['transactions']!.add(d);
+      }
+
+      final debtSnap = await _firestore
+          .collection('users')
+          .doc(guestUid)
+          .collection('debts')
+          .get();
+      for (final doc in debtSnap.docs) {
+        final d = Map<String, dynamic>.from(doc.data());
+        d['id'] = doc.id;
+        data['debts']!.add(d);
+      }
+
+      final catSnap = await _firestore
+          .collection('users')
+          .doc(guestUid)
+          .collection('categories')
+          .get();
+      for (final doc in catSnap.docs) {
+        final d = Map<String, dynamic>.from(doc.data());
+        d['id'] = doc.id;
+        data['categories']!.add(d);
+      }
+    } catch (e) {
+      debugPrint('⚠️ Error fetching guest data: $e');
+    }
+
+    return data;
+  }
+
+  Future<void> _writeGuestDataToTarget(
+    String targetUid,
+    Map<String, List<Map<String, dynamic>>> guestData,
+  ) async {
+    try {
+      final batch = _firestore.batch();
+      int count = 0;
+
+      // Transactions
+      final txns = guestData['transactions'] ?? [];
+      for (final txn in txns) {
+        final docRef = _firestore
+            .collection('users')
+            .doc(targetUid)
+            .collection('transactions')
+            .doc();
+        txn['userId'] = targetUid;
+        txn['id'] = docRef.id;
+        batch.set(docRef, txn, SetOptions(merge: true));
+        count++;
+        if (count >= 400) {
+          await batch.commit();
+          count = 0;
+        }
+      }
+
+      // Debts
+      final debts = guestData['debts'] ?? [];
+      for (final debt in debts) {
+        final docRef = _firestore
+            .collection('users')
+            .doc(targetUid)
+            .collection('debts')
+            .doc();
+        debt['userId'] = targetUid;
+        debt['id'] = docRef.id;
+        batch.set(docRef, debt, SetOptions(merge: true));
+        count++;
+        if (count >= 400) {
+          await batch.commit();
+          count = 0;
+        }
+      }
+
+      // Categories
+      final categories = guestData['categories'] ?? [];
+      for (final cat in categories) {
+        final docRef = _firestore
+            .collection('users')
+            .doc(targetUid)
+            .collection('categories')
+            .doc(cat['id'] ?? cat['name']);
+        cat['userId'] = targetUid;
+        batch.set(docRef, cat, SetOptions(merge: true));
+        count++;
+        if (count >= 400) {
+          await batch.commit();
+          count = 0;
+        }
+      }
+
+      if (count > 0) {
+        await batch.commit();
+      }
+      debugPrint('✅ Successfully merged guest data into target user: $targetUid');
+    } catch (e) {
+      debugPrint('❌ Error merging guest data into target: $e');
     }
   }
 
