@@ -704,15 +704,22 @@ class HomeScreenState extends State<HomeScreen>
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
+        final screenHeight = MediaQuery.sizeOf(ctx).height;
+        final heightFactor = screenHeight < 680 ? 0.95 : 0.92;
         return FractionallySizedBox(
-          heightFactor: 0.85,
-          child: ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
-            child: Material(
-              color: AppColors.backgroundOf(context),
-              child: const AddTransactionScreen(),
+          heightFactor: heightFactor,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+                child: Material(
+                  color: AppColors.backgroundOf(context),
+                  child: const AddTransactionScreen(),
+                ),
+              ),
             ),
           ),
         );

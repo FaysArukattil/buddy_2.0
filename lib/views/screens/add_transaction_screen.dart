@@ -323,6 +323,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppColors.isDark(context);
     final double t = _sliderAnimController.value.clamp(0.0, 1.0);
     final themeAccent = t < 0.5 ? AppColors.expense : AppColors.income;
 
@@ -360,72 +361,111 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           },
           child: Column(
             children: [
-              // ── Header (Unified with Sheet Surface) ──
-              const SizedBox(height: 10),
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderOf(context),
-                    borderRadius: BorderRadius.circular(2),
+              // ── Hero Header in Signature Emerald/Teal Theme ──
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? const [
+                            Color(0xFF0F2624),
+                            Color(0xFF163E3B),
+                            Color(0xFF1E5D57),
+                          ]
+                        : const [
+                            Color(0xFF0F3632),
+                            Color(0xFF1E5D57),
+                            Color(0xFF2C7A72),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(28),
+                    bottom: Radius.circular(22),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    // Frosted Drag Handle
+                    Center(
+                      child: Container(
+                        width: 38,
+                        height: 4.5,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.38),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Title & Close Button Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          _isEditing ? 'Edit Transaction' : 'New Transaction',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimaryOf(context),
-                            letterSpacing: -0.3,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _isEditing ? 'Edit Transaction' : 'New Transaction',
+                                style: const TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: -0.3,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _typeIndex == 0
+                                    ? 'Record an expense you made'
+                                    : 'Record income you received',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _typeIndex == 0
-                              ? 'Record an expense you made'
-                              : 'Record income you received',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textSecondaryOf(context),
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.16),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.22),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceOf(context),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.borderOf(context).withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.close_rounded,
-                          color: AppColors.textSecondaryOf(context),
-                          size: 16,
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 12),
+
+                    // Slidable Segmented Bar (Expense | Income) in Hero Header
+                    _buildSlidableTypeBar(),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
 
               // ── Scrollable Body ──
               Expanded(
@@ -433,14 +473,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   controller: _scrollController,
                   physics: const ClampingScrollPhysics(),
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Slidable Segmented Bar (Expense | Income)
-                      _buildSlidableTypeBar(),
-                      const SizedBox(height: 12),
-
                       // Amount Card with Quick Chips
                       _buildAmountCard(themeAccent),
                       const SizedBox(height: 14),
@@ -461,7 +497,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
                       // Save Button
                       _buildSaveButton(themeAccent),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                     ],
                   ),
                 ),
@@ -475,17 +511,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   }
 
   Widget _buildSlidableTypeBar() {
+    final isDark = AppColors.isDark(context);
     return Container(
-      height: 40,
+      height: 42,
       decoration: BoxDecoration(
-        color: AppColors.surfaceOf(context),
+        color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.22),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.8),
+          color: Colors.white.withValues(alpha: 0.16),
           width: 1.0,
         ),
       ),
-      padding: const EdgeInsets.all(2.5),
+      padding: const EdgeInsets.all(3.0),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
@@ -544,7 +581,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   _setSliderIndex(target);
                 },
                 child: SizedBox(
-                  height: 40,
+                  height: 42,
                   child: Stack(
                     children: [
                       Positioned(
@@ -559,7 +596,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(11),
                             border: Border.all(color: borderC, width: 1.0),
                             boxShadow: [
                               BoxShadow(
@@ -587,7 +624,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                       size: 14,
                                       color: Color.lerp(
                                         Colors.white,
-                                        AppColors.textSecondaryOf(context),
+                                        Colors.white.withValues(alpha: 0.65),
                                         t,
                                       ),
                                     ),
@@ -601,7 +638,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                             : FontWeight.w600,
                                         color: Color.lerp(
                                           Colors.white,
-                                          AppColors.textSecondaryOf(context),
+                                          Colors.white.withValues(alpha: 0.65),
                                           t,
                                         ),
                                       ),
@@ -624,7 +661,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                       Icons.north_east_rounded,
                                       size: 14,
                                       color: Color.lerp(
-                                        AppColors.textSecondaryOf(context),
+                                        Colors.white.withValues(alpha: 0.65),
                                         Colors.white,
                                         t,
                                       ),
@@ -638,8 +675,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                             ? FontWeight.w800
                                             : FontWeight.w600,
                                         color: Color.lerp(
-                                          AppColors.textSecondaryOf(context),
                                           Colors.white,
+                                          Colors.white.withValues(alpha: 0.65),
                                           t,
                                         ),
                                       ),
@@ -822,12 +859,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
+            final double maxWidth = constraints.maxWidth;
+            final int crossAxisCount = maxWidth > 650
+                ? 4
+                : (maxWidth > 460 ? 3 : 2);
             const double spacing = 10.0;
-            final double itemWidth = (constraints.maxWidth - spacing) / 2;
+            final double itemWidth =
+                (maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
 
             return Column(
               children: [
-                // 3x2 Grid of Top 6 categories (3 rows)
+                // Responsive Grid of Top 6 categories
                 Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
@@ -869,12 +911,17 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final isSelected = _selectedCategoryName == category.name;
     final catColor = AppColors.getCategoryColor(category.name);
     final isDark = AppColors.isDark(context);
-    final isLowLuminance = catColor.computeLuminance() < 0.14;
+
+    // Selected state uses AppColors.primary (Buddy's signature teal/emerald)
+    final Color backgroundColor = isSelected
+        ? (isDark
+            ? AppColors.primary.withValues(alpha: 0.20)
+            : AppColors.primary.withValues(alpha: 0.12))
+        : AppColors.cardOf(context);
+
     final Color borderColor = isSelected
-        ? catColor
-        : (isDark && isLowLuminance
-            ? Colors.white.withValues(alpha: 0.28)
-            : catColor.withValues(alpha: 0.25));
+        ? AppColors.primary
+        : AppColors.borderOf(context).withValues(alpha: isDark ? 0.7 : 0.85);
 
     return GestureDetector(
       onTap: () {
@@ -889,43 +936,52 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         constraints: const BoxConstraints(minHeight: 52),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected
-              ? catColor
-              : catColor.withValues(alpha: 0.08),
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: borderColor,
-            width: isSelected ? 1.8 : 1,
+            width: isSelected ? 1.8 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: catColor.withValues(alpha: 0.30),
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  )
+                    offset: const Offset(0, 2),
+                  ),
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: Row(
           children: [
+            // Circular Avatar with Category Color
             Container(
-              width: 32,
-              height: 32,
+              width: 34,
+              height: 34,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.22)
-                    : (isLowLuminance && isDark
-                        ? Colors.white.withValues(alpha: 0.15)
-                        : catColor.withValues(alpha: 0.15)),
+                    ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.22)
+                    : catColor.withValues(alpha: isDark ? 0.18 : 0.14),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.5)
+                      : catColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
               ),
               child: Icon(
                 category.icon,
                 size: 17,
                 color: isSelected
-                    ? Colors.white
-                    : (isLowLuminance && isDark ? Colors.white70 : catColor),
+                    ? (isDark ? const Color(0xFF5EEAD4) : AppColors.primary)
+                    : catColor,
               ),
             ),
             const SizedBox(width: 8),
@@ -940,11 +996,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       fontSize: 12.5,
                       height: 1.2,
                       color: isSelected
-                          ? Colors.white
+                          ? (isDark ? Colors.white : AppColors.primary)
                           : AppColors.textPrimaryOf(context),
                     ),
                   ),
@@ -954,9 +1010,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       'Selected',
                       style: TextStyle(
                         fontSize: 9.5,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         height: 1.1,
-                        color: Colors.white.withValues(alpha: 0.85),
+                        color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
                       ),
                     ),
                   ],
@@ -964,11 +1020,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               ),
             ),
             if (isSelected) ...[
-              const SizedBox(width: 2),
-              const Icon(
-                Icons.check_circle_rounded,
-                size: 15,
-                color: Colors.white,
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check,
+                  size: 11,
+                  color: isDark ? const Color(0xFF0F2624) : Colors.white,
+                ),
               ),
             ],
           ],
@@ -1365,15 +1428,20 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                               ],
                             ),
                           )
-                        : GridView.builder(
-                            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-                            physics: const BouncingScrollPhysics(),
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 10,
-                              crossAxisSpacing: 10,
-                              childAspectRatio: 2.3,
-                            ),
+                        : LayoutBuilder(
+                            builder: (sheetCtx, sheetConstraints) {
+                              final int crossAxisCount = sheetConstraints.maxWidth > 650
+                                  ? 4
+                                  : (sheetConstraints.maxWidth > 460 ? 3 : 2);
+                              return GridView.builder(
+                                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                                physics: const BouncingScrollPhysics(),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: crossAxisCount,
+                                  mainAxisSpacing: 10,
+                                  crossAxisSpacing: 10,
+                                  childAspectRatio: crossAxisCount > 2 ? 2.6 : 2.3,
+                                ),
                             itemCount: filtered.length,
                             itemBuilder: (context, i) {
                               final catItem = filtered[i];
@@ -1405,7 +1473,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                                     : null,
                               );
                             },
-                          ),
+                          );
+                        },
+                      ),
                   ),
                   const _KeyboardSpacer(),
                 ],
@@ -1426,36 +1496,44 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     VoidCallback? onDelete,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isLowLuminance = catColor.computeLuminance() < 0.14;
+
+    final Color backgroundColor = isSelected
+        ? (isDark
+            ? AppColors.primary.withValues(alpha: 0.20)
+            : AppColors.primary.withValues(alpha: 0.12))
+        : AppColors.cardOf(context);
+
     final Color borderColor = isSelected
-        ? catColor
-        : (isDark && isLowLuminance
-            ? Colors.white.withValues(alpha: 0.28)
-            : catColor.withValues(alpha: 0.25));
+        ? AppColors.primary
+        : AppColors.borderOf(context).withValues(alpha: isDark ? 0.7 : 0.85);
 
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: isSelected
-              ? catColor
-              : catColor.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(16),
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: borderColor,
-            width: isSelected ? 2 : 1,
+            width: isSelected ? 1.8 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: catColor.withValues(alpha: 0.3),
+                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    offset: const Offset(0, 2),
                   ),
                 ]
-              : null,
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
         ),
         child: Row(
           children: [
@@ -1464,18 +1542,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               height: 32,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.22)
-                    : (isLowLuminance && isDark
-                        ? Colors.white.withValues(alpha: 0.15)
-                        : catColor.withValues(alpha: 0.15)),
+                    ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.22)
+                    : catColor.withValues(alpha: isDark ? 0.18 : 0.14),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.5)
+                      : catColor.withValues(alpha: 0.3),
+                  width: 1,
+                ),
               ),
               child: Icon(
                 category.icon,
-                size: 17,
+                size: 16,
                 color: isSelected
-                    ? Colors.white
-                    : (isLowLuminance && isDark ? Colors.white70 : catColor),
+                    ? (isDark ? const Color(0xFF5EEAD4) : AppColors.primary)
+                    : catColor,
               ),
             ),
             const SizedBox(width: 8),
@@ -1485,10 +1567,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontWeight: FontWeight.w700,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   fontSize: 12.5,
                   color: isSelected
-                      ? Colors.white
+                      ? (isDark ? Colors.white : AppColors.primary)
                       : AppColors.textPrimaryOf(context),
                 ),
               ),
@@ -1504,16 +1586,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   ),
                   child: const Icon(
                     Icons.delete_outline_rounded,
-                    size: 15,
+                    size: 14,
                     color: Color(0xFFEF4444),
                   ),
                 ),
               )
             else if (isSelected)
-              const Icon(
-                Icons.check_circle_rounded,
-                size: 16,
-                color: Colors.white,
+              Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.check,
+                  size: 11,
+                  color: isDark ? const Color(0xFF0F2624) : Colors.white,
+                ),
               ),
           ],
         ),
@@ -1624,10 +1713,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   Widget _buildCategoryShimmer() {
     return LayoutBuilder(
       builder: (context, constraints) {
+        final double maxWidth = constraints.maxWidth;
+        final int crossAxisCount = maxWidth > 650
+            ? 4
+            : (maxWidth > 460 ? 3 : 2);
         const double spacing = 10.0;
-        const int crossAxisCount = 2;
-        const double totalSpacing = spacing * (crossAxisCount - 1);
-        final double itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+        final double totalSpacing = spacing * (crossAxisCount - 1);
+        final double itemWidth = (maxWidth - totalSpacing) / crossAxisCount;
 
         return Wrap(
           spacing: spacing,
@@ -1636,10 +1728,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             6,
             (_) => Container(
               width: itemWidth,
-              height: 60,
+              height: 52,
               decoration: BoxDecoration(
                 color: AppColors.surfaceOf(context),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
               ),
             ),
           ),
@@ -1825,31 +1917,44 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
   Widget _buildSaveButton(Color themeAccent) {
     return SizedBox(
       width: double.infinity,
-      height: 50,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: themeAccent,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          elevation: 0,
+      height: 52,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: themeAccent.withValues(alpha: 0.32),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        onPressed: _isSaving ? null : _saveTransaction,
-        icon: _isSaving
-            ? const SizedBox.shrink()
-            : const Icon(Icons.check_circle_rounded, size: 18),
-        label: _isSaving
-            ? const BuddyLoadingIndicator(size: 22)
-            : Text(
-                _isEditing
-                    ? 'Update ${_typeIndex == 0 ? 'Expense' : 'Income'}'
-                    : 'Save ${_typeIndex == 0 ? 'Expense' : 'Income'}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14.5,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: themeAccent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            elevation: 0,
+          ),
+          onPressed: _isSaving ? null : _saveTransaction,
+          icon: _isSaving
+              ? const SizedBox.shrink()
+              : const Icon(Icons.check_circle_rounded, size: 19),
+          label: _isSaving
+              ? const BuddyLoadingIndicator(size: 22)
+              : Text(
+                  _isEditing
+                      ? 'Update ${_typeIndex == 0 ? 'Expense' : 'Income'}'
+                      : 'Save ${_typeIndex == 0 ? 'Expense' : 'Income'}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    letterSpacing: -0.2,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }
@@ -2445,7 +2550,8 @@ class _KeyboardSpacer extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    final targetHeight = bottomInset > 0 ? bottomInset : bottomPadding;
+    final targetHeight =
+        bottomInset > 0 ? bottomInset : (bottomPadding > 0 ? bottomPadding : 12.0);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
