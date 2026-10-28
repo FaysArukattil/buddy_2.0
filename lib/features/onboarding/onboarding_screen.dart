@@ -1,20 +1,17 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
 
-/// Buddy Onboarding v5 — 100% Overflow-Proof, Mobbin/Dribbble Conversion Model.
+/// Buddy Onboarding v5 — conversion-focused single-canvas flow.
 ///
-/// Architectural Guarantees:
-/// - Zero Horizontal or Vertical RenderFlex Overflows across all screen ratios
-///   (from compact 320x568 iPhone SE up to tall foldables & tablets).
-/// - Protected against OS Accessibility Font Scaling via bounded MediaQuery.
-/// - Single-Canvas In-Place Morphing (no PageView sliding).
-/// - 3 High-Converting Steps:
-///   1. HOOK  — Live UPI Alert -> 0.2s Auto-Logged Expense
-///   2. TRUST — On-Device Privacy Firewall (OTPs & Chats Ignored)
-///   3. PRO   — Interactive Heatmap / Debt / Category Showcase + ₹0 Forever Pass
+/// 1. HOOK    – "Your spending logs itself." (plays once, then HOLDS the result)
+/// 2. TRUST   – "We never read your OTPs."   (rows reveal once, then hold)
+/// 3. PAYOFF  – "Every pro tool. ₹0 forever." + sign-up CTA + "Sign in" link
+///
+/// Finish -> permission primer sheet (explains WHY) -> system permission -> Auth.
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback? onFinishOnboarding;
   final Future<void> Function()? onNotificationPermissionRequested;
@@ -37,13 +34,28 @@ const Color _kCoral = Color(0xFFE56B6F);
 const Color _kAmber = Color(0xFFFFD166);
 const Color _kInk = Color(0xFF042419);
 
+const List<String> _kMonths = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
 class _Pal {
   final bool dark;
   const _Pal(this.dark);
 
   Color get bg => dark ? const Color(0xFF060E0C) : const Color(0xFFF3F8F6);
   Color get text => dark ? Colors.white : const Color(0xFF0B221C);
-  Color get muted => dark ? const Color(0xFF94ADA5) : const Color(0xFF4A645C);
+  Color get muted => dark ? const Color(0xFF9DB5AD) : const Color(0xFF4A645C);
   Color get surface => dark ? const Color(0xFF0F211C) : Colors.white;
   Color get surfaceElevated =>
       dark ? const Color(0xFF142D26) : const Color(0xFFE8F6F0);
@@ -76,26 +88,27 @@ class _StepMeta {
   });
 }
 
+// Short CTAs on steps 1-2 keep momentum; the last CTA is the conversion moment.
 const List<_StepMeta> _steps = [
   _StepMeta(
     eyebrow: 'ZERO MANUAL ENTRY',
     headline: 'Your spending\nlogs itself.',
     body:
-        'Pay with any UPI app as usual. Buddy spots the payment alert and logs the expense in 0.2 seconds.',
-    cta: 'See how it stays private',
+        'Pay with any UPI app as usual. Buddy spots the payment alert and logs it for you.',
+    cta: 'Continue',
   ),
   _StepMeta(
-    eyebrow: '100% ON-DEVICE PRIVACY',
+    eyebrow: 'PRIVATE BY DESIGN',
     headline: 'We never read\nyour OTPs.',
     body:
-        'Buddy filters alerts locally on your phone. Personal chats and bank OTPs are strictly ignored.',
-    cta: 'Explore pro features',
+        'Alerts are filtered on your phone. Bank OTPs and personal chats are ignored.',
+    cta: 'Continue',
   ),
   _StepMeta(
     eyebrow: 'NO ADS • NO PAYWALLS',
     headline: 'Every pro tool.\n₹0 forever.',
     body:
-        'Heatmaps, category analytics, and friend debt tracking—unlocked out of the box with zero subscriptions.',
+        'Heatmaps, category insights and friend-debt tracking are unlocked from day one.',
     cta: 'Start Tracking Free',
   ),
 ];
@@ -107,24 +120,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   int _page = 0;
   int _direction = 1; // 1 = forward, -1 = backward
   bool _finishing = false;
+  bool _reduceMotion = false;
 
-  // Interactive tab index on Screen 3 (0: Heatmap, 1: Debts, 2: Analytics)
   int _hubTab = 0;
-  bool _userTouchedHubTab = false;
+  Timer? _hubTimer;
 
-  late final AnimationController _loop; // 6s stage loop
-  late final AnimationController _ambient; // 3s breathing glow
+  /// One-shot timeline for stages 1 & 2 (plays once, then holds final state).
+  late final AnimationController _stage;
+
+  /// Subtle breathing glow on the CTA.
+  late final AnimationController _ambient;
 
   @override
   void initState() {
     super.initState();
-    _loop =
-        AnimationController(
-            vsync: this,
-            duration: const Duration(milliseconds: 6000),
-          )
-          ..addListener(_onLoopTick)
-          ..repeat();
+    _stage = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    )..forward();
 
     _ambient = AnimationController(
       vsync: this,
@@ -132,42 +145,64 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     )..repeat();
   }
 
-  void _onLoopTick() {
-    if (_page == 2 && !_userTouchedHubTab && mounted) {
-      final t = _loop.value;
-      final nextTab = t < 0.34 ? 0 : (t < 0.67 ? 1 : 2);
-      if (nextTab != _hubTab) {
-        setState(() => _hubTab = nextTab);
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.disableAnimationsOf(context);
+    if (reduce != _reduceMotion) {
+      _reduceMotion = reduce;
+      if (reduce) {
+        _stage.value = 1;
+        _ambient.stop();
+        _hubTimer?.cancel();
+      } else if (!_ambient.isAnimating) {
+        _ambient.repeat();
       }
     }
   }
 
   @override
   void dispose() {
-    _loop.removeListener(_onLoopTick);
-    _loop.dispose();
+    _hubTimer?.cancel();
+    _stage.dispose();
     _ambient.dispose();
     super.dispose();
   }
 
-  // ── Navigation (In-Place Morphing) ───────────────────────────
+  // ── Page 3 auto-cycle (stops as soon as the user touches a tab) ──
+  void _startHubTimer() {
+    _hubTimer?.cancel();
+    if (_reduceMotion) return;
+    _hubTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
+      if (!mounted || _page != 2) return;
+      setState(() => _hubTab = (_hubTab + 1) % 3);
+    });
+  }
+
+  // ── Navigation (in-place morphing) ───────────────────────────
   void _goTo(int target) {
     if (target < 0 || target >= _pageCount || target == _page) return;
     HapticFeedback.selectionClick();
     setState(() {
       _direction = target > _page ? 1 : -1;
       _page = target;
-      if (target == 2) {
-        _userTouchedHubTab = false;
-        _hubTab = 0;
-      }
+      if (target == 2) _hubTab = 0;
     });
-    _loop
-      ..reset()
-      ..repeat();
+
+    _hubTimer?.cancel();
+    if (target == 2) _startHubTimer();
+
+    if (_reduceMotion) {
+      _stage.value = 1;
+    } else {
+      _stage
+        ..reset()
+        ..forward();
+    }
   }
 
   void _next() {
+    if (_finishing) return;
     HapticFeedback.lightImpact();
     if (_page < _pageCount - 1) {
       _goTo(_page + 1);
@@ -177,23 +212,133 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   void _prev() {
-    if (_page > 0) {
+    if (_page > 0 && !_finishing) {
       HapticFeedback.lightImpact();
       _goTo(_page - 1);
     }
   }
 
+  /// Asks WHY before the system dialog. true = allow, false = not now,
+  /// null = dismissed (stay on screen).
+  Future<bool?> _showPermissionPrimer(_Pal p) {
+    return showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(12),
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+          decoration: BoxDecoration(
+            color: p.surface,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: _kMint.withValues(alpha: 0.5)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _kMint.withValues(alpha: 0.16),
+                ),
+                child: Icon(
+                  Icons.notifications_active_rounded,
+                  color: p.accent,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'One quick permission',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: p.text,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Buddy needs notification access to spot your UPI payment '
+                'alerts and log them automatically. OTPs and personal chats '
+                'are ignored.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  fontWeight: FontWeight.w500,
+                  color: p.muted,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kMint,
+                    foregroundColor: _kInk,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: const Text(
+                    'Allow & continue',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: Text(
+                  'Not now',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: p.muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _finish() async {
     if (_finishing) return;
-    _finishing = true;
+    setState(() => _finishing = true);
     HapticFeedback.mediumImpact();
 
-    if (widget.onNotificationPermissionRequested != null) {
-      await widget.onNotificationPermissionRequested!();
-    }
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('has_seen_onboarding', true);
+    // Mark first so a permission error can never trap the user in onboarding.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('has_seen_onboarding', true);
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (widget.onNotificationPermissionRequested != null) {
+      final choice = await _showPermissionPrimer(_Pal(isDark));
+      if (!mounted) return;
+      if (choice == null) {
+        // Dismissed the sheet: let them retry instead of forcing them on.
+        setState(() => _finishing = false);
+        return;
+      }
+      if (choice) {
+        try {
+          await widget.onNotificationPermissionRequested!();
+        } catch (_) {
+          // Never block signup on a permission failure.
+        }
+      }
+    }
 
     if (!mounted) return;
 
@@ -218,15 +363,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final p = _Pal(isDark);
     final step = _steps[_page];
 
-    // Clamp text scale factor so large OS accessibility fonts never overflow cards
-    final mediaQuery = MediaQuery.of(context);
-    final clampedScaler = mediaQuery.textScaler.clamp(
-      minScaleFactor: 0.85,
-      maxScaleFactor: 1.08,
-    );
-
-    return MediaQuery(
-      data: mediaQuery.copyWith(textScaler: clampedScaler),
+    return MediaQuery.withClampedTextScaling(
+      minScaleFactor: 1.0,
+      maxScaleFactor: 1.15,
       child: Scaffold(
         backgroundColor: p.bg,
         body: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -235,15 +374,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               : SystemUiOverlayStyle.dark,
           child: Stack(
             children: [
-              // Ambient top spotlight that shifts smoothly across steps
               AnimatedAlign(
                 duration: const Duration(milliseconds: 750),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment(-0.75 + _page * 0.75, -1.18),
                 child: IgnorePointer(
                   child: Container(
-                    width: 360,
-                    height: 360,
+                    width: 390,
+                    height: 390,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -256,69 +394,55 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   ),
                 ),
               ),
-
-              // Horizontal Swipe Gesture Layer for Single-Canvas Morphing
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onHorizontalDragEnd: (details) {
                   final v = details.primaryVelocity ?? 0;
                   if (v < -240) {
-                    _next();
+                    // Swipe never triggers signup; only advances to the last page.
+                    if (_page < _pageCount - 1) _next();
                   } else if (v > 240) {
                     _prev();
                   }
                 },
                 child: SafeArea(
-                  child: LayoutBuilder(
-                    builder: (context, viewport) {
-                      final isCompact = viewport.maxHeight < 660;
-                      final isUltraShort = viewport.maxHeight < 580;
-                      final hPad = viewport.maxWidth < 360 ? 16.0 : 22.0;
-
-                      return Column(
-                        children: [
-                          _buildTopBar(p, hPad),
-                          Expanded(
-                            child: SingleChildScrollView(
-                              physics: const BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      _buildTopBar(p),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            final isShort = box.maxHeight < 540;
+                            return SingleChildScrollView(
+                              physics: const ClampingScrollPhysics(),
                               padding: EdgeInsets.fromLTRB(
-                                hPad,
-                                isUltraShort ? 4 : (isCompact ? 8 : 14),
-                                hPad,
-                                8,
+                                24,
+                                isShort ? 8 : 14,
+                                24,
+                                12,
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 1. In-Place Morphing Header
-                                  _buildMorphingHeader(
-                                    p,
-                                    step,
-                                    isCompact: isCompact,
-                                    isUltraShort: isUltraShort,
-                                  ),
-
-                                  SizedBox(
-                                    height: isUltraShort
-                                        ? 10
-                                        : (isCompact ? 14 : 20),
-                                  ),
-
-                                  // 2. In-Place Morphing Hero Stage
-                                  _buildMorphingStage(p, isCompact: isCompact),
-                                ],
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: box.maxHeight - 26,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    _buildMorphingHeader(p, step, isShort),
+                                    SizedBox(height: isShort ? 12 : 18),
+                                    _buildMorphingStage(p),
+                                    const SizedBox(height: 4),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ),
-                          _buildBottomDock(
-                            p,
-                            step,
-                            hPad: hPad,
-                            isCompact: isCompact,
-                          ),
-                        ],
-                      );
-                    },
+                            );
+                          },
+                        ),
+                      ),
+                      _buildBottomDock(p, step),
+                    ],
                   ),
                 ),
               ),
@@ -330,27 +454,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ── Top bar: back, progress bars, skip ───────────────────────
-  Widget _buildTopBar(_Pal p, double hPad) {
+  Widget _buildTopBar(_Pal p) {
     final isLast = _page == _pageCount - 1;
     return Padding(
-      padding: EdgeInsets.fromLTRB(hPad - 6, 4, hPad - 6, 0),
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: Row(
         children: [
           SizedBox(
-            width: 38,
-            height: 36,
+            width: 48,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
               opacity: _page > 0 ? 1 : 0,
               child: IgnorePointer(
                 ignoring: _page == 0,
                 child: IconButton(
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
+                  tooltip: 'Back',
                   onPressed: _prev,
                   icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    size: 17,
+                    size: 18,
                     color: p.text,
                   ),
                 ),
@@ -358,44 +480,38 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             ),
           ),
           Expanded(
-            child: Row(
-              children: List.generate(_pageCount, (i) {
-                final active = i <= _page;
-                return Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => _goTo(i),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeOutCubic,
-                        height: 4,
-                        margin: EdgeInsets.only(
-                          right: i < _pageCount - 1 ? 6 : 0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: active ? _kMint : p.track,
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: i == _page
-                              ? [
-                                  BoxShadow(
-                                    color: _kMint.withValues(alpha: 0.45),
-                                    blurRadius: 6,
-                                  ),
-                                ]
-                              : null,
+            child: Semantics(
+              label: 'Step ${_page + 1} of $_pageCount',
+              child: Row(
+                children: List.generate(_pageCount, (i) {
+                  final active = i <= _page;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _goTo(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOutCubic,
+                          height: 4.5,
+                          margin: EdgeInsets.only(
+                            right: i < _pageCount - 1 ? 6 : 0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: active ? _kMint : p.track,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+              ),
             ),
           ),
           SizedBox(
-            width: 52,
-            height: 36,
+            width: 64,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 200),
               opacity: isLast ? 0 : 1,
@@ -405,12 +521,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   onPressed: () => _goTo(_pageCount - 1),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
-                    minimumSize: const Size(52, 36),
+                    minimumSize: const Size(48, 44),
                   ),
                   child: Text(
                     'Skip',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: p.muted,
                     ),
@@ -424,30 +540,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  // ── Morphing Top Header ──────────────────────────────────────
-  Widget _buildMorphingHeader(
-    _Pal p,
-    _StepMeta step, {
-    required bool isCompact,
-    required bool isUltraShort,
-  }) {
+  // ── Morphing header ──────────────────────────────────────────
+  Widget _buildMorphingHeader(_Pal p, _StepMeta step, bool isShort) {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 360),
+      duration: const Duration(milliseconds: 380),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          alignment: Alignment.topLeft,
-          children: [
-            ...previousChildren,
-            if (currentChild != null) currentChild,
-          ],
-        );
-      },
+      layoutBuilder: (currentChild, previousChildren) => Stack(
+        alignment: Alignment.topLeft,
+        children: [...previousChildren, if (currentChild != null) currentChild],
+      ),
       transitionBuilder: (child, anim) {
         final isEntering = child.key == ValueKey('hdr_$_page');
         final offset = Offset(
-          isEntering ? 0.08 * _direction : -0.08 * _direction,
+          isEntering ? 0.10 * _direction : -0.10 * _direction,
           0,
         );
         return FadeTransition(
@@ -466,7 +572,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: _kMint.withValues(alpha: p.dark ? 0.14 : 0.16),
               borderRadius: BorderRadius.circular(8),
@@ -478,31 +584,34 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             child: Text(
               step.eyebrow,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w900,
                 letterSpacing: 0.9,
                 color: p.accent,
               ),
             ),
           ),
-          SizedBox(height: isUltraShort ? 6 : (isCompact ? 8 : 11)),
-          Text(
-            step.headline,
-            style: TextStyle(
-              fontSize: isUltraShort ? 24 : (isCompact ? 27 : 31),
-              fontWeight: FontWeight.w900,
-              height: 1.1,
-              letterSpacing: -0.8,
-              color: p.text,
+          SizedBox(height: isShort ? 8 : 12),
+          Semantics(
+            header: true,
+            child: Text(
+              step.headline,
+              style: TextStyle(
+                fontSize: isShort ? 27 : 32,
+                fontWeight: FontWeight.w900,
+                height: 1.1,
+                letterSpacing: -0.9,
+                color: p.text,
+              ),
             ),
           ),
-          SizedBox(height: isUltraShort ? 5 : 8),
+          SizedBox(height: isShort ? 6 : 10),
           Text(
             step.body,
             style: TextStyle(
-              fontSize: isCompact ? 13 : 14.5,
+              fontSize: isShort ? 13.5 : 15,
               fontWeight: FontWeight.w500,
-              height: 1.38,
+              height: 1.42,
               color: p.muted,
             ),
           ),
@@ -511,282 +620,288 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  // ── Morphing Center Stage ────────────────────────────────────
-  Widget _buildMorphingStage(_Pal p, {required bool isCompact}) {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      switchInCurve: Curves.easeOutBack,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, anim) {
-        final isEntering = child.key == ValueKey('stg_$_page');
-        return FadeTransition(
-          opacity: anim,
-          child: ScaleTransition(
-            scale: Tween<double>(
-              begin: isEntering ? 0.94 : 1.03,
-              end: 1.0,
-            ).animate(anim),
-            child: child,
-          ),
-        );
-      },
-      child: KeyedSubtree(
-        key: ValueKey('stg_$_page'),
-        child: _page == 0
-            ? _stageAutoLog(p, isCompact)
-            : (_page == 1
-                  ? _stagePrivacy(p, isCompact)
-                  : _stageProHubAndFree(p, isCompact)),
+  // ── Morphing stage ───────────────────────────────────────────
+  Widget _buildMorphingStage(_Pal p) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 360),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 440),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, anim) {
+          final isEntering = child.key == ValueKey('stg_$_page');
+          return FadeTransition(
+            opacity: anim,
+            child: ScaleTransition(
+              scale: Tween<double>(
+                begin: isEntering ? 0.94 : 1.03,
+                end: 1.0,
+              ).animate(anim),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey('stg_$_page'),
+          child: _page == 0
+              ? _stageAutoLog(p)
+              : (_page == 1 ? _stagePrivacy(p) : _stageProHubAndFree(p)),
+        ),
       ),
     );
   }
 
-  // ── Bottom dock: CTA + trust line ────────────────────────────
-  Widget _buildBottomDock(
-    _Pal p,
-    _StepMeta step, {
-    required double hPad,
-    required bool isCompact,
-  }) {
+  // ── Bottom dock ──────────────────────────────────────────────
+  Widget _buildBottomDock(_Pal p, _StepMeta step) {
     final isLast = _page == _pageCount - 1;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(hPad, 4, hPad, isCompact ? 10 : 14),
+      padding: const EdgeInsets.fromLTRB(24, 6, 24, 10),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           AnimatedBuilder(
             animation: _ambient,
             builder: (context, _) {
-              final glow = 0.24 + 0.14 * math.sin(_ambient.value * 2 * math.pi);
+              final glow = _reduceMotion
+                  ? 0.26
+                  : 0.24 + 0.14 * math.sin(_ambient.value * 2 * math.pi);
               return Container(
-                height: isCompact ? 50 : 55,
+                height: 56,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   gradient: const LinearGradient(
                     colors: [_kMintBright, _kMint],
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: _kMint.withValues(alpha: glow),
-                      blurRadius: 20,
-                      offset: const Offset(0, 6),
+                      blurRadius: 22,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: _next,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Center(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          transitionBuilder: (child, anim) => FadeTransition(
-                            opacity: anim,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0, 0.22),
-                                end: Offset.zero,
-                              ).animate(anim),
-                              child: child,
-                            ),
-                          ),
-                          child: FittedBox(
-                            key: ValueKey('cta_$_page'),
-                            fit: BoxFit.scaleDown,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  step.cta,
-                                  style: const TextStyle(
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w900,
-                                    color: _kInk,
-                                    letterSpacing: -0.2,
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: _finishing ? null : _next,
+                    child: Center(
+                      child: _finishing
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.6,
+                                color: _kInk,
+                              ),
+                            )
+                          : AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: Row(
+                                key: ValueKey('cta_$_page'),
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    step.cta,
+                                    style: const TextStyle(
+                                      fontSize: 16.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: _kInk,
+                                      letterSpacing: -0.2,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  isLast
-                                      ? Icons.bolt_rounded
-                                      : Icons.arrow_forward_rounded,
-                                  size: 19,
-                                  color: _kInk,
-                                ),
-                              ],
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    isLast
+                                        ? Icons.bolt_rounded
+                                        : Icons.arrow_forward_rounded,
+                                    size: 20,
+                                    color: _kInk,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ),
               );
             },
           ),
-          SizedBox(height: isCompact ? 8 : 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.verified_user_rounded, size: 13, color: p.accent),
-                const SizedBox(width: 5),
-                Text(
-                  '100% Free  •  Zero Ads  •  On-Device Privacy',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: p.muted,
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 40,
+            child: isLast
+                ? TextButton(
+                    onPressed: _finishing ? null : _finish,
+                    child: Text.rich(
+                      TextSpan(
+                        text: 'Already have an account?  ',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: p.muted,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: 'Sign in',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: p.accent,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.verified_user_rounded,
+                        size: 13,
+                        color: p.accent,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Free  •  No ads  •  Private by design',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: p.muted,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
         ],
       ),
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Shared card shell
-  // ─────────────────────────────────────────────────────────────
+  // ── Shared card shell ────────────────────────────────────────
   Widget _card(
     _Pal p, {
     required Widget child,
     Color? borderColor,
     Color? fill,
-    EdgeInsets padding = const EdgeInsets.all(13),
+    EdgeInsets padding = const EdgeInsets.all(14),
   }) {
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
         color: fill ?? p.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: borderColor ?? p.border, width: 1.2),
-        boxShadow: p.dark
-            ? [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 14,
-                  offset: const Offset(0, 5),
-                ),
-              ]
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.dark ? 0.28 : 0.05),
+            blurRadius: p.dark ? 16 : 14,
+            offset: Offset(0, p.dark ? 6 : 4),
+          ),
+        ],
       ),
       child: child,
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STAGE 1 — Live UPI Alert -> Auto-Logged Expense
+  // STAGE 1 — UPI alert -> auto-logged expense (plays once, holds)
   // ─────────────────────────────────────────────────────────────
-  Widget _stageAutoLog(_Pal p, bool isCompact) {
+  Widget _stageAutoLog(_Pal p) {
     return AnimatedBuilder(
-      animation: _loop,
+      animation: _stage,
       builder: (context, _) {
-        final t = _loop.value;
-        final master = 1 - _seg(t, 0.91, 1.0);
-        final alertIn = _seg(t, 0.02, 0.16);
-        final logged = _seg(t, 0.44, 0.62);
+        final t = _stage.value;
+        final alertIn = _seg(t, 0.0, 0.2);
+        final logged = _seg(t, 0.5, 0.8);
+        final done = logged > 0.5;
         final netBalance = (6870 - 240 * logged).round();
 
-        return Opacity(
-          opacity: master,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 1. Incoming Bank Notification Card
-              Transform.translate(
-                offset: Offset(0, (1 - alertIn) * -14),
-                child: Opacity(
-                  opacity: alertIn,
-                  child: _card(
-                    p,
-                    borderColor: logged < 0.5
-                        ? _kMint.withValues(alpha: 0.75)
-                        : p.border,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF004C8F),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.account_balance_rounded,
-                            size: 18,
-                            color: Colors.white,
-                          ),
+        return Column(
+          children: [
+            Transform.translate(
+              offset: Offset(0, (1 - alertIn) * -16),
+              child: Opacity(
+                opacity: alertIn,
+                child: _card(
+                  p,
+                  borderColor: !done
+                      ? _kMint.withValues(alpha: 0.75)
+                      : p.border,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF004C8F),
+                          borderRadius: BorderRadius.circular(11),
                         ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      'HDFC BANK  •  Push Alert',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: p.muted,
-                                      ),
-                                    ),
+                        child: const Icon(
+                          Icons.account_balance_rounded,
+                          size: 19,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'HDFC BANK  •  Push Alert',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: p.muted,
                                   ),
-                                  Text(
-                                    'now',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                      color: p.muted,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                'Paid ₹240.00 to Salala Mini Supermarket via UPI',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.3,
-                                  color: p.text,
                                 ),
+                                Text(
+                                  'now',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: p.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Paid ₹240.00 to Salala Mini Supermarket via UPI',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w700,
+                                height: 1.32,
+                                color: p.text,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-
-              // 2. AI Parsing Connector Pill
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: isCompact ? 7 : 9),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
                 child: Container(
+                  key: ValueKey(done),
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 5,
+                    horizontal: 13,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
                     color: p.surfaceElevated,
@@ -797,169 +912,153 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        logged > 0.5
+                        done
                             ? Icons.check_circle_rounded
                             : Icons.auto_awesome_rounded,
-                        size: 13,
+                        size: 14,
                         color: p.accent,
                       ),
                       const SizedBox(width: 6),
-                      Flexible(
-                        child: Text(
-                          logged > 0.5
-                              ? 'Categorized & Logged in 0.2s'
-                              : 'On-Device AI Extracting Spend',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                            color: p.accent,
-                          ),
+                      Text(
+                        done ? 'Categorized & logged' : 'Reading the alert...',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w800,
+                          color: p.accent,
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-
-              // 3. Logged Buddy Transaction Card
-              Transform.scale(
-                scale: 0.97 + 0.03 * logged,
-                child: Opacity(
-                  opacity: 0.35 + 0.65 * logged,
-                  child: _card(
-                    p,
-                    borderColor: logged > 0.5
-                        ? _kMint.withValues(alpha: 0.85)
-                        : p.border,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _kMint.withValues(alpha: 0.16),
-                              ),
-                              child: Icon(
-                                Icons.shopping_bag_rounded,
-                                size: 19,
-                                color: p.accent,
-                              ),
+            ),
+            Transform.scale(
+              scale: 0.96 + 0.04 * logged,
+              child: Opacity(
+                opacity: 0.35 + 0.65 * logged,
+                child: _card(
+                  p,
+                  borderColor: done ? _kMint.withValues(alpha: 0.85) : p.border,
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _kMint.withValues(alpha: 0.16),
                             ),
-                            const SizedBox(width: 11),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Salala Mini Supermarket',
-                                    style: TextStyle(
-                                      fontSize: 13.5,
-                                      fontWeight: FontWeight.w800,
-                                      color: p.text,
-                                    ),
+                            child: Icon(
+                              Icons.shopping_bag_rounded,
+                              size: 20,
+                              color: p.accent,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Salala Mini Supermarket',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: p.text,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6,
-                                          vertical: 2,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: _kMint.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(
-                                            6,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '✨ AI  •  Groceries',
-                                          style: TextStyle(
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w800,
-                                            color: p.accent,
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        'Just now',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          color: p.muted,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              '-₹240',
-                              style: TextStyle(
-                                fontSize: 16.5,
-                                fontWeight: FontWeight.w900,
-                                color: _kCoral,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Container(height: 1, color: p.border),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                'Net Available Balance',
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: p.muted,
                                 ),
-                              ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: _kMint.withValues(alpha: 0.15),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '✨ Groceries',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w800,
+                                          color: p.accent,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Just now',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: p.muted,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            Text(
-                              '₹$netBalance',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.w900,
-                                color: p.text,
-                              ),
+                          ),
+                          const Text(
+                            '-₹240',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: _kCoral,
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Container(height: 1, color: p.border),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Balance',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: p.muted,
+                            ),
+                          ),
+                          Text(
+                            '₹$netBalance',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w900,
+                              color: p.text,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STAGE 2 — On-Device Privacy Firewall Proof
+  // STAGE 2 — On-device privacy proof (rows reveal once, then hold)
   // ─────────────────────────────────────────────────────────────
-  Widget _stagePrivacy(_Pal p, bool isCompact) {
+  Widget _stagePrivacy(_Pal p) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_loop, _ambient]),
+      animation: Listenable.merge([_stage, _ambient]),
       builder: (context, _) {
-        final t = _loop.value;
-        final master = 1 - _seg(t, 0.92, 1.0);
-        final pulse = 0.5 + 0.5 * math.sin(_ambient.value * 2 * math.pi);
+        final t = _stage.value;
+        final pulse = _reduceMotion
+            ? 0.5
+            : 0.5 + 0.5 * math.sin(_ambient.value * 2 * math.pi);
 
         Widget firewallRow({
           required int i,
@@ -969,30 +1068,30 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           required String badge,
           required bool allowed,
         }) {
-          final r = _seg(t, 0.06 + i * 0.18, 0.24 + i * 0.18);
+          final r = _seg(t, 0.15 + i * 0.22, 0.40 + i * 0.22);
           final color = allowed ? p.accent : _kCoral;
           return Opacity(
             opacity: 0.45 + 0.55 * r,
             child: Padding(
-              padding: EdgeInsets.only(bottom: isCompact ? 7 : 9),
+              padding: const EdgeInsets.only(bottom: 10),
               child: _card(
                 p,
                 borderColor: r > 0.6
                     ? color.withValues(alpha: allowed ? 0.75 : 0.45)
                     : p.border,
-                padding: EdgeInsets.all(isCompact ? 10 : 12),
+                padding: const EdgeInsets.all(12),
                 child: Row(
                   children: [
                     Container(
-                      width: 34,
-                      height: 34,
+                      width: 36,
+                      height: 36,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: color.withValues(alpha: 0.14),
                       ),
-                      child: Icon(icon, size: 17, color: color),
+                      child: Icon(icon, size: 18, color: color),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1000,40 +1099,38 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           Text(
                             title,
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: 13,
                               fontWeight: FontWeight.w800,
                               color: allowed ? p.text : p.muted,
-                              decoration: allowed
-                                  ? null
-                                  : (r > 0.6
-                                        ? TextDecoration.lineThrough
-                                        : null),
+                              decoration: (!allowed && r > 0.6)
+                                  ? TextDecoration.lineThrough
+                                  : null,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             sub,
-                            style: TextStyle(fontSize: 10.5, color: p.muted),
+                            style: TextStyle(fontSize: 11, color: p.muted),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Opacity(
                       opacity: r,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3.5,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(7),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           badge,
                           style: TextStyle(
-                            fontSize: 9.5,
+                            fontSize: 10,
                             fontWeight: FontWeight.w900,
                             color: color,
                           ),
@@ -1047,115 +1144,108 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           );
         }
 
-        return Opacity(
-          opacity: master,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Compact Shield Header Card
-              Padding(
-                padding: EdgeInsets.only(bottom: isCompact ? 8 : 10),
-                child: _card(
-                  p,
-                  fill: p.surfaceElevated,
-                  borderColor: _kMint.withValues(alpha: 0.4),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: isCompact ? 9 : 11,
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _kMint.withValues(alpha: 0.16 + 0.08 * pulse),
-                          border: Border.all(
-                            color: _kMint.withValues(alpha: 0.7),
-                            width: 1.4,
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _card(
+                p,
+                fill: p.surfaceElevated,
+                borderColor: _kMint.withValues(alpha: 0.4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _kMint.withValues(alpha: 0.16 + 0.08 * pulse),
+                        border: Border.all(
+                          color: _kMint.withValues(alpha: 0.7),
+                          width: 1.4,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.shield_rounded,
+                        size: 22,
+                        color: p.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'On-device filter active',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
+                              color: p.text,
+                            ),
                           ),
-                        ),
-                        child: Icon(
-                          Icons.shield_rounded,
-                          size: 20,
-                          color: p.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 11),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Local On-Device Firewall Active',
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                fontWeight: FontWeight.w900,
-                                color: p.text,
-                              ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Only payment alerts are used. Nothing else.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: p.muted,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Zero servers. Nobody can read your messages.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: p.muted,
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              firewallRow(
-                i: 0,
-                icon: Icons.password_rounded,
-                title: 'Your bank login OTP is 482910',
-                sub: 'OTP & password SMS',
-                badge: 'IGNORED',
-                allowed: false,
-              ),
-              firewallRow(
-                i: 1,
-                icon: Icons.chat_bubble_rounded,
-                title: 'Hey, are we meeting for lunch?',
-                sub: 'Personal WhatsApp / SMS chat',
-                badge: 'IGNORED',
-                allowed: false,
-              ),
-              firewallRow(
-                i: 2,
-                icon: Icons.payments_rounded,
-                title: 'Paid ₹15 to Qualify via UPI',
-                sub: 'Verified bank transaction alert',
-                badge: 'LOCAL ONLY',
-                allowed: true,
-              ),
-            ],
-          ),
+            ),
+            firewallRow(
+              i: 0,
+              icon: Icons.password_rounded,
+              title: 'Your bank login OTP is 482910',
+              sub: 'OTP & password SMS',
+              badge: 'IGNORED',
+              allowed: false,
+            ),
+            firewallRow(
+              i: 1,
+              icon: Icons.chat_bubble_rounded,
+              title: 'Hey, are we meeting for lunch?',
+              sub: 'Personal chat',
+              badge: 'IGNORED',
+              allowed: false,
+            ),
+            firewallRow(
+              i: 2,
+              icon: Icons.payments_rounded,
+              title: 'Paid ₹15 to Qualify via UPI',
+              sub: 'Verified bank transaction alert',
+              badge: 'LOGGED',
+              allowed: true,
+            ),
+          ],
         );
       },
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STAGE 3 — Interactive Pro Hub Showcase + ₹0 Forever VIP Pass
+  // STAGE 3 — Pro hub + ₹0 pass
   // ─────────────────────────────────────────────────────────────
-  Widget _stageProHubAndFree(_Pal p, bool isCompact) {
+  Widget _stageProHubAndFree(_Pal p) {
     const tabs = [
       (Icons.calendar_month_rounded, 'Heatmaps'),
       (Icons.handshake_rounded, 'Borrow & Lend'),
-      (Icons.donut_large_rounded, 'Category AI'),
+      (Icons.donut_large_rounded, 'Categories'),
     ];
 
     return Column(
-      mainAxisSize: MainAxisSize.min,
       children: [
-        // 1. Interactive Segmented Feature Switcher (Overflow-Safe with FittedBox)
         Container(
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
@@ -1169,20 +1259,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               final (icon, label) = tabs[i];
               return Expanded(
                 child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: () {
                     HapticFeedback.selectionClick();
-                    setState(() {
-                      _userTouchedHubTab = true;
-                      _hubTab = i;
-                    });
+                    _hubTimer?.cancel(); // user took control
+                    setState(() => _hubTab = i);
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 240),
                     curve: Curves.easeOutCubic,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 4,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
                     decoration: BoxDecoration(
                       color: selected ? p.surfaceElevated : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
@@ -1193,19 +1279,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             )
                           : null,
                     ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            icon,
-                            size: 13.5,
-                            color: selected ? p.accent : p.muted,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          icon,
+                          size: 14,
+                          color: selected ? p.accent : p.muted,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
                             label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               fontSize: 11.5,
                               fontWeight: selected
@@ -1214,8 +1301,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               color: selected ? p.text : p.muted,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1223,13 +1310,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             }),
           ),
         ),
-        SizedBox(height: isCompact ? 8 : 10),
-
-        // 2. Live Interactive Preview Card (Morphs between the 3 Pro Tools)
+        const SizedBox(height: 12),
         AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 320),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, if (current != null) current],
+          ),
           transitionBuilder: (child, anim) => FadeTransition(
             opacity: anim,
             child: ScaleTransition(
@@ -1240,22 +1329,57 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           child: KeyedSubtree(
             key: ValueKey('hub_tab_$_hubTab'),
             child: _hubTab == 0
-                ? _buildHeatmapPreviewCard(p, isCompact)
+                ? _buildHeatmapPreviewCard(p)
                 : (_hubTab == 1
                       ? _buildDebtPreviewCard(p)
                       : _buildCategoryPreviewCard(p)),
           ),
         ),
-        SizedBox(height: isCompact ? 8 : 10),
-
-        // 3. The "Zero-Paywall" VIP Pass
+        const SizedBox(height: 12),
         _buildZeroPaywallVipCard(p),
       ],
     );
   }
 
-  /// Tab 0: Replicates Buddy's October Spend Heatmap & Daily Avg / Peak Spend
-  Widget _buildHeatmapPreviewCard(_Pal p, bool isCompact) {
+  Widget _miniStat(_Pal p, String label, String value, Color valueColor) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: p.surfaceSubtle,
+          borderRadius: BorderRadius.circular(11),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: p.muted,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: valueColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeatmapPreviewCard(_Pal p) {
     const days = [
       ('5', '4.3K', 2),
       ('6', '319', 1),
@@ -1268,144 +1392,82 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ('21', '512', 1),
       ('25', '325', 1),
     ];
+    final month = _kMonths[DateTime.now().month - 1];
+    final short = month.substring(0, 3);
 
     return _card(
       p,
       borderColor: _kMint.withValues(alpha: 0.45),
-      padding: EdgeInsets.all(isCompact ? 11 : 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.calendar_month_rounded, size: 15, color: p.accent),
+              Icon(Icons.calendar_month_rounded, size: 16, color: p.accent),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  'October Spend Heatmap',
+                  '$month spend heatmap',
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: p.text,
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            ],
+          ),
+          const SizedBox(height: 10),
+          GridView.count(
+            crossAxisCount: 5,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: 1.35,
+            children: days.map((d) {
+              final (dayNum, amount, level) = d;
+              final Color cellBg = level == 2
+                  ? const Color(0xFFE55D60)
+                  : (level == 1
+                        ? const Color(0xFF7D4849).withValues(alpha: 0.78)
+                        : p.surfaceSubtle);
+              final Color textColor = level > 0 ? Colors.white : p.muted;
+              return Container(
                 decoration: BoxDecoration(
-                  color: _kMint.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(7),
+                  color: cellBg,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text(
-                  '28 Active Days',
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w800,
-                    color: p.accent,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      dayNum,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                      ),
+                    ),
+                    Text(
+                      amount,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: textColor.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            }).toList(),
           ),
-          const SizedBox(height: 8),
-
-          // 5x2 Mini Calendar Heatmap Grid (Responsive Row/Expanded instead of GridView)
-          Column(
-            children: [
-              Row(
-                children: days
-                    .sublist(0, 5)
-                    .map((d) => Expanded(child: _buildHeatCell(p, d)))
-                    .toList(),
-              ),
-              const SizedBox(height: 5),
-              Row(
-                children: days
-                    .sublist(5, 10)
-                    .map((d) => Expanded(child: _buildHeatCell(p, d)))
-                    .toList(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Daily Avg & Peak Spend Footer Pills
+          const SizedBox(height: 10),
           Row(
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: p.surfaceSubtle,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Daily Avg',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: p.muted,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '₹448',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
-                          color: p.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _miniStat(p, 'Daily avg', '₹448', p.accent),
               const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: p.surfaceSubtle,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          'Peak Spend',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: p.muted,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        '₹4,337',
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w900,
-                          color: _kCoral,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _miniStat(p, 'Peak ($short 5)', '₹4,337', _kCoral),
             ],
           ),
         ],
@@ -1413,202 +1475,92 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Widget _buildHeatCell(_Pal p, (String, String, int) d) {
-    final (dayNum, amount, level) = d;
-    final Color cellBg = level == 2
-        ? const Color(0xFFE55D60)
-        : (level == 1
-              ? const Color(0xFF7D4849).withValues(alpha: 0.78)
-              : p.surfaceSubtle);
-    final Color textColor = level > 0 ? Colors.white : p.muted;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 2.5),
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      decoration: BoxDecoration(
-        color: cellBg,
-        borderRadius: BorderRadius.circular(7),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            dayNum,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w900,
-              color: textColor,
+  Widget _buildDebtPreviewCard(_Pal p) {
+    Widget tile(String label, String value, Color c) => Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: p.surfaceSubtle,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: p.muted,
+              ),
             ),
-          ),
-          Text(
-            amount,
-            style: TextStyle(
-              fontSize: 8.5,
-              fontWeight: FontWeight.w700,
-              color: textColor.withValues(alpha: 0.9),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w900,
+                color: c,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
-  }
 
-  /// Tab 1: Replicates Buddy's Borrow & Lend Screen (Overflow-safe)
-  Widget _buildDebtPreviewCard(_Pal p) {
     return _card(
       p,
       borderColor: _kMint.withValues(alpha: 0.45),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Borrow & Lend Tracker',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: p.text,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Friend dues stay separate from your expenses',
-                      style: TextStyle(fontSize: 10.5, color: p.muted),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _kMint.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _kMint.withValues(alpha: 0.5)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: _kMint,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Separate: ON',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w900,
-                        color: p.accent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Text(
+            'Borrow & Lend tracker',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w800,
+              color: p.text,
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 2),
+          Text(
+            'Friend dues stay separate from your expenses',
+            style: TextStyle(fontSize: 11, color: p.muted),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: p.surfaceSubtle,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '↗ To Receive (Lent)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: p.muted,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        '₹1,450',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: p.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              tile('↗ To receive', '₹1,450', p.accent),
               const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: p.surfaceSubtle,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '↙ To Pay (Borrowed)',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: p.muted,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      const Text(
-                        '₹0.00',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w900,
-                          color: _kCoral,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              tile('↙ To pay', '₹0', _kCoral),
             ],
           ),
           const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
             decoration: BoxDecoration(
               color: p.surfaceSubtle,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                Flexible(
                   child: Text(
-                    'Split dinner bill • 2 friends settled',
+                    'Split dinner bill • 2 friends',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                       color: p.text,
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
                 Text(
-                  '1-Tap Settle',
+                  'Settle in 1 tap',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 10.5,
                     fontWeight: FontWeight.w800,
                     color: p.accent,
                   ),
@@ -1621,7 +1573,6 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  /// Tab 2: Replicates Buddy's Donut Chart & Category Breakdown (Overflow-safe)
   Widget _buildCategoryPreviewCard(_Pal p) {
     return _card(
       p,
@@ -1629,26 +1580,26 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: Row(
         children: [
           SizedBox(
-            width: 82,
-            height: 82,
+            width: 88,
+            height: 88,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 const CustomPaint(
-                  size: Size(82, 82),
+                  size: Size(88, 88),
                   painter: _DonutRingPainter(),
                 ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Spent',
-                      style: TextStyle(fontSize: 8.5, color: p.muted),
+                      'Total spent',
+                      style: TextStyle(fontSize: 9, color: p.muted),
                     ),
                     Text(
                       '₹12,554',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w900,
                         color: p.text,
                       ),
@@ -1658,25 +1609,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Smart Category Split',
+                  'Smart category split',
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: 13,
                     fontWeight: FontWeight.w800,
                     color: p.text,
                   ),
                 ),
                 const SizedBox(height: 8),
-                _categoryLegendRow(p, _kMint, 'Food & Dining', '42% • ₹5,270'),
+                _legendRow(p, _kMint, 'Food & Dining', '42% • ₹5,270'),
                 const SizedBox(height: 6),
-                _categoryLegendRow(p, _kCoral, 'Groceries', '31% • ₹3,890'),
+                _legendRow(p, _kCoral, 'Groceries', '31% • ₹3,890'),
                 const SizedBox(height: 6),
-                _categoryLegendRow(p, _kAmber, 'Fuel & Travel', '27% • ₹3,394'),
+                _legendRow(p, _kAmber, 'Fuel & Travel', '27% • ₹3,394'),
               ],
             ),
           ),
@@ -1685,26 +1636,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  Widget _categoryLegendRow(_Pal p, Color dotColor, String name, String value) {
+  Widget _legendRow(_Pal p, Color dot, String name, String value) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          width: 7,
-          height: 7,
-          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            name,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: p.text,
-            ),
+        Flexible(
+          child: Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: p.text,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 6),
         Text(
           value,
           style: TextStyle(
@@ -1717,13 +1677,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     );
   }
 
-  /// High-Impact "Reverse Paywall" VIP Card (Overflow-safe with Wrap)
+  /// "₹0 forever" pass (no competitor price claims: legal-safe).
   Widget _buildZeroPaywallVipCard(_Pal p) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
           colors: p.dark
               ? const [Color(0xFF15382E), Color(0xFF0E251E)]
@@ -1731,62 +1691,47 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: _kMint.withValues(alpha: 0.65), width: 1.2),
+        border: Border.all(color: _kMint.withValues(alpha: 0.65), width: 1.3),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
             decoration: BoxDecoration(
               gradient: const LinearGradient(colors: [_kMintBright, _kMint]),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              '₹0 / Forever',
+              '₹0 / forever',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 15,
                 fontWeight: FontWeight.w900,
                 color: _kInk,
-                letterSpacing: -0.3,
+                letterSpacing: -0.4,
               ),
             ),
           ),
-          const SizedBox(width: 11),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'No Subscriptions. Zero Ads.',
+                  'No subscriptions. No ads.',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w900,
                     color: p.text,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 2,
-                  children: [
-                    const Text(
-                      'Other apps: ₹999/yr',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                        color: _kCoral,
-                        decoration: TextDecoration.lineThrough,
-                      ),
-                    ),
-                    Text(
-                      '• Buddy: 100% Free',
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: p.accent,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Every feature unlocked from day one.',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: p.accent,
+                  ),
                 ),
               ],
             ),
@@ -1798,7 +1743,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 }
 
 // ─────────────────────────────────────────────────────────────
-// CUSTOM PAINTER: DONUT CHART FOR SCREEN 3
+// Donut chart painter
 // ─────────────────────────────────────────────────────────────
 class _DonutRingPainter extends CustomPainter {
   const _DonutRingPainter();
@@ -1807,7 +1752,7 @@ class _DonutRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 5;
-    const strokeWidth = 7.5;
+    const strokeWidth = 8.0;
 
     final slices = [
       (sweep: 0.42 * 2 * math.pi, color: _kMint),
@@ -1825,11 +1770,10 @@ class _DonutRingPainter extends CustomPainter {
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
-      final effectiveSweep = math.max(0.01, s.sweep - gap);
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
         startAngle + gap / 2,
-        effectiveSweep,
+        math.max(0.01, s.sweep - gap),
         false,
         paint,
       );
