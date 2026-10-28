@@ -130,6 +130,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       vsync: this,
       duration: const Duration(seconds: 3),
     )..repeat();
+
+    if (_page == 2) {
+      _startHubTimer();
+    }
   }
 
   @override
@@ -366,6 +370,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Build ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    if (_page == 2 && (_hubTimer == null || !_hubTimer!.isActive)) {
+      _startHubTimer();
+    }
     final isDark = AppColors.isDark(context);
     final step = _steps[_page];
 
@@ -1464,8 +1471,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           behavior: HitTestBehavior.opaque,
                           onTap: () {
                             HapticFeedback.selectionClick();
-                            _hubTimer?.cancel();
                             setState(() => _hubTab = i);
+                            _startHubTimer();
                           },
                           child: Center(
                             child: FittedBox(
