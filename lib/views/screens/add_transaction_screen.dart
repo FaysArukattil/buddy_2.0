@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -135,14 +136,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final cats = _typeIndex == 0 ? _expenseCategories : _incomeCategories;
     if (cats.isEmpty) return;
 
-    // Default to "Other" if available, otherwise first category in the list
-    final otherCat = cats.firstWhere(
-      (c) => c.name.toLowerCase() == 'other',
+    // Default to first non-'Other' category, fallback to first category
+    final defaultCat = cats.firstWhere(
+      (c) => c.name.toLowerCase().trim() != 'other',
       orElse: () => cats.first,
     );
 
-    _selectedCategoryName = otherCat.name;
-    _selectedCategoryIcon = otherCat.icon;
+    _selectedCategoryName = defaultCat.name;
+    _selectedCategoryIcon = defaultCat.icon;
   }
 
   Future<void> _loadCategories() async {
@@ -182,9 +183,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         debugPrint('⚠️ Error fetching recent transactions for sorting categories: $e');
       }
 
-      // Sort categories: highest usage count first, alphabetical fallback
+      // Sort categories: highest usage count first, alphabetical fallback.
+      // "Other" is always pushed to the bottom so it never monopolizes the top slots.
       void sortCategories(List<cat.Category> categories) {
         categories.sort((a, b) {
+          final isOtherA = a.name.toLowerCase().trim() == 'other';
+          final isOtherB = b.name.toLowerCase().trim() == 'other';
+          if (isOtherA && !isOtherB) return 1;
+          if (!isOtherA && isOtherB) return -1;
+
           final countA = usageCounts[a.name] ?? 0;
           final countB = usageCounts[b.name] ?? 0;
           if (countA != countB) {
@@ -473,7 +480,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                   controller: _scrollController,
                   physics: const ClampingScrollPhysics(),
                   keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -493,20 +500,51 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
 
                       // Date
                       _buildDateSelector(themeAccent),
-                      const SizedBox(height: 20),
-
-                      // Save Button
-                      _buildSaveButton(themeAccent),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),
               ),
-              const _KeyboardSpacer(),
+
+              // ── Pinned Bottom Bar with Save Button (Always Visible & Above Traditional Navbar) ──
+              _buildBottomSaveBar(themeAccent, isDark),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBottomSaveBar(Color themeAccent, bool isDark) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final systemBottomPadding = MediaQuery.viewPaddingOf(context).bottom;
+    // On traditional Android 3-button navbar, systemBottomPadding is ~48dp.
+    // On swipe gestures, systemBottomPadding is ~16-20dp.
+    // When keyboard is open, bottomInset > 0.
+    final double bottomMargin = bottomInset > 0
+        ? bottomInset + 8.0
+        : math.max(systemBottomPadding, 14.0);
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.cardOf(context),
+        border: Border(
+          top: BorderSide(
+            color: AppColors.borderOf(context).withValues(alpha: isDark ? 0.6 : 0.8),
+            width: 1.0,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, -3),
+          ),
+        ],
+      ),
+      padding: EdgeInsets.fromLTRB(16, 10, 16, bottomMargin),
+      child: _buildSaveButton(themeAccent),
     );
   }
 
@@ -810,7 +848,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
       return _buildCategoryShimmer();
     }
 
-    final top6 = _currentCategories.take(6).toList();
+    // Exclude "Other" from the visible top-6 grid, keeping it tucked inside More Categories
+    final visibleCategories = _currentCategories
+        .where((c) => c.name.toLowerCase().trim() != 'other')
+        .toList();
+    final top6 = visibleCategories.take(6).toList();
     final isSelectedInTop6 = top6.any((c) => c.name == _selectedCategoryName);
     cat.Category? selectedCategory;
     if (!isSelectedInTop6 && _selectedCategoryName != null) {
@@ -867,6 +909,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             final double itemWidth =
                 (maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount;
 
+            final totalCategories = _currentCategories.length;
+            final remainingCount = totalCategories > top6.length
+                ? totalCategories - top6.length
+                : 0;
+
             return Column(
               children: [
                 // Responsive Grid of Top 6 categories
@@ -890,14 +937,12 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       ),
                       const SizedBox(width: spacing),
                       Expanded(
-                        child: _buildAddOrMoreChip(
-                            _currentCategories.length > 6 ? _currentCategories.length - 6 : 0),
+                        child: _buildAddOrMoreChip(remainingCount),
                       ),
                     ],
                   ),
                 ] else ...[
-                  _buildMoreCategoriesChip(
-                      _currentCategories.length > 6 ? _currentCategories.length - 6 : 0),
+                  _buildMoreCategoriesChip(remainingCount),
                 ],
               ],
             );
@@ -2549,9 +2594,9 @@ class _KeyboardSpacer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+    final systemBottomPadding = MediaQuery.viewPaddingOf(context).bottom;
     final targetHeight =
-        bottomInset > 0 ? bottomInset : (bottomPadding > 0 ? bottomPadding : 12.0);
+        bottomInset > 0 ? bottomInset : math.max(systemBottomPadding, 12.0);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
