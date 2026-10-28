@@ -42,7 +42,6 @@ class _SettingsModalState extends State<SettingsModal> {
   static const Color _mint = Color(0xFF69F0AE);
   static const Color _danger = Color(0xFFEF4444);
   static const Color _headerDark = Color(0xFF0F3632);
-  static const Color _headerDarkMode = Color(0xFF0F2624);
 
   @override
   void initState() {

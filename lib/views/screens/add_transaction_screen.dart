@@ -952,21 +952,46 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     );
   }
 
+  Color _getCategoryTextColor({
+    required Color catColor,
+    required bool isDark,
+    required bool isSelected,
+  }) {
+    if (!isSelected) {
+      return AppColors.textPrimaryOf(context);
+    }
+    if (isDark) {
+      // In dark mode, if category color is very dark, brighten it slightly for high readability
+      return catColor.computeLuminance() < 0.22
+          ? Color.lerp(catColor, Colors.white, 0.40)!
+          : catColor;
+    } else {
+      // In light mode, if category color is very bright, darken it slightly for high contrast against light card
+      return catColor.computeLuminance() > 0.42
+          ? Color.lerp(catColor, Colors.black, 0.35)!
+          : catColor;
+    }
+  }
+
   Widget _buildCategoryChip(cat.Category category) {
     final isSelected = _selectedCategoryName == category.name;
     final catColor = AppColors.getCategoryColor(category.name);
     final isDark = AppColors.isDark(context);
 
-    // Selected state uses AppColors.primary (Buddy's signature teal/emerald)
+    // Selected state uses the category's unique color for clear visual recognition
     final Color backgroundColor = isSelected
-        ? (isDark
-            ? AppColors.primary.withValues(alpha: 0.20)
-            : AppColors.primary.withValues(alpha: 0.12))
+        ? catColor.withValues(alpha: isDark ? 0.16 : 0.09)
         : AppColors.cardOf(context);
 
     final Color borderColor = isSelected
-        ? AppColors.primary
+        ? catColor
         : AppColors.borderOf(context).withValues(alpha: isDark ? 0.7 : 0.85);
+
+    final Color textColor = _getCategoryTextColor(
+      catColor: catColor,
+      isDark: isDark,
+      isSelected: isSelected,
+    );
 
     return GestureDetector(
       onTap: () {
@@ -990,7 +1015,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
+                    color: catColor.withValues(alpha: isDark ? 0.35 : 0.22),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1010,23 +1035,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.22)
-                    : catColor.withValues(alpha: isDark ? 0.18 : 0.14),
+                color: catColor.withValues(
+                  alpha: isSelected
+                      ? (isDark ? 0.28 : 0.18)
+                      : (isDark ? 0.16 : 0.12),
+                ),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : catColor.withValues(alpha: 0.3),
-                  width: 1,
+                      ? catColor.withValues(alpha: 0.65)
+                      : catColor.withValues(alpha: 0.28),
+                  width: isSelected ? 1.5 : 1.0,
                 ),
               ),
               child: Icon(
                 category.icon,
                 size: 17,
-                color: isSelected
-                    ? (isDark ? const Color(0xFF5EEAD4) : AppColors.primary)
-                    : catColor,
+                color: catColor,
               ),
             ),
             const SizedBox(width: 8),
@@ -1044,9 +1069,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                       fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                       fontSize: 12.5,
                       height: 1.2,
-                      color: isSelected
-                          ? (isDark ? Colors.white : AppColors.primary)
-                          : AppColors.textPrimaryOf(context),
+                      color: textColor,
                     ),
                   ),
                   if (isSelected) ...[
@@ -1057,7 +1080,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                         fontSize: 9.5,
                         fontWeight: FontWeight.w700,
                         height: 1.1,
-                        color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
+                        color: textColor,
                       ),
                     ),
                   ],
@@ -1067,15 +1090,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
             if (isSelected) ...[
               const SizedBox(width: 4),
               Container(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(2.5),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
+                  color: catColor,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: catColor.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   Icons.check,
-                  size: 11,
-                  color: isDark ? const Color(0xFF0F2624) : Colors.white,
+                  size: 10,
+                  color: catColor.computeLuminance() > 0.55
+                      ? Colors.black87
+                      : Colors.white,
                 ),
               ),
             ],
@@ -1543,14 +1575,18 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final Color backgroundColor = isSelected
-        ? (isDark
-            ? AppColors.primary.withValues(alpha: 0.20)
-            : AppColors.primary.withValues(alpha: 0.12))
+        ? catColor.withValues(alpha: isDark ? 0.16 : 0.09)
         : AppColors.cardOf(context);
 
     final Color borderColor = isSelected
-        ? AppColors.primary
+        ? catColor
         : AppColors.borderOf(context).withValues(alpha: isDark ? 0.7 : 0.85);
+
+    final Color textColor = _getCategoryTextColor(
+      catColor: catColor,
+      isDark: isDark,
+      isSelected: isSelected,
+    );
 
     return GestureDetector(
       onTap: onTap,
@@ -1567,7 +1603,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: isDark ? 0.35 : 0.20),
+                    color: catColor.withValues(alpha: isDark ? 0.35 : 0.22),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1586,23 +1622,23 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: isDark ? 0.30 : 0.22)
-                    : catColor.withValues(alpha: isDark ? 0.18 : 0.14),
+                color: catColor.withValues(
+                  alpha: isSelected
+                      ? (isDark ? 0.28 : 0.18)
+                      : (isDark ? 0.16 : 0.12),
+                ),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isSelected
-                      ? AppColors.primary.withValues(alpha: 0.5)
-                      : catColor.withValues(alpha: 0.3),
-                  width: 1,
+                      ? catColor.withValues(alpha: 0.65)
+                      : catColor.withValues(alpha: 0.28),
+                  width: isSelected ? 1.5 : 1.0,
                 ),
               ),
               child: Icon(
                 category.icon,
                 size: 16,
-                color: isSelected
-                    ? (isDark ? const Color(0xFF5EEAD4) : AppColors.primary)
-                    : catColor,
+                color: catColor,
               ),
             ),
             const SizedBox(width: 8),
@@ -1614,9 +1650,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
                 style: TextStyle(
                   fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   fontSize: 12.5,
-                  color: isSelected
-                      ? (isDark ? Colors.white : AppColors.primary)
-                      : AppColors.textPrimaryOf(context),
+                  color: textColor,
                 ),
               ),
             ),
@@ -1638,15 +1672,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
               )
             else if (isSelected)
               Container(
-                padding: const EdgeInsets.all(2),
+                padding: const EdgeInsets.all(2.5),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF5EEAD4) : AppColors.primary,
+                  color: catColor,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: catColor.withValues(alpha: 0.35),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: Icon(
                   Icons.check,
-                  size: 11,
-                  color: isDark ? const Color(0xFF0F2624) : Colors.white,
+                  size: 10,
+                  color: catColor.computeLuminance() > 0.55
+                      ? Colors.black87
+                      : Colors.white,
                 ),
               ),
           ],
