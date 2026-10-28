@@ -111,10 +111,10 @@ class _OfflineBannerState extends State<OfflineBanner> {
         // ── Theme-aware color palette ──
         final Color offlineBg = isDark
             ? const Color(0xFF1E2632).withValues(alpha: 0.95)
-            : Colors.white.withValues(alpha: 0.96);
+            : AppColors.cardOf(context).withValues(alpha: 0.96);
         final Color onlineBg = isDark
             ? const Color(0xFF0F2B25).withValues(alpha: 0.95)
-            : Colors.white.withValues(alpha: 0.96);
+            : AppColors.cardOf(context).withValues(alpha: 0.96);
 
         final Color offlineBorder = isDark
             ? const Color(0xFFF59E0B).withValues(alpha: 0.45)
@@ -128,7 +128,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
         final Color onlineAccent =
             isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
 
-        final Color textPrimary = isDark ? Colors.white : const Color(0xFF0F172A);
+        final Color textPrimary = AppColors.textPrimaryOf(context);
 
         final currentBg = !isOnline ? offlineBg : onlineBg;
         final currentBorder = !isOnline ? offlineBorder : onlineBorder;

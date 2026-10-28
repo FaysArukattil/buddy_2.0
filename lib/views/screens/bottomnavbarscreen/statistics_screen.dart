@@ -67,7 +67,8 @@ class StatisticsScreenState extends State<StatisticsScreen>
   String _cacheKey = '';
 
   // Dual-view PageView controller & auto-cycle timer
-  final PageController _heroVisualPageController = PageController();
+  static const int _kHeroVisualLoopBase = 2000;
+  late final PageController _heroVisualPageController;
   int _heroVisualIndex = 0; // 0 = Chart, 1 = Calendar
   Timer? _heroAutoCycleTimer;
   bool _userInteractedWithHero = false;
@@ -92,6 +93,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _heroVisualPageController = PageController(
+      initialPage: _kHeroVisualLoopBase + _heroVisualIndex,
+    );
     _includeDebtsInHome = PreferenceService.includeDebtsInHome;
     _startHeroAutoCycleTimer();
     PreferenceService.includeDebtsInHomeNotifier.addListener(
@@ -146,12 +150,9 @@ class StatisticsScreenState extends State<StatisticsScreen>
       if (_heroVisualPageController.hasClients &&
           _heroVisualPageController.positions.length == 1 &&
           _heroVisualPageController.position.haveDimensions) {
-        final next = _heroVisualIndex == 0 ? 1 : 0;
-        _heroVisualPageController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 450),
-          curve: Curves.easeInOutCubic,
-        );
+        final double currentP = _heroVisualPageController.page ??
+            (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
+        _onToggleVisualModeIndex(currentP.round() + 1, isUserAction: false);
       }
     });
   }
@@ -1172,9 +1173,10 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         _heroVisualPageController.positions.length == 1 &&
                         _heroVisualPageController.position.haveDimensions)
                     ? (_heroVisualPageController.page ??
-                        _heroVisualIndex.toDouble())
-                    : _heroVisualIndex.toDouble();
-                _lastHeroHapticIndex = _heroDragStartPage.round();
+                        (_kHeroVisualLoopBase + _heroVisualIndex).toDouble())
+                    : (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
+                _lastHeroHapticIndex =
+                    (_heroDragStartPage.round() % 2 + 2) % 2;
                 HapticFeedback.lightImpact();
               },
               onHorizontalDragUpdate: (details) {
@@ -1186,20 +1188,16 @@ class StatisticsScreenState extends State<StatisticsScreen>
                     : MediaQuery.of(context).size.width;
                 final double deltaPages =
                     _heroDragAccumX / (w > 0 ? w : 300.0);
-                final double newPage =
-                    (_heroDragStartPage + deltaPages).clamp(0.0, 1.0);
+                final double newPage = _heroDragStartPage + deltaPages;
                 if (_heroVisualPageController.hasClients &&
                     _heroVisualPageController.positions.length == 1 &&
                     _heroVisualPageController.position.haveDimensions) {
                   _heroVisualPageController.position.jumpTo(newPage * w);
                 }
-                final int nearest = newPage.round().clamp(0, 1);
+                final int nearest = (newPage.round() % 2 + 2) % 2;
                 if (nearest != _lastHeroHapticIndex) {
                   _lastHeroHapticIndex = nearest;
                   HapticFeedback.lightImpact();
-                }
-                if (nearest != _heroVisualIndex) {
-                  setState(() => _heroVisualIndex = nearest);
                 }
               },
               onHorizontalDragEnd: (details) {
@@ -1208,24 +1206,24 @@ class StatisticsScreenState extends State<StatisticsScreen>
                         _heroVisualPageController.positions.length == 1 &&
                         _heroVisualPageController.position.haveDimensions)
                     ? (_heroVisualPageController.page ??
-                        _heroVisualIndex.toDouble())
-                    : _heroVisualIndex.toDouble();
+                        (_kHeroVisualLoopBase + _heroVisualIndex).toDouble())
+                    : (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
                 int target = currentP.round();
                 if (velocity > 250) {
-                  target = 1;
+                  target = currentP.floor() + 1;
                 } else if (velocity < -250) {
-                  target = 0;
+                  target = currentP.ceil() - 1;
                 }
-                _onToggleVisualMode(target.clamp(0, 1));
+                _onToggleVisualModeIndex(target);
               },
               onHorizontalDragCancel: () {
                 final double currentP = (_heroVisualPageController.hasClients &&
                         _heroVisualPageController.positions.length == 1 &&
                         _heroVisualPageController.position.haveDimensions)
                     ? (_heroVisualPageController.page ??
-                        _heroVisualIndex.toDouble())
-                    : _heroVisualIndex.toDouble();
-                _onToggleVisualMode(currentP.round().clamp(0, 1));
+                        (_kHeroVisualLoopBase + _heroVisualIndex).toDouble())
+                    : (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
+                _onToggleVisualModeIndex(currentP.round());
               },
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1234,18 +1232,23 @@ class StatisticsScreenState extends State<StatisticsScreen>
                   SizedBox(height: (8 * s).clamp(6.0, 12.0)),
                   SizedBox(
                     height: (295 * s).clamp(275.0, 325.0),
-                    child: PageView(
+                    child: PageView.builder(
                       controller: _heroVisualPageController,
                       physics: const NeverScrollableScrollPhysics(),
                       onPageChanged: (idx) {
-                        if (_heroVisualIndex != idx) {
-                          setState(() => _heroVisualIndex = idx);
+                        final mode = (idx % 2 + 2) % 2;
+                        if (_heroVisualIndex != mode) {
+                          setState(() => _heroVisualIndex = mode);
                         }
                       },
-                      children: [
-                        _buildHeaderCategoriesDonut(cats, total, s),
-                        _buildHeaderCalendarView(accent, s),
-                      ],
+                      itemBuilder: (context, idx) {
+                        final mode = (idx % 2 + 2) % 2;
+                        if (mode == 0) {
+                          return _buildHeaderCategoriesDonut(cats, total, s);
+                        } else {
+                          return _buildHeaderCalendarView(accent, s);
+                        }
+                      },
                     ),
                   ),
                 ],
@@ -1572,51 +1575,87 @@ class StatisticsScreenState extends State<StatisticsScreen>
     );
   }
 
-  void _onToggleVisualMode(int index) {
-    _stopAutoCycle();
-    if (_heroVisualIndex != index) {
-      HapticFeedback.lightImpact();
-      setState(() => _heroVisualIndex = index);
+  void _onToggleVisualModeIndex(int targetIndex, {bool isUserAction = true}) {
+    if (isUserAction) {
+      _stopAutoCycle();
+    }
+    final int mode = (targetIndex % 2 + 2) % 2;
+    if (_heroVisualIndex != mode) {
+      if (isUserAction) {
+        HapticFeedback.lightImpact();
+      }
+      setState(() => _heroVisualIndex = mode);
     }
     if (_heroVisualPageController.hasClients &&
         _heroVisualPageController.positions.length == 1 &&
         _heroVisualPageController.position.haveDimensions) {
       _heroVisualPageController.animateToPage(
-        index,
-        duration: const Duration(milliseconds: 320),
+        targetIndex,
+        duration: Duration(milliseconds: isUserAction ? 320 : 450),
         curve: Curves.easeOutCubic,
       ).then((_) {
-        if (mounted) {
+        if (mounted && isUserAction) {
           HapticFeedback.mediumImpact();
         }
       });
     }
   }
 
+  void _onToggleVisualMode(int mode, {bool isUserAction = true}) {
+    final double currentP = (_heroVisualPageController.hasClients &&
+            _heroVisualPageController.positions.length == 1 &&
+            _heroVisualPageController.position.haveDimensions)
+        ? (_heroVisualPageController.page ??
+            (_kHeroVisualLoopBase + _heroVisualIndex).toDouble())
+        : (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
+    final int current = currentP.round();
+    final int currentMode = (current % 2 + 2) % 2;
+    if (currentMode == mode) return;
+    int diff = mode - currentMode;
+    _onToggleVisualModeIndex(current + diff, isUserAction: isUserAction);
+  }
+
   Widget _buildVisualModeSelector(double s) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.14),
-          width: 1.0,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _visualTabItem(0, Icons.pie_chart_rounded, 'Chart', s),
-          const SizedBox(width: 4),
-          _visualTabItem(1, Icons.calendar_month_rounded, 'Calendar', s),
-        ],
-      ),
+    return AnimatedBuilder(
+      animation: _heroVisualPageController,
+      builder: (context, _) {
+        final double currentP = (_heroVisualPageController.hasClients &&
+                _heroVisualPageController.positions.length == 1 &&
+                _heroVisualPageController.position.haveDimensions)
+            ? (_heroVisualPageController.page ??
+                (_kHeroVisualLoopBase + _heroVisualIndex).toDouble())
+            : (_kHeroVisualLoopBase + _heroVisualIndex).toDouble();
+        final int activeMode = (currentP.round() % 2 + 2) % 2;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.28),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _visualTabItem(0, Icons.pie_chart_rounded, 'Chart', s, activeMode == 0),
+              const SizedBox(width: 4),
+              _visualTabItem(1, Icons.calendar_month_rounded, 'Calendar', s, activeMode == 1),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _visualTabItem(int index, IconData icon, String label, double s) {
-    final isSelected = _heroVisualIndex == index;
+  Widget _visualTabItem(
+    int index,
+    IconData icon,
+    String label,
+    double s,
+    bool isSelected,
+  ) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => _onToggleVisualMode(index),
@@ -2294,12 +2333,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
   BoxDecoration _cardDecoration([double radius = 22]) {
     final isDark = AppColors.isDark(context);
     return BoxDecoration(
-      color: isDark ? const Color(0xFF102624) : Colors.white,
+      color: isDark ? const Color(0xFF102624) : AppColors.cardOf(context),
       borderRadius: BorderRadius.circular(radius),
       border: Border.all(
         color: isDark
             ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
-            : const Color(0xFFCBD5E1),
+            : AppColors.borderOf(context),
         width: 1.2,
       ),
       boxShadow: [
@@ -2347,12 +2386,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
             horizontal: (16 * s).clamp(14.0, 20.0),
           ),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF102624) : Colors.white,
+            color: isDark ? const Color(0xFF102624) : AppColors.cardOf(context),
             borderRadius: BorderRadius.circular((22 * s).clamp(18.0, 24.0)),
             border: Border.all(
               color: isDark
                   ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
-                  : const Color(0xFFCBD5E1),
+                  : AppColors.borderOf(context),
               width: 1.2,
             ),
             boxShadow: [
@@ -2573,12 +2612,12 @@ class StatisticsScreenState extends State<StatisticsScreen>
         horizontal: (16 * s).clamp(14.0, 20.0),
       ),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF102624) : Colors.white,
+        color: isDark ? const Color(0xFF102624) : AppColors.cardOf(context),
         borderRadius: BorderRadius.circular((22 * s).clamp(18.0, 24.0)),
         border: Border.all(
           color: isDark
               ? const Color(0xFF1E5D57).withValues(alpha: 0.45)
-              : const Color(0xFFCBD5E1),
+              : AppColors.borderOf(context),
           width: 1.2,
         ),
         boxShadow: [
@@ -3016,7 +3055,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
             maxHeight: MediaQuery.of(ctx).size.height * 0.72,
           ),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF102624) : Colors.white,
+            color: isDark ? const Color(0xFF102624) : AppColors.cardOf(ctx),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(

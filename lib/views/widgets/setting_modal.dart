@@ -1271,7 +1271,7 @@ class _SettingsModalState extends State<SettingsModal> {
                     width: tabWidth,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF243040) : Colors.white,
+                        color: isDark ? const Color(0xFF243040) : AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isDark
@@ -1467,7 +1467,7 @@ class _DialogButton extends StatelessWidget {
         ? (enabled ? fill! : fill!.withValues(alpha: 0.38))
         : (isDark
               ? Colors.white.withValues(alpha: 0.06)
-              : const Color(0xFFF1F5F9));
+              : AppColors.surfaceOf(context));
 
     return InkWell(
       onTap: onTap == null
@@ -1543,7 +1543,7 @@ InputDecoration _dialogFieldDecoration(
       fontWeight: FontWeight.w600,
     ),
     filled: true,
-    fillColor: isDark ? const Color(0xFF141920) : const Color(0xFFF8FAFC),
+    fillColor: isDark ? const Color(0xFF141920) : AppColors.surfaceOf(context),
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),

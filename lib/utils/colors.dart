@@ -5,9 +5,11 @@ class AppColors {
   static const Color primary = Color(0xFF69AEA9);
   static const Color secondary = Color(0xFF3F8782);
 
-  // Light Mode Colors
-  static const Color background = Color(0xFFF5F7FA);
-  static const Color cardBackground = Colors.white;
+  // Light Mode Colors (Turned-down, eye-comfort warm sage neutral - zero white glare bleed)
+  static const Color background = Color(0xFFE6EBEA);
+  static const Color cardBackground = Color(0xFFF2F6F5);
+  static const Color surface = Color(0xFFDFE6E5);
+  static const Color border = Color(0xFFCCD5D4);
 
   // Dark Mode Colors
   static const Color darkBackground = Color(0xFF12161A);
@@ -15,10 +17,10 @@ class AppColors {
   static const Color darkSurface = Color(0xFF222C36);
   static const Color darkBorder = Color(0xFF2D3945);
 
-  // Light Mode Text Colors
-  static const Color textPrimary = Color(0xFF2D3436);
-  static const Color textSecondary = Color(0xFF636E72);
-  static const Color textLight = Color(0xFFB2BEC3);
+  // Light Mode Text Colors (High contrast, deep charcoal pine for effortless reading)
+  static const Color textPrimary = Color(0xFF1B2625);
+  static const Color textSecondary = Color(0xFF526362);
+  static const Color textLight = Color(0xFF788A88);
   static const Color textWhite = Colors.white;
 
   // Dark Mode Text Colors
@@ -61,10 +63,10 @@ class AppColors {
       isDark(context) ? darkCard : cardBackground;
 
   static Color surfaceOf(BuildContext context) =>
-      isDark(context) ? darkSurface : Colors.white;
+      isDark(context) ? darkSurface : surface;
 
   static Color borderOf(BuildContext context) =>
-      isDark(context) ? darkBorder : const Color(0xFFE2E8F0);
+      isDark(context) ? darkBorder : border;
 
   static Color textPrimaryOf(BuildContext context) =>
       isDark(context) ? darkTextPrimary : textPrimary;
@@ -187,18 +189,28 @@ class AppColors {
 
   // Shadow presets
   static List<BoxShadow> get cardShadow => [
-        const BoxShadow(
-          color: Color(0x14000000),
+        BoxShadow(
+          color: const Color(0xFF0F3632).withValues(alpha: 0.05),
           blurRadius: 12,
-          offset: Offset(0, 4),
+          offset: const Offset(0, 3),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
         ),
       ];
 
   static List<BoxShadow> get elevatedShadow => [
-        const BoxShadow(
-          color: Color(0x22000000),
+        BoxShadow(
+          color: const Color(0xFF0F3632).withValues(alpha: 0.08),
           blurRadius: 20,
-          offset: Offset(0, 8),
+          offset: const Offset(0, 6),
+        ),
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.03),
+          blurRadius: 6,
+          offset: const Offset(0, 2),
         ),
       ];
 
@@ -237,11 +249,11 @@ class AppTheme {
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: Colors.white,
-        modalBackgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBackground,
+        modalBackgroundColor: AppColors.cardBackground,
       ),
       dialogTheme: const DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.cardBackground,
       ),
       useMaterial3: true,
     );

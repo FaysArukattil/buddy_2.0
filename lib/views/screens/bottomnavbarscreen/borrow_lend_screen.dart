@@ -41,6 +41,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   int _statusFilter = 0; // 0 = All (default), 1 = Pending, 2 = Settled
   bool _includeDebtsInHome = true;
 
+  static const int _kDebtTypeLoopBase = 3000;
   late final PageController _typeFilterPageController;
   double _headerDragAccumX = 0;
   double _headerDragStartPage = 0;
@@ -63,7 +64,9 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   @override
   void initState() {
     super.initState();
-    _typeFilterPageController = PageController(initialPage: _typeFilter);
+    _typeFilterPageController = PageController(
+      initialPage: _kDebtTypeLoopBase + _typeFilter,
+    );
     _statusFilterAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 260),
@@ -84,14 +87,8 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     }
   }
 
-  void _onToggleType(int mode, {bool isUserAction = true}) {
-    final double currentPage = (_typeFilterPageController.hasClients &&
-            _typeFilterPageController.positions.length == 1 &&
-            _typeFilterPageController.position.haveDimensions)
-        ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-        : _typeFilter.toDouble();
-    final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
-    if (_typeFilter == mode && pageAlreadyThere) return;
+  void _onToggleTypeIndex(int targetIndex, {bool isUserAction = true}) {
+    final int mode = (targetIndex % 3 + 3) % 3;
     if (isUserAction) {
       HapticFeedback.lightImpact();
     }
@@ -102,7 +99,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         _typeFilterPageController.positions.length == 1 &&
         _typeFilterPageController.position.haveDimensions) {
       _typeFilterPageController.animateToPage(
-        mode,
+        targetIndex,
         duration: Duration(milliseconds: isUserAction ? 280 : 400),
         curve: Curves.easeOutCubic,
       ).then((_) {
@@ -111,6 +108,21 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         }
       });
     }
+  }
+
+  void _onToggleType(int mode, {bool isUserAction = true}) {
+    final double currentPage = (_typeFilterPageController.hasClients &&
+            _typeFilterPageController.positions.length == 1 &&
+            _typeFilterPageController.position.haveDimensions)
+        ? (_typeFilterPageController.page ??
+            (_kDebtTypeLoopBase + _typeFilter).toDouble())
+        : (_kDebtTypeLoopBase + _typeFilter).toDouble();
+    final int current = currentPage.round();
+    final int currentMode = (current % 3 + 3) % 3;
+    int diff = mode - currentMode;
+    if (diff > 1) diff -= 3;
+    if (diff < -1) diff += 3;
+    _onToggleTypeIndex(current + diff, isUserAction: isUserAction);
   }
 
   void _onToggleStatus(int mode, {bool isUserAction = true}) {
@@ -376,9 +388,11 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         _headerDragStartPage = (_typeFilterPageController.hasClients &&
                 _typeFilterPageController.positions.length == 1 &&
                 _typeFilterPageController.position.haveDimensions)
-            ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-            : _typeFilter.toDouble();
-        _lastHeaderHapticIndex = _headerDragStartPage.round();
+            ? (_typeFilterPageController.page ??
+                (_kDebtTypeLoopBase + _typeFilter).toDouble())
+            : (_kDebtTypeLoopBase + _typeFilter).toDouble();
+        _lastHeaderHapticIndex =
+            (_headerDragStartPage.round() % 3 + 3) % 3;
         HapticFeedback.lightImpact();
       },
       onHorizontalDragUpdate: (details) {
@@ -390,14 +404,13 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
             : MediaQuery.of(context).size.width;
         final double deltaPages =
             _headerDragAccumX / (w > 0 ? w : 300.0);
-        final double newPage =
-            (_headerDragStartPage + deltaPages).clamp(0.0, 2.0);
+        final double newPage = _headerDragStartPage + deltaPages;
         if (_typeFilterPageController.hasClients &&
             _typeFilterPageController.positions.length == 1 &&
             _typeFilterPageController.position.haveDimensions) {
           _typeFilterPageController.position.jumpTo(newPage * w);
         }
-        final int nearest = newPage.round().clamp(0, 2);
+        final int nearest = (newPage.round() % 3 + 3) % 3;
         if (nearest != _lastHeaderHapticIndex) {
           _lastHeaderHapticIndex = nearest;
           HapticFeedback.lightImpact();
@@ -408,23 +421,25 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         final double currentP = (_typeFilterPageController.hasClients &&
                 _typeFilterPageController.positions.length == 1 &&
                 _typeFilterPageController.position.haveDimensions)
-            ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-            : _typeFilter.toDouble();
+            ? (_typeFilterPageController.page ??
+                (_kDebtTypeLoopBase + _typeFilter).toDouble())
+            : (_kDebtTypeLoopBase + _typeFilter).toDouble();
         int target = currentP.round();
         if (velocity > 250) {
-          target = (currentP.floor() + 1).clamp(0, 2);
+          target = currentP.floor() + 1;
         } else if (velocity < -250) {
-          target = (currentP.ceil() - 1).clamp(0, 2);
+          target = currentP.ceil() - 1;
         }
-        _onToggleType(target.clamp(0, 2));
+        _onToggleTypeIndex(target);
       },
       onHorizontalDragCancel: () {
         final double currentP = (_typeFilterPageController.hasClients &&
                 _typeFilterPageController.positions.length == 1 &&
                 _typeFilterPageController.position.haveDimensions)
-            ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-            : _typeFilter.toDouble();
-        _onToggleType(currentP.round().clamp(0, 2));
+            ? (_typeFilterPageController.page ??
+                (_kDebtTypeLoopBase + _typeFilter).toDouble())
+            : (_kDebtTypeLoopBase + _typeFilter).toDouble();
+        _onToggleTypeIndex(currentP.round());
       },
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -571,8 +586,9 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                     final double currentPage = (_typeFilterPageController.hasClients &&
                             _typeFilterPageController.positions.length == 1 &&
                             _typeFilterPageController.position.haveDimensions)
-                        ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-                        : _typeFilter.toDouble();
+                        ? (_typeFilterPageController.page ??
+                            (_kDebtTypeLoopBase + _typeFilter).toDouble())
+                        : (_kDebtTypeLoopBase + _typeFilter).toDouble();
 
                     return Stack(
                       alignment: Alignment.center,
@@ -591,67 +607,73 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               // ─── Swipable Large Amount (Controlled seamlessly via top-level drag) ───
               SizedBox(
                 height: (48 * s).clamp(40.0, 56.0),
-                child: PageView(
+                child: PageView.builder(
                   controller: _typeFilterPageController,
                   physics: const NeverScrollableScrollPhysics(),
                   onPageChanged: (i) {
-                    if (_typeFilter != i) {
-                      setState(() => _typeFilter = i);
+                    final mode = (i % 3 + 3) % 3;
+                    if (_typeFilter != mode) {
+                      setState(() => _typeFilter = mode);
                     }
                   },
-                  children: [
-                    // Page 0: Net Balance
-                    Center(
-                      child: Text(
-                        isAllSettled
-                            ? '₹0.00'
-                            : '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: (30 * s).clamp(26.0, 36.0),
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          letterSpacing: -0.8,
+                  itemBuilder: (context, i) {
+                    final mode = (i % 3 + 3) % 3;
+                    if (mode == 0) {
+                      // Page 0: Net Balance
+                      return Center(
+                        child: Text(
+                          isAllSettled
+                              ? '₹0.00'
+                              : '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: (30 * s).clamp(26.0, 36.0),
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: -0.8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Page 1: To Receive (Lent)
-                    Center(
-                      child: Text(
-                        totalLentPending < 0.01
-                            ? '₹0.00'
-                            : '+${_formatAmount(totalLentPending)}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: (30 * s).clamp(26.0, 36.0),
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF69F0AE),
-                          letterSpacing: -0.8,
+                      );
+                    } else if (mode == 1) {
+                      // Page 1: To Receive (Lent)
+                      return Center(
+                        child: Text(
+                          totalLentPending < 0.01
+                              ? '₹0.00'
+                              : '+${_formatAmount(totalLentPending)}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: (30 * s).clamp(26.0, 36.0),
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF69F0AE),
+                            letterSpacing: -0.8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    // Page 2: To Pay (Borrowed)
-                    Center(
-                      child: Text(
-                        totalBorrowedPending < 0.01
-                            ? '₹0.00'
-                            : '-${_formatAmount(totalBorrowedPending)}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: (30 * s).clamp(26.0, 36.0),
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFFFF8A80),
-                          letterSpacing: -0.8,
+                      );
+                    } else {
+                      // Page 2: To Pay (Borrowed)
+                      return Center(
+                        child: Text(
+                          totalBorrowedPending < 0.01
+                              ? '₹0.00'
+                              : '-${_formatAmount(totalBorrowedPending)}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: (30 * s).clamp(26.0, 36.0),
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFFFF8A80),
+                            letterSpacing: -0.8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+                  },
                 ),
               ),
 
@@ -664,43 +686,40 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                   final double currentPage = (_typeFilterPageController.hasClients &&
                           _typeFilterPageController.positions.length == 1 &&
                           _typeFilterPageController.position.haveDimensions)
-                      ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-                      : _typeFilter.toDouble();
+                      ? (_typeFilterPageController.page ??
+                          (_kDebtTypeLoopBase + _typeFilter).toDouble())
+                      : (_kDebtTypeLoopBase + _typeFilter).toDouble();
+                  final double normPage = (currentPage % 3.0 + 3.0) % 3.0;
 
                   Color badgeBgColor;
                   Color badgeBorderColor;
-                  if (currentPage <= 1.0) {
-                    final double t = currentPage.clamp(0.0, 1.0);
-                    badgeBgColor = Color.lerp(
-                      isAllSettled
-                          ? Colors.white.withValues(alpha: 0.16)
-                          : (netBalance >= 0
-                              ? const Color(0xFF69F0AE).withValues(alpha: 0.22)
-                              : const Color(0xFFFF8A80).withValues(alpha: 0.22)),
-                      const Color(0xFF69F0AE).withValues(alpha: 0.22),
-                      t,
-                    )!;
-                    badgeBorderColor = Color.lerp(
-                      isAllSettled
-                          ? Colors.white.withValues(alpha: 0.3)
-                          : (netBalance >= 0
-                              ? const Color(0xFF69F0AE).withValues(alpha: 0.5)
-                              : const Color(0xFFFF8A80).withValues(alpha: 0.5)),
-                      const Color(0xFF69F0AE).withValues(alpha: 0.5),
-                      t,
-                    )!;
+                  final Color mode0Bg = isAllSettled
+                      ? Colors.white.withValues(alpha: 0.16)
+                      : (netBalance >= 0
+                          ? const Color(0xFF69F0AE).withValues(alpha: 0.22)
+                          : const Color(0xFFFF8A80).withValues(alpha: 0.22));
+                  final Color mode0Border = isAllSettled
+                      ? Colors.white.withValues(alpha: 0.3)
+                      : (netBalance >= 0
+                          ? const Color(0xFF69F0AE).withValues(alpha: 0.5)
+                          : const Color(0xFFFF8A80).withValues(alpha: 0.5));
+                  final Color mode1Bg = const Color(0xFF69F0AE).withValues(alpha: 0.22);
+                  final Color mode1Border = const Color(0xFF69F0AE).withValues(alpha: 0.5);
+                  final Color mode2Bg = const Color(0xFFFF8A80).withValues(alpha: 0.22);
+                  final Color mode2Border = const Color(0xFFFF8A80).withValues(alpha: 0.5);
+
+                  if (normPage <= 1.0) {
+                    final double t = normPage;
+                    badgeBgColor = Color.lerp(mode0Bg, mode1Bg, t)!;
+                    badgeBorderColor = Color.lerp(mode0Border, mode1Border, t)!;
+                  } else if (normPage <= 2.0) {
+                    final double t = normPage - 1.0;
+                    badgeBgColor = Color.lerp(mode1Bg, mode2Bg, t)!;
+                    badgeBorderColor = Color.lerp(mode1Border, mode2Border, t)!;
                   } else {
-                    final double t = (currentPage - 1.0).clamp(0.0, 1.0);
-                    badgeBgColor = Color.lerp(
-                      const Color(0xFF69F0AE).withValues(alpha: 0.22),
-                      const Color(0xFFFF8A80).withValues(alpha: 0.22),
-                      t,
-                    )!;
-                    badgeBorderColor = Color.lerp(
-                      const Color(0xFF69F0AE).withValues(alpha: 0.5),
-                      const Color(0xFFFF8A80).withValues(alpha: 0.5),
-                      t,
-                    )!;
+                    final double t = normPage - 2.0;
+                    badgeBgColor = Color.lerp(mode2Bg, mode0Bg, t)!;
+                    badgeBorderColor = Color.lerp(mode2Border, mode0Border, t)!;
                   }
 
                   return Container(
@@ -788,11 +807,19 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     double currentPage,
     double s,
   ) {
-    final double dist = (currentPage - index).abs();
+    double diff = (currentPage - index) % 3.0;
+    if (diff < 0) diff += 3.0;
+    double signedDist;
+    if (diff <= 1.5) {
+      signedDist = diff;
+    } else {
+      signedDist = diff - 3.0;
+    }
+    final double dist = signedDist.abs();
     final double opacity = (1.0 - dist).clamp(0.0, 1.0);
     if (opacity <= 0.001) return const SizedBox.shrink();
 
-    final double translateX = (index - currentPage) * 16.0;
+    final double translateX = -signedDist * 16.0;
 
     return Transform.translate(
       offset: Offset(translateX, 0),
@@ -830,11 +857,19 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     double currentPage,
     double s,
   ) {
-    final double dist = (currentPage - index).abs();
+    double diff = (currentPage - index) % 3.0;
+    if (diff < 0) diff += 3.0;
+    double signedDist;
+    if (diff <= 1.5) {
+      signedDist = diff;
+    } else {
+      signedDist = diff - 3.0;
+    }
+    final double dist = signedDist.abs();
     final double opacity = (1.0 - dist).clamp(0.0, 1.0);
     if (opacity <= 0.001) return const SizedBox.shrink();
 
-    final double translateX = (index - currentPage) * 14.0;
+    final double translateX = -signedDist * 14.0;
 
     return Transform.translate(
       offset: Offset(translateX, 0),
@@ -889,57 +924,48 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               final double currentPage = (_typeFilterPageController.hasClients &&
                       _typeFilterPageController.positions.length == 1 &&
                       _typeFilterPageController.position.haveDimensions)
-                  ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-                  : _typeFilter.toDouble();
+                  ? (_typeFilterPageController.page ??
+                      (_kDebtTypeLoopBase + _typeFilter).toDouble())
+                  : (_kDebtTypeLoopBase + _typeFilter).toDouble();
+              final double normPage = (currentPage % 3.0 + 3.0) % 3.0;
 
-              final double leftOffset = (currentPage * segWidth + pillInset)
+              final double leftOffset = (normPage * segWidth + pillInset)
                   .clamp(pillInset, totalWidth - segWidth + pillInset);
 
               Color c1, c2, borderC, glowC;
-              if (currentPage <= 1.0) {
-                final double t = currentPage.clamp(0.0, 1.0);
-                c1 = Color.lerp(
-                  Colors.white.withValues(alpha: 0.28),
-                  const Color(0xFF10B981).withValues(alpha: 0.38),
-                  t,
-                )!;
-                c2 = Color.lerp(
-                  Colors.white.withValues(alpha: 0.15),
-                  const Color(0xFF10B981).withValues(alpha: 0.22),
-                  t,
-                )!;
-                borderC = Color.lerp(
-                  Colors.white.withValues(alpha: 0.45),
-                  const Color(0xFF10B981).withValues(alpha: 0.60),
-                  t,
-                )!;
-                glowC = Color.lerp(
-                  Colors.white.withValues(alpha: 0.15),
-                  const Color(0xFF10B981).withValues(alpha: 0.25),
-                  t,
-                )!;
+              final Color c1_0 = Colors.white.withValues(alpha: 0.28);
+              final Color c2_0 = Colors.white.withValues(alpha: 0.15);
+              final Color border_0 = Colors.white.withValues(alpha: 0.45);
+              final Color glow_0 = Colors.white.withValues(alpha: 0.15);
+
+              final Color c1_1 = const Color(0xFF10B981).withValues(alpha: 0.38);
+              final Color c2_1 = const Color(0xFF10B981).withValues(alpha: 0.22);
+              final Color border_1 = const Color(0xFF10B981).withValues(alpha: 0.60);
+              final Color glow_1 = const Color(0xFF10B981).withValues(alpha: 0.25);
+
+              final Color c1_2 = AppColors.expense.withValues(alpha: 0.38);
+              final Color c2_2 = AppColors.expense.withValues(alpha: 0.22);
+              final Color border_2 = AppColors.expense.withValues(alpha: 0.60);
+              final Color glow_2 = AppColors.expense.withValues(alpha: 0.25);
+
+              if (normPage <= 1.0) {
+                final double t = normPage;
+                c1 = Color.lerp(c1_0, c1_1, t)!;
+                c2 = Color.lerp(c2_0, c2_1, t)!;
+                borderC = Color.lerp(border_0, border_1, t)!;
+                glowC = Color.lerp(glow_0, glow_1, t)!;
+              } else if (normPage <= 2.0) {
+                final double t = normPage - 1.0;
+                c1 = Color.lerp(c1_1, c1_2, t)!;
+                c2 = Color.lerp(c2_1, c2_2, t)!;
+                borderC = Color.lerp(border_1, border_2, t)!;
+                glowC = Color.lerp(glow_1, glow_2, t)!;
               } else {
-                final double t = (currentPage - 1.0).clamp(0.0, 1.0);
-                c1 = Color.lerp(
-                  const Color(0xFF10B981).withValues(alpha: 0.38),
-                  AppColors.expense.withValues(alpha: 0.38),
-                  t,
-                )!;
-                c2 = Color.lerp(
-                  const Color(0xFF10B981).withValues(alpha: 0.22),
-                  AppColors.expense.withValues(alpha: 0.22),
-                  t,
-                )!;
-                borderC = Color.lerp(
-                  const Color(0xFF10B981).withValues(alpha: 0.60),
-                  AppColors.expense.withValues(alpha: 0.60),
-                  t,
-                )!;
-                glowC = Color.lerp(
-                  const Color(0xFF10B981).withValues(alpha: 0.25),
-                  AppColors.expense.withValues(alpha: 0.25),
-                  t,
-                )!;
+                final double t = normPage - 2.0;
+                c1 = Color.lerp(c1_2, c1_0, t)!;
+                c2 = Color.lerp(c2_2, c2_0, t)!;
+                borderC = Color.lerp(border_2, border_0, t)!;
+                glowC = Color.lerp(glow_2, glow_0, t)!;
               }
 
               final pillGradient = LinearGradient(
@@ -953,14 +979,14 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                 onHorizontalDragStart: (details) {
                   _segDragAccumX = 0;
                   _segDragStartPage = currentPage;
-                  _lastSegHapticIndex = currentPage.round();
+                  _lastSegHapticIndex =
+                      (currentPage.round() % 3 + 3) % 3;
                   HapticFeedback.lightImpact();
                 },
                 onHorizontalDragUpdate: (details) {
                   _segDragAccumX += details.delta.dx;
                   final double deltaPages = _segDragAccumX / segWidth;
-                  final double newPage =
-                      (_segDragStartPage + deltaPages).clamp(0.0, 2.0);
+                  final double newPage = _segDragStartPage + deltaPages;
                   if (_typeFilterPageController.hasClients &&
                       _typeFilterPageController.positions.length == 1 &&
                       _typeFilterPageController.position.haveDimensions) {
@@ -968,7 +994,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                         .position.viewportDimension;
                     _typeFilterPageController.position.jumpTo(newPage * w);
                   }
-                  final int nearest = newPage.round().clamp(0, 2);
+                  final int nearest = (newPage.round() % 3 + 3) % 3;
                   if (nearest != _lastSegHapticIndex) {
                     _lastSegHapticIndex = nearest;
                     HapticFeedback.lightImpact();
@@ -983,19 +1009,19 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       : currentPage;
                   int target = currentP.round();
                   if (velocity > 250) {
-                    target = (currentP.floor() + 1).clamp(0, 2);
+                    target = currentP.floor() + 1;
                   } else if (velocity < -250) {
-                    target = (currentP.ceil() - 1).clamp(0, 2);
+                    target = currentP.ceil() - 1;
                   }
-                  _onToggleType(target.clamp(0, 2));
+                  _onToggleTypeIndex(target);
                 },
                 onHorizontalDragCancel: () {
-                  final int target = (_typeFilterPageController.hasClients &&
+                  final double currentP = (_typeFilterPageController.hasClients &&
                           _typeFilterPageController.positions.length == 1 &&
                           _typeFilterPageController.position.haveDimensions)
-                      ? (_typeFilterPageController.page ?? currentPage).round().clamp(0, 2)
-                      : currentPage.round().clamp(0, 2);
-                  _onToggleType(target);
+                      ? (_typeFilterPageController.page ?? currentPage)
+                      : currentPage;
+                  _onToggleTypeIndex(currentP.round());
                 },
                 child: SizedBox(
                   height: height,
@@ -1055,8 +1081,10 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     double currentPage,
     double s,
   ) {
-    final double dist = (currentPage - index).abs();
-    final double activeFactor = (1.0 - dist).clamp(0.0, 1.0);
+    double diff = (currentPage - index) % 3.0;
+    if (diff < 0) diff += 3.0;
+    if (diff > 1.5) diff = 3.0 - diff;
+    final double activeFactor = (1.0 - diff).clamp(0.0, 1.0);
 
     Color activeIconColor;
     if (index == 1) {
@@ -1117,8 +1145,9 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
         final double currentPage = (_typeFilterPageController.hasClients &&
                 _typeFilterPageController.positions.length == 1 &&
                 _typeFilterPageController.position.haveDimensions)
-            ? (_typeFilterPageController.page ?? _typeFilter.toDouble())
-            : _typeFilter.toDouble();
+            ? (_typeFilterPageController.page ??
+                (_kDebtTypeLoopBase + _typeFilter).toDouble())
+            : (_kDebtTypeLoopBase + _typeFilter).toDouble();
 
         return Center(
           child: Container(
@@ -1133,8 +1162,8 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isDark
-                    ? Colors.white.withValues(alpha: 0.16)
-                    : const Color(0xFF0F3632).withValues(alpha: 0.16),
+                  ? Colors.white.withValues(alpha: 0.16)
+                  : const Color(0xFF0F3632).withValues(alpha: 0.16),
                 width: 0.8,
               ),
               boxShadow: [
@@ -1163,7 +1192,10 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
   }
 
   Widget _buildSwipeDot(int index, double currentPage, double s, bool isDark) {
-    final double dist = (currentPage - index).abs().clamp(0.0, 1.0);
+    double diff = (currentPage - index) % 3.0;
+    if (diff < 0) diff += 3.0;
+    if (diff > 1.5) diff = 3.0 - diff;
+    final double dist = diff.clamp(0.0, 1.0);
     final double factor = 1.0 - dist;
     final double dotWidth = (5.0 + 11.0 * factor) * s;
     final double dotHeight = (4.5 * s).clamp(4.0, 5.5);

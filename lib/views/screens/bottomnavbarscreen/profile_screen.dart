@@ -302,7 +302,7 @@ class ProfileScreenState extends State<ProfileScreen>
                     margin: const EdgeInsets.symmetric(horizontal: 40),
                     padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 26),
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF1E2631) : Colors.white,
+                      color: isDark ? const Color(0xFF1E2631) : AppColors.cardOf(context),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
@@ -1317,7 +1317,7 @@ class _ModernConfirmDialog extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF1F5F9),
+                            : AppColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.borderOf(context).withValues(
@@ -1510,7 +1510,7 @@ class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
                 filled: true,
                 fillColor: isDark
                     ? const Color(0xFF141920)
-                    : const Color(0xFFF8FAFC),
+                    : AppColors.surfaceOf(context),
                 prefixIcon: Icon(
                   Icons.person_outline_rounded,
                   size: 20,
@@ -1555,7 +1555,7 @@ class _ModernEditNameDialogState extends State<_ModernEditNameDialog> {
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF1F5F9),
+                            : AppColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.borderOf(context).withValues(
@@ -1760,7 +1760,7 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                 filled: true,
                 fillColor: isDark
                     ? const Color(0xFF141920)
-                    : const Color(0xFFF8FAFC),
+                    : AppColors.surfaceOf(context),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 14,
@@ -1800,7 +1800,7 @@ class _ModernTypeToConfirmDialogState extends State<_ModernTypeToConfirmDialog> 
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF1F5F9),
+                            : AppColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.borderOf(context).withValues(
@@ -1998,7 +1998,7 @@ class _ModernPasswordDialogState extends State<_ModernPasswordDialog> {
                 filled: true,
                 fillColor: isDark
                     ? const Color(0xFF141920)
-                    : const Color(0xFFF8FAFC),
+                    : AppColors.surfaceOf(context),
                 prefixIcon: const Icon(
                   Icons.key_rounded,
                   size: 20,
@@ -2052,7 +2052,7 @@ class _ModernPasswordDialogState extends State<_ModernPasswordDialog> {
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withValues(alpha: 0.06)
-                            : const Color(0xFFF1F5F9),
+                            : AppColors.surfaceOf(context),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: AppColors.borderOf(context).withValues(

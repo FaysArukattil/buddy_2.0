@@ -35,12 +35,12 @@ class HomeScreenState extends State<HomeScreen>
         WidgetsBindingObserver {
   String _displayName = '';
   double _totalBalance = 0;
+  static const int _kBalanceLoopBase = 3000;
   double _income = 0;
   double _expenses = 0;
   int _balanceViewMode = 0; // 0 = Net Balance, 1 = Income only, 2 = Expense only
   late final PageController _balancePageController;
   Timer? _autoCycleTimer;
-  int _autoCycleDirection = 1; // 1 = forward (0 -> 1 -> 2), -1 = backward (2 -> 1 -> 0)
   bool _userInteractedWithMode = false;
   bool _includeDebtsInBalance = true;
   final ScrollController _scrollController = ScrollController();
@@ -71,7 +71,8 @@ class HomeScreenState extends State<HomeScreen>
     if (_balanceViewMode != 0) {
       _userInteractedWithMode = true;
     }
-    _balancePageController = PageController(initialPage: _balanceViewMode);
+    _balancePageController =
+        PageController(initialPage: _kBalanceLoopBase + _balanceViewMode);
     _includeDebtsInBalance = PreferenceService.includeDebtsInHome;
     PreferenceService.includeDebtsInHomeNotifier.addListener(_onDebtPreferenceChanged);
     PreferenceService.homeBalanceModeNotifier.addListener(_onHomeModeChanged);
@@ -97,15 +98,9 @@ class HomeScreenState extends State<HomeScreen>
       if (_balancePageController.hasClients &&
           _balancePageController.positions.length == 1 &&
           _balancePageController.position.haveDimensions) {
-        int nextMode = _balanceViewMode + _autoCycleDirection;
-        if (nextMode > 2) {
-          _autoCycleDirection = -1;
-          nextMode = 1;
-        } else if (nextMode < 0) {
-          _autoCycleDirection = 1;
-          nextMode = 1;
-        }
-        _onToggleMode(nextMode, isUserAction: false);
+        final double currentP = _balancePageController.page ??
+            (_kBalanceLoopBase + _balanceViewMode).toDouble();
+        _onToggleModeIndex(currentP.round() + 1, isUserAction: false);
       }
     });
   }
@@ -151,21 +146,11 @@ class HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  void _onToggleMode(int mode, {bool isUserAction = true}) {
+  void _onToggleModeIndex(int targetIndex, {bool isUserAction = true}) {
+    final int mode = (targetIndex % 3 + 3) % 3;
     if (isUserAction) {
       _stopAutoCycle();
       PreferenceService.setHomeBalanceMode(mode);
-    }
-    final double currentPage = (_balancePageController.hasClients &&
-            _balancePageController.positions.length == 1 &&
-            _balancePageController.position.haveDimensions)
-        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-        : _balanceViewMode.toDouble();
-
-    final bool pageAlreadyThere = (currentPage - mode).abs() < 0.01;
-    if (_balanceViewMode == mode && pageAlreadyThere) return;
-    if (isUserAction) {
-      HapticFeedback.lightImpact();
     }
     if (_balanceViewMode != mode) {
       setState(() => _balanceViewMode = mode);
@@ -174,7 +159,7 @@ class HomeScreenState extends State<HomeScreen>
         _balancePageController.positions.length == 1 &&
         _balancePageController.position.haveDimensions) {
       _balancePageController.animateToPage(
-        mode,
+        targetIndex,
         duration: Duration(milliseconds: isUserAction ? 260 : 450),
         curve: Curves.easeOutCubic,
       ).then((_) {
@@ -183,6 +168,21 @@ class HomeScreenState extends State<HomeScreen>
         }
       });
     }
+  }
+
+  void _onToggleMode(int mode, {bool isUserAction = true}) {
+    final double currentP = (_balancePageController.hasClients &&
+            _balancePageController.positions.length == 1 &&
+            _balancePageController.position.haveDimensions)
+        ? (_balancePageController.page ??
+            (_kBalanceLoopBase + _balanceViewMode).toDouble())
+        : (_kBalanceLoopBase + _balanceViewMode).toDouble();
+    final int current = currentP.round();
+    final int currentMode = (current % 3 + 3) % 3;
+    int diff = mode - currentMode;
+    if (diff > 1) diff -= 3;
+    if (diff < -1) diff += 3;
+    _onToggleModeIndex(current + diff, isUserAction: isUserAction);
   }
 
   @override
@@ -808,9 +808,11 @@ class HomeScreenState extends State<HomeScreen>
                     _headerDragStartPage = (_balancePageController.hasClients &&
                             _balancePageController.positions.length == 1 &&
                             _balancePageController.position.haveDimensions)
-                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-                        : _balanceViewMode.toDouble();
-                    _lastHeaderHapticIndex = _headerDragStartPage.round();
+                        ? (_balancePageController.page ??
+                            (_kBalanceLoopBase + _balanceViewMode).toDouble())
+                        : (_kBalanceLoopBase + _balanceViewMode).toDouble();
+                    _lastHeaderHapticIndex =
+                        (_headerDragStartPage.round() % 3 + 3) % 3;
                     HapticFeedback.lightImpact();
                   },
                   onHorizontalDragUpdate: (details) {
@@ -822,14 +824,13 @@ class HomeScreenState extends State<HomeScreen>
                         : MediaQuery.of(context).size.width;
                     final double deltaPages =
                         _headerDragAccumX / (w > 0 ? w : 300.0);
-                    final double newPage =
-                        (_headerDragStartPage + deltaPages).clamp(0.0, 2.0);
+                    final double newPage = _headerDragStartPage + deltaPages;
                     if (_balancePageController.hasClients &&
                         _balancePageController.positions.length == 1 &&
                         _balancePageController.position.haveDimensions) {
                       _balancePageController.position.jumpTo(newPage * w);
                     }
-                    final int nearest = newPage.round().clamp(0, 2);
+                    final int nearest = (newPage.round() % 3 + 3) % 3;
                     if (nearest != _lastHeaderHapticIndex) {
                       _lastHeaderHapticIndex = nearest;
                       HapticFeedback.lightImpact();
@@ -840,23 +841,25 @@ class HomeScreenState extends State<HomeScreen>
                     final double currentP = (_balancePageController.hasClients &&
                             _balancePageController.positions.length == 1 &&
                             _balancePageController.position.haveDimensions)
-                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-                        : _balanceViewMode.toDouble();
+                        ? (_balancePageController.page ??
+                            (_kBalanceLoopBase + _balanceViewMode).toDouble())
+                        : (_kBalanceLoopBase + _balanceViewMode).toDouble();
                     int target = currentP.round();
                     if (velocity > 250) {
-                      target = (currentP.floor() + 1).clamp(0, 2);
+                      target = currentP.floor() + 1;
                     } else if (velocity < -250) {
-                      target = (currentP.ceil() - 1).clamp(0, 2);
+                      target = currentP.ceil() - 1;
                     }
-                    _onToggleMode(target.clamp(0, 2));
+                    _onToggleModeIndex(target);
                   },
                   onHorizontalDragCancel: () {
                     final double currentP = (_balancePageController.hasClients &&
                             _balancePageController.positions.length == 1 &&
                             _balancePageController.position.haveDimensions)
-                        ? (_balancePageController.page ?? _balanceViewMode.toDouble())
-                        : _balanceViewMode.toDouble();
-                    _onToggleMode(currentP.round().clamp(0, 2));
+                        ? (_balancePageController.page ??
+                            (_kBalanceLoopBase + _balanceViewMode).toDouble())
+                        : (_kBalanceLoopBase + _balanceViewMode).toDouble();
+                    _onToggleModeIndex(currentP.round());
                   },
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1010,63 +1013,63 @@ class HomeScreenState extends State<HomeScreen>
                       // ─── Swipable Large Amount (Controlled seamlessly via top-level drag) ───
                       SizedBox(
                         height: (52 * s).clamp(44.0, 62.0),
-                        child: PageView(
+                        child: PageView.builder(
                           controller: _balancePageController,
                           physics: const NeverScrollableScrollPhysics(),
-                          onPageChanged: (i) {
-                            if (_balanceViewMode != i) {
-                              setState(() => _balanceViewMode = i);
+                          itemBuilder: (context, i) {
+                            final mode = (i % 3 + 3) % 3;
+                            if (mode == 0) {
+                              // Net Balance Page
+                              return Center(
+                                child: Text(
+                                  FormatUtils.formatCurrency(_totalBalance, compact: false),
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: _totalBalance >= 0
+                                        ? Colors.white
+                                        : Colors.red.shade300,
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            } else if (mode == 1) {
+                              // Income Page
+                              return Center(
+                                child: Text(
+                                  '+${FormatUtils.formatCurrency(_income, compact: false)}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFF69F0AE),
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            } else {
+                              // Expense Page
+                              return Center(
+                                child: Text(
+                                  '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: const Color(0xFFFF8A80),
+                                    fontSize: (38 * s).clamp(30.0, 46.0),
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -1.0,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
                             }
                           },
-                          children: [
-                            // Net Balance Page
-                            Center(
-                              child: Text(
-                                FormatUtils.formatCurrency(_totalBalance, compact: false),
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: _totalBalance >= 0
-                                      ? Colors.white
-                                      : Colors.red.shade300,
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            // Income Page
-                            Center(
-                              child: Text(
-                                '+${FormatUtils.formatCurrency(_income, compact: false)}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: const Color(0xFF69F0AE),
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            // Expense Page
-                            Center(
-                              child: Text(
-                                '-${FormatUtils.formatCurrency(_expenses, compact: false)}',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: const Color(0xFFFF8A80),
-                                  fontSize: (38 * s).clamp(30.0, 46.0),
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -1.0,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
 
@@ -1406,12 +1409,14 @@ class HomeScreenState extends State<HomeScreen>
                   ? (_balancePageController.page ?? _balanceViewMode.toDouble())
                   : _balanceViewMode.toDouble();
 
-              final double leftOffset = (currentPage * segWidth + pillInset)
+              final double normalizedPage =
+                  (currentPage % 3.0 + 3.0) % 3.0;
+              final double leftOffset = (normalizedPage * segWidth + pillInset)
                   .clamp(pillInset, totalWidth - segWidth + pillInset);
 
               Color c1, c2, borderC, glowC;
-              if (currentPage <= 1.0) {
-                final double t = currentPage.clamp(0.0, 1.0);
+              if (normalizedPage <= 1.0) {
+                final double t = normalizedPage.clamp(0.0, 1.0);
                 c1 = Color.lerp(
                   Colors.white.withValues(alpha: 0.28),
                   AppColors.income.withValues(alpha: 0.38),
@@ -1432,8 +1437,8 @@ class HomeScreenState extends State<HomeScreen>
                   AppColors.income.withValues(alpha: 0.25),
                   t,
                 )!;
-              } else {
-                final double t = (currentPage - 1.0).clamp(0.0, 1.0);
+              } else if (normalizedPage <= 2.0) {
+                final double t = (normalizedPage - 1.0).clamp(0.0, 1.0);
                 c1 = Color.lerp(
                   AppColors.income.withValues(alpha: 0.38),
                   AppColors.expense.withValues(alpha: 0.38),
@@ -1454,6 +1459,28 @@ class HomeScreenState extends State<HomeScreen>
                   AppColors.expense.withValues(alpha: 0.25),
                   t,
                 )!;
+              } else {
+                final double t = (normalizedPage - 2.0).clamp(0.0, 1.0);
+                c1 = Color.lerp(
+                  AppColors.expense.withValues(alpha: 0.38),
+                  Colors.white.withValues(alpha: 0.28),
+                  t,
+                )!;
+                c2 = Color.lerp(
+                  AppColors.expense.withValues(alpha: 0.22),
+                  Colors.white.withValues(alpha: 0.15),
+                  t,
+                )!;
+                borderC = Color.lerp(
+                  AppColors.expense.withValues(alpha: 0.60),
+                  Colors.white.withValues(alpha: 0.45),
+                  t,
+                )!;
+                glowC = Color.lerp(
+                  AppColors.expense.withValues(alpha: 0.25),
+                  Colors.white.withValues(alpha: 0.15),
+                  t,
+                )!;
               }
 
               final pillGradient = LinearGradient(
@@ -1470,14 +1497,13 @@ class HomeScreenState extends State<HomeScreen>
                   _stopAutoCycle();
                   _segDragAccumX = 0;
                   _segDragStartPage = currentPage;
-                  _lastSegHapticIndex = currentPage.round();
+                  _lastSegHapticIndex = (currentPage.round() % 3 + 3) % 3;
                   HapticFeedback.lightImpact();
                 },
                 onHorizontalDragUpdate: (details) {
                   _segDragAccumX += details.delta.dx;
                   final double deltaPages = _segDragAccumX / segWidth;
-                  final double newPage =
-                      (_segDragStartPage + deltaPages).clamp(0.0, 2.0);
+                  final double newPage = _segDragStartPage + deltaPages;
                   if (_balancePageController.hasClients &&
                       _balancePageController.positions.length == 1 &&
                       _balancePageController.position.haveDimensions) {
@@ -1485,7 +1511,7 @@ class HomeScreenState extends State<HomeScreen>
                         .position.viewportDimension;
                     _balancePageController.position.jumpTo(newPage * w);
                   }
-                  final int nearest = newPage.round().clamp(0, 2);
+                  final int nearest = (newPage.round() % 3 + 3) % 3;
                   if (nearest != _lastSegHapticIndex) {
                     _lastSegHapticIndex = nearest;
                     HapticFeedback.lightImpact();
@@ -1500,19 +1526,19 @@ class HomeScreenState extends State<HomeScreen>
                       : currentPage;
                   int target = currentP.round();
                   if (velocity > 250) {
-                    target = (currentP.floor() + 1).clamp(0, 2);
+                    target = currentP.floor() + 1;
                   } else if (velocity < -250) {
-                    target = (currentP.ceil() - 1).clamp(0, 2);
+                    target = currentP.ceil() - 1;
                   }
-                  _onToggleMode(target.clamp(0, 2));
+                  _onToggleModeIndex(target);
                 },
                 onHorizontalDragCancel: () {
                   final int target = (_balancePageController.hasClients &&
                           _balancePageController.positions.length == 1 &&
                           _balancePageController.position.haveDimensions)
-                      ? (_balancePageController.page ?? currentPage).round().clamp(0, 2)
-                      : currentPage.round().clamp(0, 2);
-                  _onToggleMode(target);
+                      ? (_balancePageController.page ?? currentPage).round()
+                      : currentPage.round();
+                  _onToggleModeIndex(target);
                 },
                 child: SizedBox(
                   height: barHeight,
@@ -1710,7 +1736,10 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildToggleTab(int index, String label, double currentPage, double s) {
-    final double dist = (currentPage - index).abs();
+    final double norm = (currentPage % 3.0 + 3.0) % 3.0;
+    double diff = (norm - index).abs();
+    if (diff > 1.5) diff = 3.0 - diff;
+    final double dist = diff.clamp(0.0, 1.0);
     final double activeFactor = (1.0 - dist).clamp(0.0, 1.0);
 
     return GestureDetector(
@@ -1735,11 +1764,15 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHeroLabel(int index, String text, double currentPage, double s) {
-    final double dist = (currentPage - index).abs();
+    final double norm = (currentPage % 3.0 + 3.0) % 3.0;
+    double diff = index - norm;
+    if (diff > 1.5) diff -= 3.0;
+    if (diff < -1.5) diff += 3.0;
+    final double dist = diff.abs();
     final double opacity = (1.0 - dist).clamp(0.0, 1.0);
     if (opacity <= 0.001) return const SizedBox.shrink();
 
-    final double translateX = (index - currentPage) * 16.0;
+    final double translateX = diff * 16.0;
 
     return Transform.translate(
       offset: Offset(translateX, 0),
@@ -1765,11 +1798,15 @@ class HomeScreenState extends State<HomeScreen>
     double currentPage,
     double s,
   ) {
-    final double dist = (currentPage - index).abs();
+    final double norm = (currentPage % 3.0 + 3.0) % 3.0;
+    double diff = index - norm;
+    if (diff > 1.5) diff -= 3.0;
+    if (diff < -1.5) diff += 3.0;
+    final double dist = diff.abs();
     final double opacity = (1.0 - dist).clamp(0.0, 1.0);
     if (opacity <= 0.001) return const SizedBox.shrink();
 
-    final double translateX = (index - currentPage) * 12.0;
+    final double translateX = diff * 12.0;
 
     return Transform.translate(
       offset: Offset(translateX, 0),
@@ -1851,7 +1888,10 @@ class HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildSwipeDot(int index, double currentPage, double s, bool isDark) {
-    final double dist = (currentPage - index).abs().clamp(0.0, 1.0);
+    final double norm = (currentPage % 3.0 + 3.0) % 3.0;
+    double diff = (norm - index).abs();
+    if (diff > 1.5) diff = 3.0 - diff;
+    final double dist = diff.clamp(0.0, 1.0);
     final double factor = 1.0 - dist;
     final double dotWidth = (5.0 + 11.0 * factor) * s;
     final double dotHeight = (4.5 * s).clamp(4.0, 5.5);
