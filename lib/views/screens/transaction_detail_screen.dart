@@ -62,9 +62,287 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
   String? get _source => widget.data['notificationSource'] as String?;
 
-  String get _sourceClean {
-    if (_source == null) return '';
-    return _source!.replaceAll(RegExp(r'[^a-zA-Z0-9_\-\s]'), '').trim();
+  Map<String, dynamic> get _entrySourceInfo {
+    if (!_isAutoDetected) {
+      return {
+        'name': 'Manual Entry',
+        'subtitle': 'Created manually in Buddy',
+        'badge': 'Manual',
+        'icon': Icons.touch_app_rounded,
+        'iconColor': const Color(0xFFFFD54F),
+      };
+    }
+
+    final raw = (_source ?? '').trim();
+    if (raw.isEmpty) {
+      return {
+        'name': 'Bank SMS',
+        'subtitle': 'Smart Auto-Detection',
+        'badge': 'Auto',
+        'icon': Icons.sms_rounded,
+        'iconColor': const Color(0xFF80CBC4),
+      };
+    }
+
+    final lower = raw.toLowerCase();
+
+    // 1. UPI & Payment Apps
+    if (lower.contains('paisa') ||
+        lower.contains('gpay') ||
+        lower.contains('google pay')) {
+      return {
+        'name': 'Google Pay',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.account_balance_wallet_rounded,
+        'iconColor': const Color(0xFF4285F4),
+      };
+    }
+
+    if (lower.contains('phonepe')) {
+      return {
+        'name': 'PhonePe',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.account_balance_wallet_rounded,
+        'iconColor': const Color(0xFF6739B7),
+      };
+    }
+
+    if (lower.contains('paytm') || lower.contains('one97')) {
+      return {
+        'name': 'Paytm',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.account_balance_wallet_rounded,
+        'iconColor': const Color(0xFF00BAF2),
+      };
+    }
+
+    if (lower.contains('amazon')) {
+      return {
+        'name': 'Amazon Pay',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.shopping_bag_rounded,
+        'iconColor': const Color(0xFFFF9900),
+      };
+    }
+
+    if (lower.contains('cred') || lower.contains('dreamplug')) {
+      return {
+        'name': 'CRED',
+        'subtitle': 'Auto-detected card/payment',
+        'badge': 'Credit Card',
+        'icon': Icons.credit_card_rounded,
+        'iconColor': const Color(0xFFECEFF1),
+      };
+    }
+
+    if (lower.contains('bhim') || lower.contains('npci')) {
+      return {
+        'name': 'BHIM UPI',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF00A859),
+      };
+    }
+
+    if (lower.contains('whatsapp')) {
+      return {
+        'name': 'WhatsApp Pay',
+        'subtitle': 'Auto-detected payment',
+        'badge': 'UPI',
+        'icon': Icons.chat_bubble_rounded,
+        'iconColor': const Color(0xFF25D366),
+      };
+    }
+
+    // 2. Popular Indian Banks (Apps & SMS Senders)
+    final isSms = lower.contains('sms') ||
+        lower.contains('message') ||
+        raw.contains('-');
+
+    if (lower.contains('sbi')) {
+      return {
+        'name': isSms ? 'SBI (Bank SMS)' : 'State Bank of India',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF29B6F6),
+      };
+    }
+
+    if (lower.contains('hdfc')) {
+      return {
+        'name': isSms ? 'HDFC Bank (SMS)' : 'HDFC Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF004C8F),
+      };
+    }
+
+    if (lower.contains('icici')) {
+      return {
+        'name': isSms ? 'ICICI Bank (SMS)' : 'ICICI Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFFFF7043),
+      };
+    }
+
+    if (lower.contains('axis')) {
+      return {
+        'name': isSms ? 'Axis Bank (SMS)' : 'Axis Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF97144D),
+      };
+    }
+
+    if (lower.contains('kotak')) {
+      return {
+        'name': isSms ? 'Kotak Bank (SMS)' : 'Kotak Mahindra Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFFE53935),
+      };
+    }
+
+    if (lower.contains('federal') ||
+        lower.contains('fedalert') ||
+        lower.contains('fedmobile')) {
+      return {
+        'name': isSms ? 'Federal Bank (SMS)' : 'Federal Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFFFFB300),
+      };
+    }
+
+    if (lower.contains('idfc')) {
+      return {
+        'name': isSms ? 'IDFC FIRST (SMS)' : 'IDFC FIRST Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF9C27B0),
+      };
+    }
+
+    if (lower.contains('canara')) {
+      return {
+        'name': isSms ? 'Canara Bank (SMS)' : 'Canara Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF00ACC1),
+      };
+    }
+
+    if (lower.contains('baroda') || lower.contains('bob')) {
+      return {
+        'name': isSms ? 'Bank of Baroda (SMS)' : 'Bank of Baroda',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFFF4511E),
+      };
+    }
+
+    if (lower.contains('pnb')) {
+      return {
+        'name': isSms ? 'PNB (Bank SMS)' : 'Punjab National Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFFFFC107),
+      };
+    }
+
+    if (lower.contains('union')) {
+      return {
+        'name': isSms ? 'Union Bank (SMS)' : 'Union Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF0288D1),
+      };
+    }
+
+    if (lower.contains('indusind')) {
+      return {
+        'name': isSms ? 'IndusInd Bank (SMS)' : 'IndusInd Bank',
+        'subtitle': isSms ? 'Smart SMS Detection' : 'Auto-detected bank alert',
+        'badge': isSms ? 'SMS' : 'Bank',
+        'icon': isSms ? Icons.sms_rounded : Icons.account_balance_rounded,
+        'iconColor': const Color(0xFF880E4F),
+      };
+    }
+
+    // 3. SMS App Packages
+    if (lower.contains('messaging') ||
+        lower.contains('mms') ||
+        lower.contains('sms')) {
+      return {
+        'name': 'Bank SMS Alert',
+        'subtitle': 'Auto-detected via SMS',
+        'badge': 'SMS',
+        'icon': Icons.sms_rounded,
+        'iconColor': const Color(0xFF80CBC4),
+      };
+    }
+
+    // 4. Indian Bank SMS header codes (e.g. "VK-HDFCBK", "AD-SBIPAY", "CP-AXISBK")
+    final headerRegex = RegExp(r'^[A-Za-z]{2}-([A-Za-z0-9]+)$');
+    final match = headerRegex.firstMatch(raw);
+    if (match != null) {
+      final code = match.group(1)?.toUpperCase() ?? raw.toUpperCase();
+      return {
+        'name': 'Bank SMS ($code)',
+        'subtitle': 'Smart SMS Detection',
+        'badge': 'SMS',
+        'icon': Icons.sms_rounded,
+        'iconColor': const Color(0xFF80CBC4),
+      };
+    }
+
+    // 5. Clean string without package dots
+    if (!raw.contains('.')) {
+      return {
+        'name': raw,
+        'subtitle': 'Auto-detected',
+        'badge': 'Auto',
+        'icon': Icons.auto_awesome,
+        'iconColor': const Color(0xFF80CBC4),
+      };
+    }
+
+    // 6. Generic package name fallback: clean into capitalized app title
+    final parts = raw.split('.').where((p) =>
+        p != 'com' &&
+        p != 'android' &&
+        p != 'apps' &&
+        p != 'app' &&
+        p != 'user' &&
+        p.isNotEmpty).toList();
+    final cleanName = parts.isNotEmpty
+        ? parts.last.substring(0, 1).toUpperCase() + parts.last.substring(1)
+        : raw;
+
+    return {
+      'name': cleanName,
+      'subtitle': 'Auto-detected application',
+      'badge': 'Auto',
+      'icon': Icons.auto_awesome,
+      'iconColor': const Color(0xFF80CBC4),
+    };
   }
 
   String _formatTime(DateTime d) {
@@ -259,24 +537,33 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
                     // Contact / Category Hero Pill (Avatar + Title + Badges)
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
+                        horizontal: 16,
+                        vertical: 14,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.22),
-                        borderRadius: BorderRadius.circular(18),
+                        color: Colors.black.withValues(alpha: 0.24),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
+                          color: Colors.white.withValues(alpha: 0.16),
                           width: 1.0,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           // Category Avatar with subtle border
                           Container(
-                            width: 46,
-                            height: 46,
+                            width: 48,
+                            height: 48,
                             decoration: BoxDecoration(
                               color: catColor.withValues(alpha: 0.22),
                               shape: BoxShape.circle,
@@ -284,6 +571,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                 color: catColor.withValues(alpha: 0.45),
                                 width: 1.5,
                               ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: catColor.withValues(alpha: 0.20),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                             child: Icon(
                               IconHelper.getIcon(widget.data['icon']),
@@ -291,7 +585,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               size: 24,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -299,25 +593,25 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               children: [
                                 Text(
                                   _title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: true,
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                     letterSpacing: -0.2,
+                                    height: 1.3,
                                   ),
                                 ),
-                                const SizedBox(height: 5),
+                                const SizedBox(height: 8),
                                 Wrap(
                                   spacing: 6,
-                                  runSpacing: 4,
+                                  runSpacing: 6,
                                   children: [
                                     // Category Tag
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
-                                        vertical: 2.5,
+                                        vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
                                         color: Colors.white.withValues(alpha: 0.16),
@@ -337,13 +631,13 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
-                                        vertical: 2.5,
+                                        vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
                                         color: statusColor.withValues(alpha: 0.20),
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(
-                                          color: statusColor.withValues(alpha: 0.4),
+                                          color: statusColor.withValues(alpha: 0.45),
                                           width: 0.8,
                                         ),
                                       ),
@@ -374,8 +668,8 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                     if (_isAutoDetected)
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 7,
-                                          vertical: 2.5,
+                                          horizontal: 8,
+                                          vertical: 3,
                                         ),
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
@@ -529,7 +823,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          // Grid Row 2: Category & Entry Source
+                          // Grid Row 2: Category & Transaction ID
                           Row(
                             children: [
                               Expanded(
@@ -541,130 +835,35 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                                   subvalue: 'Classification',
                                 ),
                               ),
-                              Container(
-                                width: 1,
-                                height: 44,
-                                color: Colors.white.withValues(alpha: 0.20),
-                                margin: const EdgeInsets.symmetric(horizontal: 10),
-                              ),
-                              Expanded(
-                                child: _buildMetaItem(
-                                  icon: _isAutoDetected
-                                      ? Icons.sms_rounded
-                                      : Icons.touch_app_rounded,
-                                  iconColor: const Color(0xFFFFD54F),
-                                  label: 'Entry Source',
-                                  value: _isAutoDetected
-                                      ? (_sourceClean.isNotEmpty
-                                          ? 'Auto ($_sourceClean)'
-                                          : 'Bank SMS')
-                                      : 'Manual Entry',
-                                  subvalue: _isAutoDetected
-                                      ? 'Smart Detection'
-                                      : 'User Created',
+                              if (rawId != null && rawId.isNotEmpty) ...[
+                                Container(
+                                  width: 1,
+                                  height: 44,
+                                  color: Colors.white.withValues(alpha: 0.20),
+                                  margin: const EdgeInsets.symmetric(horizontal: 10),
                                 ),
-                              ),
+                                Expanded(
+                                  child: _buildMetaItem(
+                                    icon: Icons.tag_rounded,
+                                    iconColor: Colors.white70,
+                                    label: 'Transaction ID',
+                                    value: '#${shortId ?? rawId}',
+                                    subvalue: 'System Reference',
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
 
-                          // Transaction ID row (if available)
-                          if (rawId != null && rawId.isNotEmpty) ...[
-                            const SizedBox(height: 10),
-                            Divider(
-                              color: Colors.white.withValues(alpha: 0.15),
-                              height: 1,
-                            ),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: () {
-                                Clipboard.setData(ClipboardData(text: rawId));
-                                HapticFeedback.selectionClick();
-                                AppSnackbar.showSuccess(
-                                  context,
-                                  'Transaction ID copied to clipboard',
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 4),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Icon(
-                                        Icons.tag_rounded,
-                                        size: 14,
-                                        color: Colors.white70,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'TRANSACTION ID',
-                                            style: TextStyle(
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white
-                                                  .withValues(alpha: 0.70),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 1),
-                                          Text(
-                                            '#${shortId ?? rawId}',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                              letterSpacing: 0.5,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.14),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.copy_rounded,
-                                            size: 12,
-                                            color: Colors.white,
-                                          ),
-                                          SizedBox(width: 4),
-                                          Text(
-                                            'Copy',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                          const SizedBox(height: 10),
+                          Divider(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            height: 1,
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Grid Row 3: Dedicated Full-Width Entry Source Tile
+                          _buildEntrySourceTile(_entrySourceInfo),
                         ],
                       ),
                     ),
@@ -787,6 +986,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
     required String label,
     required String value,
     String? subvalue,
+    int? maxLines = 2,
   }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -822,13 +1022,15 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
               const SizedBox(height: 2),
               Text(
                 value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                maxLines: maxLines,
+                overflow: maxLines == null ? TextOverflow.visible : TextOverflow.ellipsis,
+                softWrap: true,
                 style: const TextStyle(
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
                   letterSpacing: -0.2,
+                  height: 1.25,
                 ),
               ),
               if (subvalue != null) ...[
@@ -845,6 +1047,95 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                 ),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Helper: Dedicated full-width Entry Source tile
+  Widget _buildEntrySourceTile(Map<String, dynamic> sourceInfo) {
+    final icon = sourceInfo['icon'] as IconData;
+    final iconColor = sourceInfo['iconColor'] as Color;
+    final name = sourceInfo['name'] as String;
+    final subtitle = sourceInfo['subtitle'] as String;
+    final badge = sourceInfo['badge'] as String;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.20),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: iconColor.withValues(alpha: 0.35),
+              width: 0.8,
+            ),
+          ),
+          child: Icon(icon, size: 16, color: iconColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'ENTRY SOURCE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.70),
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                name,
+                softWrap: true,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  letterSpacing: -0.2,
+                  height: 1.25,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                subtitle,
+                softWrap: true,
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.20),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: iconColor.withValues(alpha: 0.40),
+              width: 0.8,
+            ),
+          ),
+          child: Text(
+            badge,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: iconColor,
+              letterSpacing: 0.2,
+            ),
           ),
         ),
       ],
@@ -1010,7 +1301,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                           children: [
                             Text(
                               _title,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
