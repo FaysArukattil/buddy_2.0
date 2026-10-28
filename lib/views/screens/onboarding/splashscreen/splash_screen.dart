@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
-import 'package:buddy/views/screens/onboarding/onborading_screen.dart';
+import 'package:buddy/features/onboarding/onboarding_screen.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
