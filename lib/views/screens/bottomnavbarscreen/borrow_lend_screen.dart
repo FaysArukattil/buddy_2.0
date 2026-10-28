@@ -4469,17 +4469,18 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
   }
 
   Widget _buildSlidableTypeBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      height: 40,
+      height: 42,
       decoration: BoxDecoration(
-        color: AppColors.surfaceOf(context),
+        color: Colors.black.withValues(alpha: isDark ? 0.32 : 0.22),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: AppColors.borderOf(context).withValues(alpha: 0.8),
+          color: Colors.white.withValues(alpha: 0.16),
           width: 1.0,
         ),
       ),
-      padding: const EdgeInsets.all(2.5),
+      padding: const EdgeInsets.all(3.0),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final totalWidth = constraints.maxWidth;
@@ -4532,7 +4533,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                   _setSliderIndex(target);
                 },
                 child: SizedBox(
-                  height: 40,
+                  height: 42,
                   child: Stack(
                     children: [
                       Positioned(
@@ -4547,7 +4548,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(11),
                             border: Border.all(color: borderC, width: 1.0),
                             boxShadow: [
                               BoxShadow(
@@ -4575,7 +4576,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                                       size: 14,
                                       color: Color.lerp(
                                         Colors.white,
-                                        AppColors.textSecondaryOf(context),
+                                        Colors.white.withValues(alpha: 0.65),
                                         t,
                                       ),
                                     ),
@@ -4589,7 +4590,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                                             : FontWeight.w600,
                                         color: Color.lerp(
                                           Colors.white,
-                                          AppColors.textSecondaryOf(context),
+                                          Colors.white.withValues(alpha: 0.65),
                                           t,
                                         ),
                                       ),
@@ -4612,7 +4613,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                                       Icons.south_west_rounded,
                                       size: 14,
                                       color: Color.lerp(
-                                        AppColors.textSecondaryOf(context),
+                                        Colors.white.withValues(alpha: 0.65),
                                         Colors.white,
                                         t,
                                       ),
@@ -4626,7 +4627,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                                             ? FontWeight.w800
                                             : FontWeight.w600,
                                         color: Color.lerp(
-                                          AppColors.textSecondaryOf(context),
+                                          Colors.white.withValues(alpha: 0.65),
                                           Colors.white,
                                           t,
                                         ),
@@ -4667,7 +4668,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
     final moreCount = sortedContacts.length - 3;
 
     return SizedBox(
-      height: MediaQuery.sizeOf(context).height * 0.85,
+      height: MediaQuery.sizeOf(context).height * 0.88,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragUpdate: (details) {
@@ -4703,58 +4704,113 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
         ),
         child: Column(
           children: [
-            // ─── Continuous Header (Unified with Card Surface) ───
-            const SizedBox(height: 10),
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.borderOf(context),
-                  borderRadius: BorderRadius.circular(2),
+            // ── Hero Header in Signature Emerald/Teal Theme ──
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? const [
+                          Color(0xFF0F2624),
+                          Color(0xFF163E3B),
+                          Color(0xFF1E5D57),
+                        ]
+                      : const [
+                          Color(0xFF0F3632),
+                          Color(0xFF1E5D57),
+                          Color(0xFF2C7A72),
+                        ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    isEditing
-                        ? 'Edit Due Record'
-                        : (isLend ? 'New Lent Record' : 'New Borrow Record'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimaryOf(context),
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(5),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceOf(context),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.borderOf(context).withValues(alpha: 0.6),
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.close_rounded,
-                        color: AppColors.textSecondaryOf(context),
-                        size: 16,
-                      ),
-                    ),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(28),
+                  bottom: Radius.circular(22),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
+              padding: const EdgeInsets.fromLTRB(18, 10, 18, 14),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Frosted Drag Handle
+                  Center(
+                    child: Container(
+                      width: 38,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.38),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Title & Close Button Row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isEditing
+                                  ? 'Edit Due Record'
+                                  : (isLend ? 'New Lent Record' : 'New Borrow Record'),
+                              style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              isLend
+                                  ? 'Record money you gave to collect later'
+                                  : 'Record money you borrowed to repay later',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.white.withValues(alpha: 0.8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Slidable Segmented Bar (Lent | Borrowed) in Hero Header
+                  _buildSlidableTypeBar(),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
 
             // ─── Continuous Scrollable Body ───
             Expanded(
@@ -4762,16 +4818,12 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                 controller: _scrollController,
                 keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                 physics: const ClampingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                 child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Slidable Segmented Bar (Lent | Borrowed)
-                    _buildSlidableTypeBar(),
-
-                    const SizedBox(height: 12),
 
                     // Amount Input Card
                     Container(
