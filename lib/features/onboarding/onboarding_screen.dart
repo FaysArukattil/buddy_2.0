@@ -1150,47 +1150,75 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           required String sub,
           required String badge,
           required bool allowed,
+          bool isSwiggy = false,
         }) {
           final r = _seg(t, 0.15 + i * 0.22, 0.40 + i * 0.22);
           final struck = !allowed && r > 0.6;
           final badgeColor = allowed ? AppColors.success : _kExpenseOnHero;
 
+          final iconWidget = isSwiggy
+              ? Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFFC8019),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x44FC8019),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Center(
+                    child: CustomPaint(
+                      size: Size(18, 18),
+                      painter: _SwiggyLogoPainter(color: Colors.white),
+                    ),
+                  ),
+                )
+              : Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: allowed
+                        ? AppColors.success.withValues(alpha: 0.14)
+                        : Colors.white.withValues(alpha: 0.12),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: allowed
+                        ? AppColors.success
+                        : Colors.white.withValues(alpha: 0.7),
+                  ),
+                );
+
           final content = Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: allowed
-                      ? AppColors.success.withValues(alpha: 0.14)
-                      : Colors.white.withValues(alpha: 0.12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 18,
-                  color: allowed
-                      ? AppColors.success
-                      : Colors.white.withValues(alpha: 0.7),
-                ),
-              ),
+              iconWidget,
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: allowed
-                            ? AppColors.textPrimaryOf(context)
-                            : Colors.white.withValues(alpha: 0.62),
-                        decoration: struck ? TextDecoration.lineThrough : null,
-                        decorationColor: Colors.white.withValues(alpha: 0.5),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: allowed
+                              ? AppColors.textPrimaryOf(context)
+                              : Colors.white.withValues(alpha: 0.62),
+                          decoration: struck ? TextDecoration.lineThrough : null,
+                          decorationColor: Colors.white.withValues(alpha: 0.5),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -1321,7 +1349,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             filterRow(
               i: 0,
               icon: Icons.password_rounded,
-              title: 'Your bank login OTP is 482910',
+              title: 'Your login OTP is 482910',
               sub: 'OTP and password SMS',
               badge: 'IGNORED',
               allowed: false,
@@ -1337,10 +1365,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             filterRow(
               i: 2,
               icon: Icons.payments_rounded,
-              title: 'Paid ₹15 to Campus Canteen via UPI',
+              title: 'Paid ₹240 to Swiggy via UPI',
               sub: 'Verified bank transaction alert',
               badge: 'LOGGED',
               allowed: true,
+              isSwiggy: true,
             ),
           ],
         );
@@ -1352,83 +1381,118 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // STAGE 3 — Pro hub tabs + ₹0 pill
   // ─────────────────────────────────────────────────────────────
   Widget _stageProHub() {
-    const tabs = [
-      (Icons.calendar_month_rounded, 'Heatmaps'),
-      (Icons.handshake_rounded, 'Borrow & Lend'),
-      (Icons.donut_large_rounded, 'Categories'),
-    ];
+    const tabs = ['Heatmaps', 'Borrow & Lend', 'Categories'];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         // Same segmented-bar language as Home's Balance/Income/Expense toggle.
         Container(
-          height: 42,
-          padding: const EdgeInsets.all(3),
+          height: 40,
           decoration: BoxDecoration(
             color: Colors.black.withValues(alpha: 0.28),
-            borderRadius: BorderRadius.circular(21),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+              width: 1.0,
+            ),
           ),
-          child: Row(
-            children: List.generate(tabs.length, (i) {
-              final selected = _hubTab == i;
-              final (icon, label) = tabs[i];
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _hubTimer?.cancel(); // user took control
-                    setState(() => _hubTab = i);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
+          padding: const EdgeInsets.all(3.0),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double totalWidth = constraints.maxWidth;
+              const int itemCount = 3;
+              final double segWidth = totalWidth / itemCount;
+              const double pillInset = 1.0;
+              final double pillWidth = segWidth - (2 * pillInset);
+              final double leftOffset = (_hubTab * segWidth + pillInset);
+
+              Color c1, c2, borderC, glowC;
+              if (_hubTab == 0) {
+                c1 = Colors.white.withValues(alpha: 0.28);
+                c2 = Colors.white.withValues(alpha: 0.15);
+                borderC = Colors.white.withValues(alpha: 0.45);
+                glowC = Colors.white.withValues(alpha: 0.15);
+              } else if (_hubTab == 1) {
+                c1 = AppColors.income.withValues(alpha: 0.38);
+                c2 = AppColors.income.withValues(alpha: 0.22);
+                borderC = AppColors.income.withValues(alpha: 0.60);
+                glowC = AppColors.income.withValues(alpha: 0.25);
+              } else {
+                c1 = const Color(0xFFFF7A45).withValues(alpha: 0.38);
+                c2 = const Color(0xFFFF7A45).withValues(alpha: 0.22);
+                borderC = const Color(0xFFFF7A45).withValues(alpha: 0.60);
+                glowC = const Color(0xFFFF7A45).withValues(alpha: 0.25);
+              }
+
+              return Stack(
+                children: [
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 260),
                     curve: Curves.easeOutCubic,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? Colors.white.withValues(alpha: 0.20)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(18),
-                      border: selected
-                          ? Border.all(
-                              color: Colors.white.withValues(alpha: 0.38),
-                              width: 1.0,
-                            )
-                          : Border.all(color: Colors.transparent),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          icon,
-                          size: 14,
-                          color: selected
-                              ? Colors.white
-                              : Colors.white.withValues(alpha: 0.6),
+                    left: leftOffset,
+                    width: pillWidth,
+                    top: 1,
+                    bottom: 1,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [c1, c2],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        const SizedBox(width: 5),
-                        Flexible(
-                          child: Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: -0.1,
-                              color: selected
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: borderC,
+                          width: 1.1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: glowC,
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: List.generate(tabs.length, (i) {
+                      final selected = _hubTab == i;
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _hubTimer?.cancel();
+                            setState(() => _hubTab = i);
+                          },
+                          child: Center(
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                tabs[i],
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.60),
+                                  fontSize: 12.5,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w600,
+                                  letterSpacing: -0.2,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    }),
                   ),
-                ),
+                ],
               );
-            }),
+            },
           ),
         ),
         const SizedBox(height: 12),
@@ -1490,10 +1554,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 : AppColors.textLightOf(context));
       return Expanded(
         child: Container(
-          height: 40,
+          height: 42,
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(9),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1501,15 +1565,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Text(
                 dayNum,
                 style: TextStyle(
-                  fontSize: 10.5,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w900,
                   color: fg,
                 ),
               ),
+              const SizedBox(height: 1),
               Text(
                 amount,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w700,
                   color: fg.withValues(alpha: 0.9),
                 ),
@@ -1537,17 +1602,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         children: [
           Row(
             children: [
-              Icon(
-                Icons.calendar_month_rounded,
-                size: 16,
-                color: AppColors.secondary,
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Icon(
+                  Icons.calendar_month_rounded,
+                  size: 15,
+                  color: AppColors.secondary,
+                ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   '$month spend heatmap',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     color: AppColors.textPrimaryOf(context),
                   ),
@@ -1575,7 +1647,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _miniStat(String label, String value, Color valueColor) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
         decoration: BoxDecoration(
           color: AppColors.surfaceOf(context),
           borderRadius: BorderRadius.circular(11),
@@ -1589,17 +1661,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textSecondaryOf(context),
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Text(
               value,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w900,
                 color: valueColor,
               ),
@@ -1611,37 +1683,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildDebtPreviewCard() {
-    Widget tile(String label, String value, Color c) => Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceOf(context),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textSecondaryOf(context),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: c,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    const accentStripeColor = Color(0xFF00897B);
 
     return _solid(
       minHeight: _kPreviewMinH,
@@ -1649,61 +1691,200 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Borrow & Lend tracker',
-            style: TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimaryOf(context),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            'Friend dues stay separate from your expenses',
-            style: TextStyle(
-              fontSize: 11,
-              color: AppColors.textSecondaryOf(context),
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              tile('↗ To receive', '₹1,450', AppColors.income),
-              const SizedBox(width: 8),
-              tile('↙ To pay', '₹0', AppColors.expense),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceOf(context),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Flexible(
-                  child: Text(
-                    'Split dinner bill, 2 friends',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: const Icon(
+                      Icons.handshake_rounded,
+                      size: 15,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Borrow & Lend Tracker',
                     style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
                       color: AppColors.textPrimaryOf(context),
                     ),
                   ),
-                ),
-                Text(
-                  'Settle in 1 tap',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.secondary,
+                ],
+              ),
+              Row(
+                children: [
+                  const Icon(Icons.north_east_rounded, size: 12, color: AppColors.income),
+                  const SizedBox(width: 2),
+                  const Text(
+                    '+₹1,450',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.income,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Exact DebtCard look from borrow_lend_screen.dart:
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surfaceOf(context),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: AppColors.borderOf(context).withValues(alpha: 0.5),
+                width: 1.0,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: const BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [Color(0xFF26A69A), Color(0xFF00897B)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      'RK',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 14.5,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -1,
+                                  bottom: -1,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surfaceOf(context),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF00897B),
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Rahul Kumar',
+                                    style: TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.textPrimaryOf(context),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Lent • Dinner bill split',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: AppColors.textSecondaryOf(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Text(
+                              '+₹1,450',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.income,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00897B).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.schedule_rounded, size: 12, color: Color(0xFF00897B)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Due in 3 days',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF00897B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '1-Tap Settle',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.secondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 4.0,
+                    child: ColoredBox(color: accentStripeColor),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -1712,166 +1893,242 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   Widget _buildCategoryPreviewCard() {
-    // Pulled from the real category palette so it matches the app.
     final food = AppColors.getCategoryColor('Food & Dining');
     final groceries = AppColors.getCategoryColor('Groceries');
-    final transport = AppColors.getCategoryColor('Transport');
+    final isDark = AppColors.isDark(context);
+
+    Widget categoryRow({
+      required String name,
+      required double amount,
+      required double pct,
+      required int count,
+      required Color color,
+      required IconData icon,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: isDark ? 0.22 : 0.15),
+                borderRadius: BorderRadius.circular(11),
+                border: Border.all(
+                  color: color.withValues(alpha: isDark ? 0.35 : 0.30),
+                  width: 1.0,
+                ),
+              ),
+              child: Center(
+                child: Icon(icon, color: color, size: 18),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                      Text(
+                        '₹${amount.toInt()}',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimaryOf(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: pct / 100.0,
+                      backgroundColor: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : const Color(0xFFE2E8F0),
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                      minHeight: 4.0,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '${pct.toInt()}% of total • $count transactions',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.textSecondaryOf(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return _solid(
       minHeight: _kPreviewMinH,
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 92,
-            height: 92,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(92, 92),
-                  painter: _DonutRingPainter(
-                    fractions: const [0.42, 0.31, 0.27],
-                    colors: [food, groceries, transport],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(7),
+                    ),
+                    child: Icon(
+                      Icons.donut_large_rounded,
+                      size: 15,
+                      color: AppColors.secondary,
+                    ),
                   ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Total spent',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: AppColors.textSecondaryOf(context),
-                      ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Top Spending Categories',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimaryOf(context),
                     ),
-                    Text(
-                      '₹12,554',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textPrimaryOf(context),
-                      ),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+              Text(
+                '₹12,554 total',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondaryOf(context),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Smart category split',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimaryOf(context),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _legendRow(food, 'Food & Dining', '42%'),
-                const SizedBox(height: 8),
-                _legendRow(groceries, 'Groceries', '31%'),
-                const SizedBox(height: 8),
-                _legendRow(transport, 'Transport', '27%'),
-              ],
-            ),
+          const SizedBox(height: 8),
+          categoryRow(
+            name: 'Food & Dining',
+            amount: 5240,
+            pct: 42,
+            count: 14,
+            color: food,
+            icon: Icons.restaurant_rounded,
+          ),
+          categoryRow(
+            name: 'Groceries',
+            amount: 3890,
+            pct: 31,
+            count: 6,
+            color: groceries,
+            icon: Icons.shopping_basket_rounded,
           ),
         ],
       ),
     );
   }
 
-  Widget _legendRow(Color dot, String name, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Flexible(
-          child: Row(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimaryOf(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textSecondaryOf(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// "₹0 forever" pill (no competitor price claims: legal-safe).
+  /// "₹0 forever" board (high-contrast, attractive, doesn't blend with background).
   Widget _buildZeroPill() {
-    return _glass(
-      fill: 0.12,
-      padding: const EdgeInsets.all(12),
-      borderColor: _kIncomeOnHero.withValues(alpha: 0.45),
+    final isDark = AppColors.isDark(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF14302C) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _kIncomeOnHero,
+          width: 1.3,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _kIncomeOnHero.withValues(alpha: 0.22),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.40 : 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [_kIncomeOnHero, Color(0xFF69AEA9)],
+                colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(11),
+              boxShadow: [
+                BoxShadow(
+                  color: _kIncomeOnHero.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: const Text(
               '₹0 / forever',
               style: TextStyle(
-                fontSize: 14.5,
+                fontSize: 13.5,
                 fontWeight: FontWeight.w900,
                 color: _kInk,
-                letterSpacing: -0.4,
+                letterSpacing: -0.3,
               ),
             ),
           ),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'No subscriptions. No ads.',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.verified_rounded,
+                      size: 14,
+                      color: _kIncomeOnHero,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'No subscriptions. No ads.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : _kInk,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Every feature unlocked from day one.',
+                  'Every pro feature unlocked from day one.',
                   style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? Colors.white70 : AppColors.textSecondaryOf(context),
                   ),
                 ),
               ],
@@ -2010,4 +2267,83 @@ class _DonutRingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DonutRingPainter old) =>
       old.colors != colors || old.fractions != fractions;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Swiggy Logo Painter (official brand logo vector)
+// ─────────────────────────────────────────────────────────────
+class _SwiggyLogoPainter extends CustomPainter {
+  final Color color;
+  const _SwiggyLogoPainter({this.color = Colors.white});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    // ViewBox is 24x24
+    final scale = size.width / 24.0;
+    canvas.save();
+    canvas.scale(scale, scale);
+
+    final path = Path();
+    path.moveTo(12.034, 24.0);
+    path.relativeCubicTo(-0.376, -0.411, -2.075, -2.584, -3.95, -5.513);
+    path.relativeCubicTo(-0.547, -0.916, -0.901, -1.63, -0.833, -1.814);
+    path.relativeCubicTo(0.178, -0.48, 3.355, -0.743, 4.333, -0.308);
+    path.relativeCubicTo(0.298, 0.132, 0.29, 0.307, 0.29, 0.409);
+    path.relativeCubicTo(0.0, 0.44, -0.022, 1.619, -0.022, 1.619);
+    path.relativeArcToPoint(
+      const Offset(0.883, -0.002),
+      radius: const Radius.elliptical(0.441, 0.441),
+      rotation: 0.0,
+      largeArc: true,
+      clockwise: false,
+    );
+    path.relativeLineTo(-0.005, -2.939);
+    path.relativeCubicTo(0.0, -0.255, -0.278, -0.319, -0.331, -0.329);
+    path.relativeCubicTo(-0.511, -0.002, -1.548, -0.006, -2.661, -0.006);
+    path.relativeCubicTo(-2.457, 0.0, -3.006, 0.101, -3.423, -0.172);
+    path.relativeCubicTo(-0.904, -0.591, -2.383, -4.577, -2.417, -6.819);
+    path.cubicTo(3.849, 4.964, 5.723, 2.225, 8.362, 0.868);
+    path.arcToPoint(
+      const Offset(12.026, 0.0),
+      radius: const Radius.elliptical(8.13, 8.13),
+      rotation: 0.0,
+      largeArc: false,
+      clockwise: true,
+    );
+    path.relativeCubicTo(4.177, 0.0, 7.617, 3.153, 8.075, 7.209);
+    path.relativeLineTo(0.001, 0.011);
+    path.relativeCubicTo(0.084, 0.981, -5.321, 1.189, -6.39, 0.904);
+    path.relativeCubicTo(-0.164, -0.044, -0.206, -0.212, -0.206, -0.284);
+    path.lineTo(13.5, 4.996);
+    path.relativeArcToPoint(
+      const Offset(-0.884, 0.002),
+      radius: const Radius.elliptical(0.442, 0.442),
+      rotation: 0.0,
+      largeArc: false,
+      clockwise: false,
+    );
+    path.relativeLineTo(0.009, 3.866);
+    path.relativeArcToPoint(
+      const Offset(0.268, 0.32),
+      radius: const Radius.elliptical(0.33, 0.33),
+      rotation: 0.0,
+      largeArc: false,
+      clockwise: false,
+    );
+    path.relativeLineTo(3.354, -0.001);
+    path.relativeCubicTo(1.79, 0.0, 2.542, 0.207, 3.042, 0.588);
+    path.relativeCubicTo(0.333, 0.254, 0.461, 0.739, 0.349, 1.37);
+    path.cubicTo(18.633, 16.755, 12.273, 23.71, 12.034, 24.0);
+    path.close();
+
+    canvas.drawPath(path, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SwiggyLogoPainter old) => old.color != color;
 }
