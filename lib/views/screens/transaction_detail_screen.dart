@@ -373,431 +373,456 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // ─── 1. SIGNATURE PAGE-STYLE TOP HERO CONTAINER ───
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: isDark
-                        ? const [
-                            Color(0xFF0F2624), // Deep spruce/emerald
-                            Color(0xFF163E3B), // Signature deep teal
-                            Color(0xFF1E5D57), // Teal glow
-                          ]
-                        : const [
-                            Color(0xFF0F3632), // Signature dark emerald
-                            Color(0xFF1E5D57), // Signature primary teal
-                            Color(0xFF2C7A72), // Radiant teal highlight
-                          ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
+      appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        toolbarHeight: 62,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? const [
+                      Color(0xFF0F2624),
+                      Color(0xFF163E3B),
+                    ]
+                  : const [
+                      Color(0xFF0F3632),
+                      Color(0xFF1E5D57),
+                    ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
+        leading: Center(
+          child: GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.22),
+                ),
+              ),
+              child: const Icon(
+                Icons.arrow_back_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ),
+        leadingWidth: 56,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Transaction Details',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const SizedBox(height: 1),
+            Text(
+              '${_isIncome ? "Income" : "Expense"} • Recorded in Buddy',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ),
+          ],
+        ),
+        centerTitle: true,
+        actions: [
+          GestureDetector(
+            onTap: _openEdit,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.22),
+                ),
+              ),
+              child: const Icon(
+                Icons.edit_outlined,
+                color: Colors.white,
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _confirmDelete,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.45),
+                ),
+              ),
+              child: const Icon(
+                Icons.delete_outline_rounded,
+                color: Color(0xFFFF8A80),
+                size: 16,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ─── 1. SIGNATURE PAGE-STYLE TOP HERO CONTAINER ───
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? const [
+                          Color(0xFF163E3B), // Seamlessly continues from top bar
+                          Color(0xFF1E5D57), // Teal glow
+                        ]
+                      : const [
+                          Color(0xFF1E5D57), // Signature primary teal
+                          Color(0xFF2C7A72), // Radiant teal highlight
+                        ],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(28),
+                  bottomRight: Radius.circular(28),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDark
+                            ? const Color(0xFF0F2624)
+                            : const Color(0xFF0F3632))
+                        .withValues(alpha: 0.32),
+                    blurRadius: 22,
+                    offset: const Offset(0, 8),
                   ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(28),
-                    bottomRight: Radius.circular(28),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: (isDark
-                              ? const Color(0xFF0F2624)
-                              : const Color(0xFF0F3632))
-                          .withValues(alpha: 0.32),
-                      blurRadius: 22,
-                      offset: const Offset(0, 8),
+                ],
+              ),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              child: Column(
+                children: [
+                  // Contact / Category Hero Pill (Avatar + Title + Badges)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
                     ),
-                  ],
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  MediaQuery.paddingOf(context).top + 28,
-                  20,
-                  24,
-                ),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 14),
-                    // Header Bar: Back Button, Title & Actions (Edit / Delete)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Back Button
-                        GestureDetector(
-                          onTap: () => Navigator.of(context).pop(),
-                          child: Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.16),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.22),
-                              ),
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-
-                        // Title & Subtitle
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text(
-                                  'Transaction Details',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: -0.3,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_isIncome ? "Income" : "Expense"} • Recorded in Buddy',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        // Action buttons: Edit & Delete
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Edit
-                            GestureDetector(
-                              onTap: _openEdit,
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.16),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.edit_outlined,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Delete
-                            GestureDetector(
-                              onTap: _confirmDelete,
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444)
-                                      .withValues(alpha: 0.25),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFFEF4444)
-                                        .withValues(alpha: 0.45),
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.delete_outline_rounded,
-                                  color: Color(0xFFFF8A80),
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ],
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.24),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
                         ),
                       ],
                     ),
-
-                    const SizedBox(height: 18),
-
-                    // Contact / Category Hero Pill (Avatar + Title + Badges)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.24),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          width: 1.0,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.12),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Category Avatar with subtle border
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: catColor.withValues(alpha: 0.22),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: catColor.withValues(alpha: 0.45),
-                                width: 1.5,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Category Avatar with subtle border
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: catColor.withValues(alpha: 0.22),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: catColor.withValues(alpha: 0.45),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: catColor.withValues(alpha: 0.20),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: catColor.withValues(alpha: 0.20),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              IconHelper.getIcon(widget.data['icon']),
-                              color: catColor,
-                              size: 24,
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _title,
-                                  softWrap: true,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: -0.2,
-                                    height: 1.3,
-                                  ),
+                          child: Icon(
+                            IconHelper.getIcon(widget.data['icon']),
+                            color: catColor,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _title,
+                                softWrap: true,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: -0.2,
+                                  height: 1.3,
                                 ),
-                                const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: [
-                                    // Category Tag
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white.withValues(alpha: 0.16),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        _category,
-                                        style: const TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                        ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  // Category Tag
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.16),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _category,
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
                                       ),
                                     ),
+                                  ),
 
-                                    // Type Tag
+                                  // Type Tag
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor.withValues(alpha: 0.20),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: statusColor.withValues(alpha: 0.45),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          _isIncome
+                                              ? Icons.arrow_upward_rounded
+                                              : Icons.arrow_downward_rounded,
+                                          size: 11,
+                                          color: statusColor,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _isIncome ? 'Income' : 'Expense',
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Auto Detected Badge
+                                  if (_isAutoDetected)
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
                                         vertical: 3,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: statusColor.withValues(alpha: 0.20),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: statusColor.withValues(alpha: 0.45),
-                                          width: 0.8,
+                                        gradient: const LinearGradient(
+                                          colors: [
+                                            Color(0xFF6366F1),
+                                            Color(0xFF8B5CF6),
+                                          ],
                                         ),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: Row(
+                                      child: const Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(
-                                            _isIncome
-                                                ? Icons.arrow_upward_rounded
-                                                : Icons.arrow_downward_rounded,
-                                            size: 11,
-                                            color: statusColor,
+                                            Icons.auto_awesome,
+                                            size: 10,
+                                            color: Colors.white,
                                           ),
-                                          const SizedBox(width: 3),
+                                          SizedBox(width: 3),
                                           Text(
-                                            _isIncome ? 'Income' : 'Expense',
+                                            'Auto',
                                             style: TextStyle(
-                                              fontSize: 10.5,
-                                              fontWeight: FontWeight.w700,
-                                              color: statusColor,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
                                             ),
                                           ),
                                         ],
                                       ),
                                     ),
-
-                                    // Auto Detected Badge
-                                    if (_isAutoDetected)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFF6366F1),
-                                              Color(0xFF8B5CF6),
-                                            ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.auto_awesome,
-                                              size: 10,
-                                              color: Colors.white,
-                                            ),
-                                            SizedBox(width: 3),
-                                            Text(
-                                              'Auto',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Amount Display
-                    Text(
-                      _isIncome ? 'Total Income Received' : 'Total Amount Spent',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withValues(alpha: 0.75),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: AnimatedMoneyText(
-                        value: _parsedAmount,
-                        showSign: true,
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w900,
-                          color: statusColor,
-                          letterSpacing: -1,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // Status Pill (Frosted Capsule)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.22),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.check_circle_rounded,
-                            size: 14,
-                            color: incomeAccent,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Recorded in Buddy',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.9),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // ─── 2. FROSTED METADATA INFO GRID ───
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // Grid Row 1: Date & Time
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMetaItem(
-                                  icon: Icons.calendar_today_rounded,
-                                  iconColor: const Color(0xFF69F0AE),
-                                  label: 'Date',
-                                  value: _formatDate(dt),
-                                  subvalue: _formatDayOfWeek(dt),
-                                ),
+                                ],
                               ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Amount Display
+                  Text(
+                    _isIncome ? 'Total Income Received' : 'Total Amount Spent',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.75),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: AnimatedMoneyText(
+                      value: _parsedAmount,
+                      showSign: true,
+                      style: TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w900,
+                        color: statusColor,
+                        letterSpacing: -1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Status Pill (Frosted Capsule)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.check_circle_rounded,
+                          size: 14,
+                          color: incomeAccent,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Recorded in Buddy',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // ─── 2. FROSTED METADATA INFO GRID ───
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // Grid Row 1: Date & Time
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMetaItem(
+                                icon: Icons.calendar_today_rounded,
+                                iconColor: const Color(0xFF69F0AE),
+                                label: 'Date',
+                                value: _formatDate(dt),
+                                subvalue: _formatDayOfWeek(dt),
+                              ),
+                            ),
+                            Container(
+                              width: 1,
+                              height: 44,
+                              color: Colors.white.withValues(alpha: 0.20),
+                              margin: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
+                            Expanded(
+                              child: _buildMetaItem(
+                                icon: Icons.access_time_rounded,
+                                iconColor: const Color(0xFF80CBC4),
+                                label: 'Time',
+                                value: _formatTime(dt),
+                                subvalue: 'Logged at',
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+                        Divider(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          height: 1,
+                        ),
+                        const SizedBox(height: 10),
+
+                        // Grid Row 2: Category & Transaction ID
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildMetaItem(
+                                icon: Icons.category_rounded,
+                                iconColor: catColor,
+                                label: 'Category',
+                                value: _category,
+                                subvalue: 'Classification',
+                              ),
+                            ),
+                            if (rawId != null && rawId.isNotEmpty) ...[
                               Container(
                                 width: 1,
                                 height: 44,
@@ -806,173 +831,149 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                               ),
                               Expanded(
                                 child: _buildMetaItem(
-                                  icon: Icons.access_time_rounded,
-                                  iconColor: const Color(0xFF80CBC4),
-                                  label: 'Time',
-                                  value: _formatTime(dt),
-                                  subvalue: 'Logged at',
+                                  icon: Icons.tag_rounded,
+                                  iconColor: Colors.white70,
+                                  label: 'Transaction ID',
+                                  value: '#${shortId ?? rawId}',
+                                  subvalue: 'System Reference',
                                 ),
                               ),
                             ],
-                          ),
-
-                          const SizedBox(height: 10),
-                          Divider(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            height: 1,
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Grid Row 2: Category & Transaction ID
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _buildMetaItem(
-                                  icon: Icons.category_rounded,
-                                  iconColor: catColor,
-                                  label: 'Category',
-                                  value: _category,
-                                  subvalue: 'Classification',
-                                ),
-                              ),
-                              if (rawId != null && rawId.isNotEmpty) ...[
-                                Container(
-                                  width: 1,
-                                  height: 44,
-                                  color: Colors.white.withValues(alpha: 0.20),
-                                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                                ),
-                                Expanded(
-                                  child: _buildMetaItem(
-                                    icon: Icons.tag_rounded,
-                                    iconColor: Colors.white70,
-                                    label: 'Transaction ID',
-                                    value: '#${shortId ?? rawId}',
-                                    subvalue: 'System Reference',
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-
-                          const SizedBox(height: 10),
-                          Divider(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            height: 1,
-                          ),
-                          const SizedBox(height: 10),
-
-                          // Grid Row 3: Dedicated Full-Width Entry Source Tile
-                          _buildEntrySourceTile(_entrySourceInfo),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ─── 3. LOWER SECTION (NOTE & PRIMARY/SECONDARY ACTIONS) ───
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Notes Card
-                    if (_note != null && _note!.isNotEmpty) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardOf(context),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.borderOf(context).withValues(alpha: 0.6),
-                            width: 1.2,
-                          ),
-                          boxShadow: AppColors.cardShadowOf(context),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(
-                                    Icons.sticky_note_2_rounded,
-                                    size: 15,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'NOTES & REMARKS',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textSecondaryOf(context),
-                                    letterSpacing: 0.8,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _note!,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: AppColors.textPrimaryOf(context),
-                                height: 1.4,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 18),
-                    ],
 
-                    // Primary Action: Open PDF Receipt
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          shadowColor: AppColors.primary.withValues(alpha: 0.35),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                        const SizedBox(height: 10),
+                        Divider(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          height: 1,
                         ),
-                        onPressed: _isDownloading ? null : _downloadPdf,
-                        child: _isDownloading
-                            ? const BuddyLoadingIndicator(size: 24)
-                            : const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.file_open_rounded, size: 20),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Open Receipt',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                      letterSpacing: 0.2,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                      ),
+                        const SizedBox(height: 10),
+
+                        // Grid Row 3: Dedicated Full-Width Entry Source Tile
+                        _buildEntrySourceTile(_entrySourceInfo),
+                      ],
                     ),
-                  ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ─── 3. LOWER SECTION (NOTE IF PRESENT) ───
+            if (_note != null && _note!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardOf(context),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: AppColors.borderOf(context).withValues(alpha: 0.6),
+                      width: 1.2,
+                    ),
+                    boxShadow: AppColors.cardShadowOf(context),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.sticky_note_2_rounded,
+                              size: 15,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'NOTES & REMARKS',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textSecondaryOf(context),
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _note!,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimaryOf(context),
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: AppColors.cardOf(context),
+          border: Border(
+            top: BorderSide(
+              color: AppColors.borderOf(context).withValues(alpha: 0.7),
+              width: 1.0,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.30 : 0.06),
+              blurRadius: 14,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+            child: SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  elevation: 3,
+                  shadowColor: AppColors.primary.withValues(alpha: 0.35),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                onPressed: _isDownloading ? null : _downloadPdf,
+                child: _isDownloading
+                    ? const BuddyLoadingIndicator(size: 24)
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.file_open_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Open Receipt',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
           ),
         ),
       ),
