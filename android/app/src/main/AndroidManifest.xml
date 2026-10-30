@@ -79,10 +79,10 @@
             </intent-filter>
         </receiver>
 
-        <!-- Buddy Android Home Screen Widget Provider -->
+        <!-- Buddy Quick Add (2×2) Home Screen Widget Provider -->
         <receiver
-            android:name=".BuddyWidgetProvider"
-            android:label="Buddy Overview"
+            android:name=".BuddyQuickAddWidgetProvider"
+            android:label="Buddy Quick Add (2×2)"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -94,13 +94,13 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/buddy_widget_info" />
+                android:resource="@xml/buddy_widget_quick_add_info" />
         </receiver>
 
-        <!-- Dedicated Buddy Stats Widget Provider (Donut & Heatmap) -->
+        <!-- Buddy Stats (3×3) Home Screen Widget Provider -->
         <receiver
             android:name=".BuddyStatsWidgetProvider"
-            android:label="Buddy Stats"
+            android:label="Buddy Stats (3×3)"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -113,6 +113,24 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/buddy_stats_widget_info" />
+        </receiver>
+
+        <!-- Buddy Overview (4×4) Home Screen Widget Provider -->
+        <receiver
+            android:name=".BuddyWidgetProvider"
+            android:label="Buddy Overview (4×4)"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_MIDNIGHT_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_SWITCH_PAGE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_STATS_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_DONUT_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_HEATMAP_MODE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/buddy_widget_info" />
         </receiver>
 
         <!-- Transparent Modal Activity for Instant Add Transaction from Widget -->

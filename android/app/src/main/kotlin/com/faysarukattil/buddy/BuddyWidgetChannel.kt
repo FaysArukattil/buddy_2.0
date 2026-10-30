@@ -79,30 +79,22 @@ class BuddyWidgetChannel(private val context: Context) {
     private fun triggerWidgetUpdate() {
         val manager = AppWidgetManager.getInstance(context)
 
-        // Update BuddyWidgetProvider
-        val mainIds = manager.getAppWidgetIds(
-            ComponentName(context, BuddyWidgetProvider::class.java)
+        val providers = listOf(
+            BuddyWidgetProvider::class.java,
+            BuddyStatsWidgetProvider::class.java,
+            BuddyQuickAddWidgetProvider::class.java
         )
-        if (mainIds.isNotEmpty()) {
-            val intent = android.content.Intent(context, BuddyWidgetProvider::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, mainIds)
-            }
-            context.sendBroadcast(intent)
-            Log.d(TAG, "📡 Triggered update for ${mainIds.size} BuddyWidget(s)")
-        }
 
-        // Update BuddyStatsWidgetProvider
-        val statsIds = manager.getAppWidgetIds(
-            ComponentName(context, BuddyStatsWidgetProvider::class.java)
-        )
-        if (statsIds.isNotEmpty()) {
-            val intent = android.content.Intent(context, BuddyStatsWidgetProvider::class.java).apply {
-                action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, statsIds)
+        for (providerClass in providers) {
+            val ids = manager.getAppWidgetIds(ComponentName(context, providerClass))
+            if (ids.isNotEmpty()) {
+                val intent = android.content.Intent(context, providerClass).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                }
+                context.sendBroadcast(intent)
+                Log.d(TAG, "📡 Triggered update for ${ids.size} ${providerClass.simpleName}(s)")
             }
-            context.sendBroadcast(intent)
-            Log.d(TAG, "📡 Triggered update for ${statsIds.size} BuddyStatsWidget(s)")
         }
     }
 }

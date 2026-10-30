@@ -38,4 +38,29 @@ class FormatUtils {
     
     return '${buffer.toString().split('').reversed.join()},$lastThree';
   }
+
+  /// Format currency with Lakh ('L'), Crore ('Cr'), and 'k' notation for widgets
+  /// and compact displays so large numbers (like 10 Lakh+) never clip or disappear.
+  static String formatCompactCurrency(double value) {
+    final abs = value.abs();
+    final sign = value < 0 ? '-' : '';
+    if (abs >= 10000000) {
+      // 1 Crore = 1,00,00,000
+      final cr = abs / 10000000;
+      final str = cr % 1 == 0 ? cr.toStringAsFixed(0) : cr.toStringAsFixed(1);
+      return '$sign₹${str}Cr';
+    } else if (abs >= 100000) {
+      // 1 Lakh = 1,00,000 (e.g. 10 Lakh = 10L, 25.5 Lakh = 25.5L)
+      final lk = abs / 100000;
+      final str = lk % 1 == 0 ? lk.toStringAsFixed(0) : lk.toStringAsFixed(1);
+      return '$sign₹${str}L';
+    } else if (abs >= 10000) {
+      // 10K+
+      final k = abs / 1000;
+      final str = k % 1 == 0 ? k.toStringAsFixed(0) : k.toStringAsFixed(1);
+      return '$sign₹${str}k';
+    } else {
+      return '$sign₹${formatIndianNumber(abs.roundToDouble())}';
+    }
+  }
 }

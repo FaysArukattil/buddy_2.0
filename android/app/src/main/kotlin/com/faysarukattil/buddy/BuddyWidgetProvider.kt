@@ -27,7 +27,7 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
 
-class BuddyWidgetProvider : AppWidgetProvider() {
+open class BuddyWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val TAG = "BuddyWidgetProvider"
@@ -40,7 +40,6 @@ class BuddyWidgetProvider : AppWidgetProvider() {
 
         private val COLOR_INCOME = 0xFF34D399.toInt()
         private val COLOR_EXPENSE = 0xFFFB7185.toInt()
-        private val COLOR_ACCENT = 0xFF2DD4BF.toInt()
 
         // 8 transaction row view IDs for Today page
         private val ROW_IDS = arrayOf(
@@ -54,16 +53,41 @@ class BuddyWidgetProvider : AppWidgetProvider() {
             RowIds(R.id.row_txn_7, R.id.tv_txn_7_title, R.id.tv_txn_7_subtitle, R.id.tv_txn_7_amount, R.id.iv_txn_7_icon_bg, R.id.iv_txn_7_icon, R.id.badge_ai_txn_7)
         )
 
-        // Approximate dp-per-cell on typical launchers
-        // 2 cells ≈ 110 dp, 3 cells ≈ 180 dp, 4 cells ≈ 250 dp
-        private const val CELLS_4_WIDTH_DP = 250
-        private const val CELLS_3_HEIGHT_DP = 180
-
         fun getData(context: Context): SharedPreferences =
             context.getSharedPreferences(
                 context.packageName + "_HomeWidgetPlugin",
                 Context.MODE_PRIVATE
             )
+
+        /**
+         * Formats amounts cleanly with Lakh ('L'), Crore ('Cr') and 'k' notation
+         * so amounts crossing 10 Lakh (e.g. 10L, 25.5L) never clip or go invisible.
+         */
+        fun formatCompactCurrency(raw: Double, isCompact: Boolean = true): String {
+            val abs = kotlin.math.abs(raw)
+            val sign = if (raw < 0) "-" else ""
+            return when {
+                abs >= 10000000.0 -> {
+                    val cr = abs / 10000000.0
+                    val str = if (cr % 1.0 == 0.0) String.format(Locale.US, "%.0f", cr) else String.format(Locale.US, "%.1f", cr)
+                    "$sign₹${str}Cr"
+                }
+                abs >= 100000.0 -> {
+                    val lk = abs / 100000.0
+                    val str = if (lk % 1.0 == 0.0) String.format(Locale.US, "%.0f", lk) else String.format(Locale.US, "%.1f", lk)
+                    "$sign₹${str}L"
+                }
+                abs >= 10000.0 && isCompact -> {
+                    val k = abs / 1000.0
+                    val str = if (k % 1.0 == 0.0) String.format(Locale.US, "%.0f", k) else String.format(Locale.US, "%.1f", k)
+                    "$sign₹${str}k"
+                }
+                else -> {
+                    val formatted = NumberFormat.getNumberInstance(Locale("en", "IN")).format(abs.toLong())
+                    "$sign₹$formatted"
+                }
+            }
+        }
     }
 
     private class RowIds(
@@ -82,7 +106,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         Log.d(TAG, "📡 onReceive action: $action")
 
         val appWidgetManager = AppWidgetManager.getInstance(context)
-        val componentName = ComponentName(context, BuddyWidgetProvider::class.java)
+        val componentName = ComponentName(context, this.javaClass)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
         val data = getData(context)
 
@@ -212,55 +236,80 @@ class BuddyWidgetProvider : AppWidgetProvider() {
             val isDark = isDarkTheme(context)
             val density = context.resources.displayMetrics.density
 
-            Log.d(TAG, "📏 Size: ${widthDp}w x ${heightDp}h dp")
+            Log.d(TAG, "📏 Size: ${widthDp}w x ${heightDp}h dp for widgetId $widgetId")
 
-            // ── 2×2 Tiny Layout: < 180dp wide OR < 120dp tall ──────────────────
-            if (widthDp < 180 || heightDp < 120) {
-                val smallViews = buildSmallLayout(context, widgetId, data)
+            // ─────────────────────────────────────────────────────────────
+            // SIZING MODES:
+            // 1. 2×2: width < 175dp && height < 175dp (or width < 150dp / height < 120dp)
+            // 2. 3×2: width < 240dp && height < 185dp (no tabs, Today badge, compact currency)
+            // 3. 4×2: width >= 240dp && height < 185dp (Today + Month only, 3 tiles in 1 row)
+            // 4. 3×3+: width >= 175dp && height >= 185dp (all 4 tabs: Today, Month, Donut, Heatmap)
+            // ─────────────────────────────────────────────────────────────
+
+            val isSmall2x2 = (widthDp < 175 && heightDp < 175) || widthDp < 150 || heightDp < 120
+            val is3x2 = !isSmall2x2 && widthDp < 240 && heightDp < 185
+            val is4x2 = !isSmall2x2 && widthDp >= 240 && heightDp < 185
+            val is3x3OrAbove = widthDp >= 175 && heightDp >= 185
+
+            // 1. 2×2 Mode: Quick Add Action Card
+            if (isSmall2x2) {
+                val smallViews = buildSmallLayout(context, widgetId)
                 manager.updateAppWidget(widgetId, smallViews)
                 return
             }
 
-            // ── Determine if donut/heatmap should be available ──────────────────
-            // Only show if the widget is at least 4 cells wide (~250dp) AND 3 cells tall (~180dp)
-            val showChartsAllowed = widthDp >= CELLS_4_WIDTH_DP && heightDp >= CELLS_3_HEIGHT_DP
+            // Charts allowed only on 3×3 and above
+            val showChartsAllowed = is3x3OrAbove
 
-            // Cap active page: if charts not allowed, clamp to today(0) or month(1)
+            // Tab selection logic:
+            // In 3x2: only Today (activePage = 0)
+            // In 4x2: Today (0) or Month (1)
+            // In 3x3+: Today (0), Month (1), Donut (2), Heatmap (3)
             var activePage = data.getInt("active_page_$widgetId", 0)
-            if (!showChartsAllowed && activePage > 1) {
+            if (is3x2) {
                 activePage = 0
-                data.edit().putInt("active_page_$widgetId", activePage).apply()
+            } else if (!showChartsAllowed && activePage > 1) {
+                activePage = 1 // Fallback to month if previously on charts
             }
-            activePage = activePage.coerceIn(0, if (showChartsAllowed) 3 else 1)
+            activePage = activePage.coerceIn(0, if (showChartsAllowed) 3 else (if (is3x2) 0 else 1))
 
-            // ── Full Main Multi-Page Layout ──────────────────────────────────────
+            // Full layout
             val views = RemoteViews(context.packageName, R.layout.widget_buddy)
             views.setDisplayedChild(R.id.flipper_pages, activePage)
 
-            // Header: Buddy icon + wordmark (fix text wrap by keeping brand wrap_content)
+            // Header: Icon + Wordmark
             bindHeaderAndBranding(views, widthDp)
 
-            // Tab switcher (hide donut/heatmap tabs if charts not allowed)
-            updateTabBar(views, activePage, widthDp, isDark, showChartsAllowed)
+            // Segmented Switcher vs Today Badge
+            if (is3x2) {
+                // 3x2: Remove tab switcher completely, show Today Badge
+                views.setViewVisibility(R.id.layout_tab_bar, View.GONE)
+                views.setViewVisibility(R.id.badge_today_header, View.VISIBLE)
+            } else {
+                // 4x2 or 3x3+: Show tab switcher
+                views.setViewVisibility(R.id.badge_today_header, View.GONE)
+                views.setViewVisibility(R.id.layout_tab_bar, View.VISIBLE)
+                updateTabBar(views, activePage, widthDp, isDark, showChartsAllowed)
+            }
 
             // Page 0: Today
-            bindTodayPage(context, views, widthDp, heightDp, data)
+            bindTodayPage(context, views, widthDp, heightDp, data, isCompact = is3x2 || widthDp < 280)
 
-            // Page 1: Month
-            bindMonthPage(views, widthDp, heightDp, data, isDark)
+            // Page 1: Month (In 4x2, always show 3 tiles in 1 horizontal row)
+            bindMonthPage(views, widthDp, heightDp, data, isDark, force3Col = is4x2 || heightDp < 200)
 
-            // Page 2: Donut (only when size allows)
+            // Page 2: Donut (3x3+ only)
             if (showChartsAllowed) {
                 bindDonutPage(context, views, widthDp, heightDp, data, isDark, density)
             }
 
-            // Page 3: Heatmap (only when size allows)
+            // Page 3: Heatmap (3x3+ only)
             if (showChartsAllowed) {
                 bindHeatmapPage(context, views, widthDp, heightDp, data, isDark, density)
             }
 
             // Attach PendingIntents
-            attachMainIntents(context, widgetId, views, showChartsAllowed)
+            attachMainIntents(context, widgetId, views, showChartsAllowed, is3x2)
 
             manager.updateAppWidget(widgetId, views)
         } catch (e: Exception) {
@@ -272,21 +321,25 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     // 1. HEADER & BRANDING
     // ==========================================
     private fun bindHeaderAndBranding(views: RemoteViews, widthDp: Int) {
-        // "Buddy" text: always show when >= normal size; just hide the date sub-label on narrow
         if (widthDp < 220) {
-            // Very narrow: hide the whole brand text block (icon still shows)
-            views.setViewVisibility(R.id.layout_brand_text, View.GONE)
+            // Very narrow: hide date sub-label to keep brand text on 1 clean line
+            views.setViewVisibility(R.id.tv_today_date, View.GONE)
         } else {
             views.setViewVisibility(R.id.layout_brand_text, View.VISIBLE)
-            // Date sub-label only on wider sizes
-            views.setViewVisibility(R.id.tv_today_date, if (widthDp >= 300) View.VISIBLE else View.GONE)
+            views.setViewVisibility(R.id.tv_today_date, if (widthDp >= 280) View.VISIBLE else View.GONE)
         }
     }
 
     // ==========================================
     // 2. SEGMENTED TAB SWITCHER
     // ==========================================
-    private fun updateTabBar(views: RemoteViews, activePage: Int, widthDp: Int, isDark: Boolean, showChartsAllowed: Boolean) {
+    private fun updateTabBar(
+        views: RemoteViews,
+        activePage: Int,
+        widthDp: Int,
+        isDark: Boolean,
+        showChartsAllowed: Boolean
+    ) {
         val tabIds = arrayOf(R.id.tab_btn_today, R.id.tab_btn_month, R.id.tab_btn_donut, R.id.tab_btn_heatmap)
         val iconIds = arrayOf(R.id.iv_tab_today_icon, R.id.iv_tab_month_icon, R.id.iv_tab_donut_icon, R.id.iv_tab_heatmap_icon)
         val labelIds = arrayOf(R.id.tv_tab_today_label, R.id.tv_tab_month_label, R.id.tv_tab_donut_label, R.id.tv_tab_heatmap_label)
@@ -294,19 +347,19 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         val activeTextColor = if (isDark) 0xFF2DD4BF.toInt() else 0xFF1E5D57.toInt()
         val inactiveTextColor = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
 
-        // Show labels only when wide enough
-        val showLabels = widthDp >= 290
+        // Show text labels only when width is ample
+        val showLabels = (showChartsAllowed && widthDp >= 320) || (!showChartsAllowed && widthDp >= 250)
 
         for (i in tabIds.indices) {
             val isActive = (i == activePage)
-            // Hide donut (2) and heatmap (3) tabs when charts not allowed
+            // Donut & Heatmap tabs are only visible when showChartsAllowed (3x3+)
             val tabVisible = i <= 1 || showChartsAllowed
             views.setViewVisibility(tabIds[i], if (tabVisible) View.VISIBLE else View.GONE)
 
             views.setInt(tabIds[i], "setBackgroundResource", if (isActive) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setInt(iconIds[i], "setColorFilter", if (isActive) activeTextColor else inactiveTextColor)
 
-            if (showLabels) {
+            if (showLabels && tabVisible) {
                 views.setViewVisibility(labelIds[i], View.VISIBLE)
                 views.setTextColor(labelIds[i], if (isActive) activeTextColor else inactiveTextColor)
             } else {
@@ -323,17 +376,20 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         views: RemoteViews,
         widthDp: Int,
         heightDp: Int,
-        data: SharedPreferences
+        data: SharedPreferences,
+        isCompact: Boolean
     ) {
         val dateLabel = data.getString("today_date_label", "Today") ?: "Today"
-        val spentToday = data.getString("today_spent", "₹0") ?: "₹0"
-        val incomeToday = data.getString("today_income_formatted", "+₹0") ?: "+₹0"
+
+        // Format amounts with smart Lakh and k notation
+        val spentToday = getFormattedAmount(data, "today_spent_raw", "today_spent", isCompact)
+        val incomeToday = getFormattedAmount(data, "today_income_raw", "today_income_formatted", isCompact, isIncome = true)
 
         views.setTextViewText(R.id.tv_today_date, dateLabel)
+        views.setTextViewText(R.id.tv_badge_today_text, dateLabel)
         views.setTextViewText(R.id.tv_hero_spent, spentToday)
         views.setTextViewText(R.id.tv_hero_earned, incomeToday)
 
-        // Adaptive tile label visibility: hide text labels when too narrow, show only icons
         val showTileLabels = widthDp >= 220
         views.setViewVisibility(R.id.tv_spent_today_label, if (showTileLabels) View.VISIBLE else View.GONE)
         views.setViewVisibility(R.id.tv_earned_today_label, if (showTileLabels) View.VISIBLE else View.GONE)
@@ -349,9 +405,8 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         views.setViewVisibility(R.id.layout_empty_txns, View.GONE)
         views.setViewVisibility(R.id.layout_txns_container, View.VISIBLE)
 
-        // Header (stats tiles) ~80dp + tab bar ~50dp + add button ~52dp + padding ~12dp = ~194dp
-        val availableListHeightDp = max(0, heightDp - 194)
-        val maxWholeRows = min(8, floor(availableListHeightDp / 56.0).toInt())
+        val availableListHeightDp = max(0, heightDp - 190)
+        val maxWholeRows = min(8, floor(availableListHeightDp / 54.0).toInt())
 
         var visibleCount = 0
         for (i in 0 until 8) {
@@ -368,7 +423,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         }
 
         val overflow = todayTxnsCount - visibleCount
-        if (overflow > 0) {
+        if (overflow > 0 && maxWholeRows > 0) {
             views.setViewVisibility(R.id.tv_more_txns_hint, View.VISIBLE)
             views.setTextViewText(R.id.tv_more_txns_hint, "+$overflow more · tap to open Buddy")
         } else {
@@ -409,41 +464,46 @@ class BuddyWidgetProvider : AppWidgetProvider() {
 
     // ==========================================
     // 4. PAGE 1: MONTH
+    // In 4×2 mode: forces all 3 tiles (Spent, Earned, Balance) into 1 row!
     // ==========================================
     private fun bindMonthPage(
         views: RemoteViews,
         widthDp: Int,
         heightDp: Int,
         data: SharedPreferences,
-        isDark: Boolean
+        isDark: Boolean,
+        force3Col: Boolean
     ) {
         val monthName = data.getString("month_name", "Month") ?: "Month"
-        val monthSpent = data.getString("month_spent", "₹0") ?: "₹0"
-        val monthEarned = data.getString("month_income", "+₹0") ?: "+₹0"
-        val monthBalance = data.getString("month_balance", "₹0") ?: "₹0"
         val isNegative = data.getBoolean("month_is_negative", false)
         val delta = data.getString("month_delta", "+0.0% vs last mo") ?: "+0.0% vs last mo"
+
+        val isCompact = force3Col || widthDp < 300
+
+        val monthSpent = getFormattedAmount(data, "month_spent_raw", "month_spent", isCompact)
+        val monthEarned = getFormattedAmount(data, "month_income_raw", "month_income", isCompact, isIncome = true)
+        val monthBalance = getFormattedAmount(data, "month_balance_raw", "month_balance", isCompact)
 
         val balanceColor = if (isNegative) COLOR_EXPENSE else (if (isDark) 0xFF2DD4BF.toInt() else 0xFF1E5D57.toInt())
         val balanceLabel = if (isNegative) "$monthName · Deficit" else "$monthName · Balance"
 
-        val isWideAndShort = widthDp >= 320 && heightDp < 200
-
-        if (isWideAndShort) {
+        if (force3Col) {
+            // 4×2 or compact: All 3 in one row
             views.setViewVisibility(R.id.layout_month_3_col, View.VISIBLE)
             views.setViewVisibility(R.id.layout_month_hero_plus_dual, View.GONE)
 
-            views.setTextViewText(R.id.tv_month_3col_spent_label, "$monthName · SPENT".uppercase())
+            views.setTextViewText(R.id.tv_month_3col_spent_label, "SPENT".uppercase())
             views.setTextViewText(R.id.tv_month_3col_spent, monthSpent)
 
-            views.setTextViewText(R.id.tv_month_3col_earned_label, "$monthName · EARNED".uppercase())
+            views.setTextViewText(R.id.tv_month_3col_earned_label, "EARNED".uppercase())
             views.setTextViewText(R.id.tv_month_3col_earned, monthEarned)
 
-            views.setTextViewText(R.id.tv_month_3col_balance_label, balanceLabel.uppercase())
+            views.setTextViewText(R.id.tv_month_3col_balance_label, (if (isNegative) "DEFICIT" else "BALANCE").uppercase())
             views.setTextViewText(R.id.tv_month_3col_balance, monthBalance)
             views.setTextColor(R.id.tv_month_3col_balance, balanceColor)
             views.setInt(R.id.iv_month_3col_balance_icon, "setColorFilter", balanceColor)
         } else {
+            // Tall mode (3×3, 4×4): Hero Balance on top, dual side-by-side below
             views.setViewVisibility(R.id.layout_month_3_col, View.GONE)
             views.setViewVisibility(R.id.layout_month_hero_plus_dual, View.VISIBLE)
 
@@ -452,7 +512,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.tv_month_hero_balance, balanceColor)
             views.setInt(R.id.iv_month_balance_icon, "setColorFilter", balanceColor)
 
-            if (heightDp >= 200 || widthDp >= 280) {
+            if (heightDp >= 220 || widthDp >= 280) {
                 views.setViewVisibility(R.id.tv_month_delta_chip, View.VISIBLE)
                 views.setTextViewText(R.id.tv_month_delta_chip, delta)
             } else {
@@ -468,7 +528,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 5. PAGE 2: DONUT
+    // 5. PAGE 2: DONUT (3×3+ Only)
     // ==========================================
     private fun bindDonutPage(
         context: Context,
@@ -506,7 +566,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 6. PAGE 3: HEATMAP
+    // 6. PAGE 3: HEATMAP (3×3+ Only)
     // ==========================================
     private fun bindHeatmapPage(
         context: Context,
@@ -543,42 +603,36 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 7. SMALL 2×2 LAYOUT
-    // Only: Add button + Spent + Earned (no change indicator, clean)
+    // 7. 2×2 LAYOUT: Big Add Transaction Action Card
+    // Tapping ANYWHERE on the 2×2 widget opens the instant transparent add modal!
     // ==========================================
-    private fun buildSmallLayout(context: Context, widgetId: Int, data: SharedPreferences): RemoteViews {
+    private fun buildSmallLayout(context: Context, widgetId: Int): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_buddy_small)
 
-        val spentToday = data.getString("today_spent", "₹0") ?: "₹0"
-        val incomeToday = data.getString("today_income_formatted", "+₹0") ?: "+₹0"
-
-        views.setTextViewText(R.id.tv_hero_spent, spentToday)
-        views.setTextViewText(R.id.tv_hero_earned, incomeToday)
-
-        attachSmallIntents(context, widgetId, views)
-        return views
-    }
-
-    private fun attachSmallIntents(context: Context, widgetId: Int, views: RemoteViews) {
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-
         val addIntent = Intent(context, WidgetAddModalActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val addPi = PendingIntent.getActivity(context, widgetId * 40 + 1, addIntent, piFlags)
-        views.setOnClickPendingIntent(R.id.btn_widget_add, addPi)
 
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        val openPi = PendingIntent.getActivity(context, widgetId * 40 + 2, openIntent, piFlags)
-        views.setOnClickPendingIntent(android.R.id.background, openPi)
+        // Attach add action to root background and all touchable elements
+        views.setOnClickPendingIntent(android.R.id.background, addPi)
+        views.setOnClickPendingIntent(R.id.btn_widget_add_hero, addPi)
+        views.setOnClickPendingIntent(R.id.layout_small_brand, addPi)
+
+        return views
     }
 
     // ==========================================
     // 8. MAIN PENDING INTENTS
     // ==========================================
-    private fun attachMainIntents(context: Context, widgetId: Int, views: RemoteViews, showChartsAllowed: Boolean) {
+    private fun attachMainIntents(
+        context: Context,
+        widgetId: Int,
+        views: RemoteViews,
+        showChartsAllowed: Boolean,
+        is3x2: Boolean
+    ) {
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
         // Add Button -> Instant Transparent Modal
@@ -595,11 +649,17 @@ class BuddyWidgetProvider : AppWidgetProvider() {
         val openPi = PendingIntent.getActivity(context, widgetId * 40 + 2, openIntent, piFlags)
         views.setOnClickPendingIntent(android.R.id.background, openPi)
 
-        // Tab Buttons: Today(0), Month(1), and conditionally Donut(2), Heatmap(3)
+        // If in 3x2: Today badge tap opens app
+        if (is3x2) {
+            views.setOnClickPendingIntent(R.id.badge_today_header, openPi)
+            return
+        }
+
+        // Tab Buttons
         val tabIds = arrayOf(R.id.tab_btn_today, R.id.tab_btn_month, R.id.tab_btn_donut, R.id.tab_btn_heatmap)
-        val maxTab = if (showChartsAllowed) tabIds.size else 2
-        for (i in 0 until maxTab) {
-            val tabIntent = Intent(context, BuddyWidgetProvider::class.java).apply {
+        val maxTabs = if (showChartsAllowed) 4 else 2
+        for (i in 0 until maxTabs) {
+            val tabIntent = Intent(context, this.javaClass).apply {
                 action = ACTION_SWITCH_PAGE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                 putExtra(EXTRA_PAGE_INDEX, i)
@@ -610,7 +670,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
 
         if (showChartsAllowed) {
             // Donut Segmented Toggle
-            val donutToggleIntent = Intent(context, BuddyWidgetProvider::class.java).apply {
+            val donutToggleIntent = Intent(context, this.javaClass).apply {
                 action = ACTION_TOGGLE_DONUT_MODE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             }
@@ -619,7 +679,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
             views.setOnClickPendingIntent(R.id.btn_donut_earning, donutPi)
 
             // Heatmap Segmented Toggle
-            val heatmapToggleIntent = Intent(context, BuddyWidgetProvider::class.java).apply {
+            val heatmapToggleIntent = Intent(context, this.javaClass).apply {
                 action = ACTION_TOGGLE_HEATMAP_MODE
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
             }
@@ -630,11 +690,35 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 9. MIDNIGHT SCHEDULER & NATIVE DATA ROLLOVER
+    // 9. AMOUNT FORMATTING HELPER
+    // ==========================================
+    private fun getFormattedAmount(
+        data: SharedPreferences,
+        rawKey: String,
+        formattedKey: String,
+        isCompact: Boolean,
+        isIncome: Boolean = false
+    ): String {
+        val raw = data.all[rawKey]
+        val num = when (raw) {
+            is Number -> raw.toDouble()
+            is String -> raw.toDoubleOrNull()
+            else -> null
+        }
+        if (num != null) {
+            val formatted = formatCompactCurrency(num, isCompact = isCompact || num >= 1000000.0)
+            return if (isIncome && !formatted.startsWith("+")) "+$formatted" else formatted
+        }
+        val str = data.getString(formattedKey, if (isIncome) "+₹0" else "₹0") ?: (if (isIncome) "+₹0" else "₹0")
+        return str
+    }
+
+    // ==========================================
+    // 10. MIDNIGHT SCHEDULER & NATIVE DATA ROLLOVER
     // ==========================================
     private fun scheduleMidnightAlarm(context: Context) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-        val midnightIntent = Intent(context, BuddyWidgetProvider::class.java).apply {
+        val midnightIntent = Intent(context, this.javaClass).apply {
             action = ACTION_MIDNIGHT_UPDATE
         }
         val pi = PendingIntent.getBroadcast(
@@ -692,9 +776,10 @@ class BuddyWidgetProvider : AppWidgetProvider() {
             }
 
             val editor = data.edit()
-            val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-            editor.putString("today_spent", currencyFormat.format(todaySpent))
-            editor.putString("today_income_formatted", "+${currencyFormat.format(todayEarned)}")
+            editor.putFloat("today_spent_raw", todaySpent.toFloat())
+            editor.putFloat("today_income_raw", todayEarned.toFloat())
+            editor.putString("today_spent", formatCompactCurrency(todaySpent, isCompact = todaySpent >= 1000000.0))
+            editor.putString("today_income_formatted", "+${formatCompactCurrency(todayEarned, isCompact = todayEarned >= 1000000.0)}")
             editor.putInt("today_count", todayCount)
             val dateFmt = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
             editor.putString("today_date_label", dateFmt.format(Date()))
@@ -722,7 +807,7 @@ class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 10. CATEGORY DRAWABLES & COLOR HELPERS
+    // 11. CATEGORY DRAWABLES & COLOR HELPERS
     // ==========================================
     private fun getCategoryDrawable(category: String, isIncome: Boolean): Int {
         if (isIncome) return R.drawable.ic_cat_income

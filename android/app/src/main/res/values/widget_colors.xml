@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Backgrounds & Surfaces (iOS Light theme) -->
-    <color name="widget_bg_start">#FFFFFFFF</color>
-    <color name="widget_bg_end">#FFF6F8F8</color>
-    <color name="widget_border">#14000000</color>
-    <color name="widget_surface">#0A000000</color>
-    <color name="widget_surface_elevated">#12000000</color>
-    <color name="widget_divider">#0D000000</color>
+    <!-- Backgrounds & Surfaces (Softer, eye-friendly light mode - turned down from harsh white) -->
+    <color name="widget_bg_start">#FFF4F6F8</color>
+    <color name="widget_bg_end">#FFEAEFF2</color>
+    <color name="widget_border">#20000000</color>
+    <color name="widget_surface">#12000000</color>
+    <color name="widget_surface_elevated">#1C000000</color>
+    <color name="widget_divider">#14000000</color>
 
     <!-- Typography -->
     <color name="widget_text_primary">#FF1C1C1E</color>
     <color name="widget_text_secondary">#993C3C43</color>
-    <color name="widget_text_muted">#663C3C43</color>
+    <color name="widget_text_muted">#803C3C43</color>
 
     <!-- Brand Accents -->
     <color name="widget_accent">#FF1E5D57</color>
@@ -23,7 +23,7 @@
     <color name="widget_expense_bg">#1AF43F5E</color>
     <color name="widget_amber">#FFF59E0B</color>
 
-    <!-- AI Transaction Styles (matching home_screen.dart) -->
+    <!-- AI Transaction Styles -->
     <color name="widget_ai_card_bg">#FFEEF6F5</color>
     <color name="widget_ai_card_border">#331E5D57</color>
     <color name="widget_ai_badge_start">#FF0F3632</color>
@@ -31,7 +31,7 @@
     <color name="widget_ai_badge_text">#FFFFFFFF</color>
 
     <!-- Tab navigation -->
-    <color name="widget_tab_active_bg">#1A1E5D57</color>
+    <color name="widget_tab_active_bg">#261E5D57</color>
     <color name="widget_tab_active_text">#FF1E5D57</color>
     <color name="widget_tab_inactive_text">#993C3C43</color>
 </resources>

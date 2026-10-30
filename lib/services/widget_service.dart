@@ -146,19 +146,42 @@ class WidgetService {
       final dateLabel = DateFormat('EEE, d MMM').format(now);
       final Map<String, Object> data = {
         'today_date_label': dateLabel,
-        'today_spent': FormatUtils.formatCurrency(todayExpense),
-        'today_income': FormatUtils.formatCurrency(todayIncome),
-        'today_income_formatted': '+${FormatUtils.formatCurrency(todayIncome)}',
+        'today_spent': todayExpense >= 1000000
+            ? FormatUtils.formatCompactCurrency(todayExpense)
+            : FormatUtils.formatCurrency(todayExpense),
+        'today_spent_compact': FormatUtils.formatCompactCurrency(todayExpense),
+        'today_spent_raw': todayExpense,
+        'today_income': todayIncome >= 1000000
+            ? FormatUtils.formatCompactCurrency(todayIncome)
+            : FormatUtils.formatCurrency(todayIncome),
+        'today_income_formatted': todayIncome >= 1000000
+            ? '+${FormatUtils.formatCompactCurrency(todayIncome)}'
+            : '+${FormatUtils.formatCurrency(todayIncome)}',
+        'today_income_compact': '+${FormatUtils.formatCompactCurrency(todayIncome)}',
+        'today_income_raw': todayIncome,
         'today_count': todayTxns.length,
 
         // Month Page 3-Tile Data
         'month_name': monthName,
-        'month_spent': FormatUtils.formatCurrency(monthExpense),
+        'month_spent': monthExpense >= 1000000
+            ? FormatUtils.formatCompactCurrency(monthExpense)
+            : FormatUtils.formatCurrency(monthExpense),
+        'month_spent_compact': FormatUtils.formatCompactCurrency(monthExpense),
+        'month_spent_raw': monthExpense,
         'month_spent_label': '$monthName · Spent',
-        'month_income': '+${FormatUtils.formatCurrency(monthIncome)}',
+        'month_income': monthIncome >= 1000000
+            ? '+${FormatUtils.formatCompactCurrency(monthIncome)}'
+            : '+${FormatUtils.formatCurrency(monthIncome)}',
+        'month_income_compact': '+${FormatUtils.formatCompactCurrency(monthIncome)}',
+        'month_income_raw': monthIncome,
         'month_earned_label': '$monthName · Earned',
         'month_balance': (isNegativeBalance ? '-' : '') +
-            FormatUtils.formatCurrency(monthBalance.abs()),
+            (monthBalance.abs() >= 1000000
+                ? FormatUtils.formatCompactCurrency(monthBalance.abs())
+                : FormatUtils.formatCurrency(monthBalance.abs())),
+        'month_balance_compact': (isNegativeBalance ? '-' : '') +
+            FormatUtils.formatCompactCurrency(monthBalance.abs()),
+        'month_balance_raw': monthBalance,
         'month_balance_label':
             isNegativeBalance ? '$monthName · Deficit' : '$monthName · Balance',
         'month_is_negative': isNegativeBalance,

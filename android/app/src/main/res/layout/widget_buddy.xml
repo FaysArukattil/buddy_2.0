@@ -8,7 +8,7 @@
     android:padding="@dimen/widget_padding">
 
     <!--
-      Header Row: Brand (weight=1, fills space) + Tab Bar (wrap_content, fixed)
+      Header Row: Brand (weight=1, fills space) + [Today Badge in 3x2 OR Tab Bar in 4x2 / 3x3+]
       "Buddy" never wraps because:
         • tv_app_name has maxLines="1"
         • layout_brand_text is wrap_content, NOT weight-based
@@ -22,7 +22,7 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <!-- Brand: takes leftover space (weight=1), tab bar is always to the right -->
+        <!-- Brand: takes leftover space (weight=1) -->
         <LinearLayout
             android:id="@+id/layout_brand_container"
             android:layout_width="0dp"
@@ -31,20 +31,14 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- 38dp Squircle Icon -->
-            <FrameLayout
-                android:id="@+id/container_app_icon"
-                android:layout_width="38dp"
-                android:layout_height="38dp"
-                android:background="@drawable/widget_icon_squircle">
-
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="@null"
-                    android:src="@mipmap/ic_launcher" />
-            </FrameLayout>
+            <!-- 36dp Clean App Icon: covers area properly without shrunken border -->
+            <ImageView
+                android:id="@+id/iv_app_logo"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:contentDescription="@null"
+                android:scaleType="fitCenter"
+                android:src="@mipmap/ic_launcher" />
 
             <!-- Wordmark + Date — hidden on very narrow widths via Kotlin -->
             <LinearLayout
@@ -63,7 +57,7 @@
                     android:maxLines="1"
                     android:text="Buddy"
                     android:textColor="@color/widget_text_primary"
-                    android:textSize="18sp"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView
@@ -78,11 +72,43 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Segmented Capsule Tab Bar (wrap_content, pushed to end by weight above) -->
+        <!-- Today Badge: shown in 3x2 mode where tab switcher is removed -->
+        <LinearLayout
+            android:id="@+id/badge_today_header"
+            android:layout_width="wrap_content"
+            android:layout_height="34dp"
+            android:background="@drawable/widget_tab_active"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/iv_badge_today_icon"
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_tab_today" />
+
+            <TextView
+                android:id="@+id/tv_badge_today_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Today"
+                android:textColor="@color/widget_tab_active_text"
+                android:textSize="11.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Segmented Capsule Tab Bar: shown in 4x2 (Today/Month) and 3x3+ (All 4) -->
         <LinearLayout
             android:id="@+id/layout_tab_bar"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="38dp"
             android:background="@drawable/widget_stat_tile_bg"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -101,8 +127,8 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_today_icon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_tab_today" />
 
@@ -115,7 +141,7 @@
                     android:maxLines="1"
                     android:text="Today"
                     android:textColor="@color/widget_tab_active_text"
-                    android:textSize="11.5sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -132,8 +158,8 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_month_icon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_tab_month" />
 
@@ -146,7 +172,7 @@
                     android:maxLines="1"
                     android:text="Month"
                     android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11.5sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -163,8 +189,8 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_donut_icon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_tab_donut" />
 
@@ -177,7 +203,7 @@
                     android:maxLines="1"
                     android:text="Donut"
                     android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11.5sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -194,8 +220,8 @@
 
                 <ImageView
                     android:id="@+id/iv_tab_heatmap_icon"
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_tab_heatmap" />
 
@@ -208,7 +234,7 @@
                     android:maxLines="1"
                     android:text="Heatmap"
                     android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11.5sp"
+                    android:textSize="11sp"
                     android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
@@ -243,15 +269,15 @@
     <LinearLayout
         android:id="@+id/btn_widget_add"
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="42dp"
         android:layout_marginTop="8dp"
         android:background="@drawable/widget_btn_add"
         android:gravity="center"
         android:orientation="horizontal">
 
         <ImageView
-            android:layout_width="15dp"
-            android:layout_height="15dp"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_add" />
 
@@ -263,7 +289,7 @@
             android:fontFamily="sans-serif-medium"
             android:text="Add Transaction"
             android:textColor="@color/widget_accent_text"
-            android:textSize="13sp"
+            android:textSize="12.5sp"
             android:textStyle="bold" />
     </LinearLayout>
 

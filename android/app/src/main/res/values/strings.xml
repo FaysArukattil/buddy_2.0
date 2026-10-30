@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_description">Balance, income, expenses and recent transactions at a glance.</string>
+    <string name="widget_quick_add_description">Quickly log and add a new transaction with one tap.</string>
+    <string name="widget_stats_description">3×3 Overview with Today, Month, Donut and Heatmap analytics.</string>
+    <string name="widget_full_description">4×4 Complete financial dashboard with all statistics and charts.</string>
 </resources>
-
