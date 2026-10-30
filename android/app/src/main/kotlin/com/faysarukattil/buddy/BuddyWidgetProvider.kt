@@ -182,16 +182,37 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         val options = manager.getAppWidgetOptions(widgetId)
         val isLandscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-        var widthDp = if (isLandscape) {
-            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0)
-        } else {
-            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+        var widthDp = 0
+        var heightDp = 0
+
+        // Android 12+ (API 31+) size query: pick the correct size for current orientation
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+            if (!sizes.isNullOrEmpty()) {
+                val currentSize = if (isLandscape) {
+                    sizes.maxByOrNull { it.width }
+                } else {
+                    sizes.minByOrNull { it.width }
+                }
+                if (currentSize != null) {
+                    widthDp = currentSize.width.toInt()
+                    heightDp = currentSize.height.toInt()
+                }
+            }
         }
 
-        var heightDp = if (isLandscape) {
-            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
-        } else {
-            options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+        if (widthDp <= 0 || heightDp <= 0) {
+            widthDp = if (isLandscape) {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0)
+            } else {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0)
+            }
+
+            heightDp = if (isLandscape) {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0)
+            } else {
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
+            }
         }
 
         if (widthDp <= 0) {
@@ -205,18 +226,6 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
                 options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0),
                 options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0)
             )
-        }
-
-        // Android 12+ (API 31+) size query
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
-            if (!sizes.isNullOrEmpty()) {
-                val currentSize = sizes.firstOrNull()
-                if (currentSize != null) {
-                    widthDp = currentSize.width.toInt()
-                    heightDp = currentSize.height.toInt()
-                }
-            }
         }
 
         if (widthDp <= 0) widthDp = 280
@@ -236,74 +245,72 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             val isDark = isDarkTheme(context)
             val density = context.resources.displayMetrics.density
 
-            Log.d(TAG, "📏 Size: ${widthDp}w x ${heightDp}h dp for widgetId $widgetId")
+            Log.d(TAG, "📏 Size: ${widthDp}w x ${heightDp}h dp for widgetId $widgetId (${this.javaClass.simpleName})")
 
             // ─────────────────────────────────────────────────────────────
             // SIZING MODES:
-            // 1. 2×2: width < 175dp && height < 175dp (or width < 150dp / height < 120dp)
-            // 2. 3×2: width < 240dp && height < 185dp (no tabs, Today badge, compact currency)
-            // 3. 4×2: width >= 240dp && height < 185dp (Today + Month only, 3 tiles in 1 row)
-            // 4. 3×3+: width >= 175dp && height >= 185dp (all 4 tabs: Today, Month, Donut, Heatmap)
+            // 1. 2×2: width < 215dp && height < 215dp (or BuddyQuickAddWidgetProvider with width < 220dp)
+            // 2. 3×2: width in 215..295dp && height < 215dp (no tabs, Today badge, compact currency)
+            // 3. 4×2: width >= 295dp && height < 215dp (Today + Month only, 3 tiles in 1 row)
+            // 4. 3×3 & 4×4: height >= 215dp (full tabs: Today, Month, Donut, Heatmap)
             // ─────────────────────────────────────────────────────────────
 
-            val isSmall2x2 = (widthDp < 175 && heightDp < 175) || widthDp < 150 || heightDp < 120
-            val is3x2 = !isSmall2x2 && widthDp < 240 && heightDp < 185
-            val is4x2 = !isSmall2x2 && widthDp >= 240 && heightDp < 185
-            val is3x3OrAbove = widthDp >= 175 && heightDp >= 185
+            val is2x2 = (widthDp < 215 && heightDp < 215) || (this is BuddyQuickAddWidgetProvider && widthDp < 220) || widthDp < 160 || heightDp < 130
+            val is3x2 = !is2x2 && widthDp < 295 && heightDp < 215
+            val is4x2 = !is2x2 && widthDp >= 295 && heightDp < 215
+            val isTallMode = !is2x2 && heightDp >= 215
 
-            // 1. 2×2 Mode: Quick Add Action Card
-            if (isSmall2x2) {
+            // 1. 2×2 Mode: ONLY Add Transaction Button
+            if (is2x2) {
                 val smallViews = buildSmallLayout(context, widgetId)
                 manager.updateAppWidget(widgetId, smallViews)
                 return
             }
 
-            // Charts allowed only on 3×3 and above
-            val showChartsAllowed = is3x3OrAbove
+            // Charts (Donut & Heatmap) are ONLY allowed in Tall Mode (3×3, 4×3, 4×4)
+            val showChartsAllowed = isTallMode
 
-            // Tab selection logic:
-            // In 3x2: only Today (activePage = 0)
-            // In 4x2: Today (0) or Month (1)
-            // In 3x3+: Today (0), Month (1), Donut (2), Heatmap (3)
+            // Active page clamping:
+            // 3×2: strictly Today (0)
+            // 4×2: Today (0) or Month (1)
+            // Tall: Today (0), Month (1), Donut (2), Heatmap (3)
             var activePage = data.getInt("active_page_$widgetId", 0)
             if (is3x2) {
                 activePage = 0
             } else if (!showChartsAllowed && activePage > 1) {
-                activePage = 1 // Fallback to month if previously on charts
+                activePage = 1 // Fall back to Month if charts no longer fit
             }
             activePage = activePage.coerceIn(0, if (showChartsAllowed) 3 else (if (is3x2) 0 else 1))
 
-            // Full layout
+            // Main widget layout
             val views = RemoteViews(context.packageName, R.layout.widget_buddy)
             views.setDisplayedChild(R.id.flipper_pages, activePage)
 
-            // Header: Icon + Wordmark
-            bindHeaderAndBranding(views, widthDp)
+            // Row 1: Brand Header (Buddy Logo + Name on left, Date Badge on right)
+            bindHeaderAndBranding(views, data)
 
-            // Segmented Switcher vs Today Badge
+            // Row 2: Tab Bar Switcher
             if (is3x2) {
-                // 3x2: Remove tab switcher completely, show Today Badge
+                // In 3×2: remove tab switcher completely (only Today is shown)
                 views.setViewVisibility(R.id.layout_tab_bar, View.GONE)
-                views.setViewVisibility(R.id.badge_today_header, View.VISIBLE)
             } else {
-                // 4x2 or 3x3+: Show tab switcher
-                views.setViewVisibility(R.id.badge_today_header, View.GONE)
+                // In 4×2 and 3×3+: show tab switcher
                 views.setViewVisibility(R.id.layout_tab_bar, View.VISIBLE)
                 updateTabBar(views, activePage, widthDp, isDark, showChartsAllowed)
             }
 
-            // Page 0: Today
-            bindTodayPage(context, views, widthDp, heightDp, data, isCompact = is3x2 || widthDp < 280)
+            // Page 0: Today (In 3×2 / 4×2, hides the transaction list frame to prevent vertical overflow)
+            bindTodayPage(context, views, heightDp, data, isCompact = is3x2 || widthDp < 300)
 
-            // Page 1: Month (In 4x2, always show 3 tiles in 1 horizontal row)
-            bindMonthPage(views, widthDp, heightDp, data, isDark, force3Col = is4x2 || heightDp < 200)
+            // Page 1: Month (In 4×2, forces all 3 tiles: Spent, Earned, Balance into 1 row)
+            bindMonthPage(views, widthDp, heightDp, data, isDark, force3Col = is4x2 || heightDp < 215)
 
-            // Page 2: Donut (3x3+ only)
+            // Page 2: Donut (3×3+ only)
             if (showChartsAllowed) {
                 bindDonutPage(context, views, widthDp, heightDp, data, isDark, density)
             }
 
-            // Page 3: Heatmap (3x3+ only)
+            // Page 3: Heatmap (3×3+ only)
             if (showChartsAllowed) {
                 bindHeatmapPage(context, views, widthDp, heightDp, data, isDark, density)
             }
@@ -318,20 +325,15 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 1. HEADER & BRANDING
+    // 1. ROW 1: BRAND HEADER (App Icon + Name on left, Date on right)
     // ==========================================
-    private fun bindHeaderAndBranding(views: RemoteViews, widthDp: Int) {
-        if (widthDp < 220) {
-            // Very narrow: hide date sub-label to keep brand text on 1 clean line
-            views.setViewVisibility(R.id.tv_today_date, View.GONE)
-        } else {
-            views.setViewVisibility(R.id.layout_brand_text, View.VISIBLE)
-            views.setViewVisibility(R.id.tv_today_date, if (widthDp >= 280) View.VISIBLE else View.GONE)
-        }
+    private fun bindHeaderAndBranding(views: RemoteViews, data: SharedPreferences) {
+        val dateLabel = data.getString("today_date_label", "Today") ?: "Today"
+        views.setTextViewText(R.id.tv_today_date, dateLabel)
     }
 
     // ==========================================
-    // 2. SEGMENTED TAB SWITCHER
+    // 2. ROW 2: SEGMENTED TAB SWITCHER
     // ==========================================
     private fun updateTabBar(
         views: RemoteViews,
@@ -347,24 +349,18 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         val activeTextColor = if (isDark) 0xFF2DD4BF.toInt() else 0xFF1E5D57.toInt()
         val inactiveTextColor = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
 
-        // Show text labels only when width is ample
-        val showLabels = (showChartsAllowed && widthDp >= 320) || (!showChartsAllowed && widthDp >= 250)
-
         for (i in tabIds.indices) {
             val isActive = (i == activePage)
-            // Donut & Heatmap tabs are only visible when showChartsAllowed (3x3+)
+            // In 4×2, Donut & Heatmap are GONE; in 3×3+, all 4 tabs are VISIBLE
             val tabVisible = i <= 1 || showChartsAllowed
             views.setViewVisibility(tabIds[i], if (tabVisible) View.VISIBLE else View.GONE)
 
             views.setInt(tabIds[i], "setBackgroundResource", if (isActive) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setInt(iconIds[i], "setColorFilter", if (isActive) activeTextColor else inactiveTextColor)
 
-            if (showLabels && tabVisible) {
-                views.setViewVisibility(labelIds[i], View.VISIBLE)
-                views.setTextColor(labelIds[i], if (isActive) activeTextColor else inactiveTextColor)
-            } else {
-                views.setViewVisibility(labelIds[i], View.GONE)
-            }
+            // Labels fit comfortably because tab bar spans full width
+            views.setViewVisibility(labelIds[i], if (tabVisible) View.VISIBLE else View.GONE)
+            views.setTextColor(labelIds[i], if (isActive) activeTextColor else inactiveTextColor)
         }
     }
 
@@ -374,25 +370,21 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
     private fun bindTodayPage(
         context: Context,
         views: RemoteViews,
-        widthDp: Int,
         heightDp: Int,
         data: SharedPreferences,
         isCompact: Boolean
     ) {
-        val dateLabel = data.getString("today_date_label", "Today") ?: "Today"
-
-        // Format amounts with smart Lakh and k notation
         val spentToday = getFormattedAmount(data, "today_spent_raw", "today_spent", isCompact)
         val incomeToday = getFormattedAmount(data, "today_income_raw", "today_income_formatted", isCompact, isIncome = true)
 
-        views.setTextViewText(R.id.tv_today_date, dateLabel)
-        views.setTextViewText(R.id.tv_badge_today_text, dateLabel)
         views.setTextViewText(R.id.tv_hero_spent, spentToday)
         views.setTextViewText(R.id.tv_hero_earned, incomeToday)
 
-        val showTileLabels = widthDp >= 220
-        views.setViewVisibility(R.id.tv_spent_today_label, if (showTileLabels) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.tv_earned_today_label, if (showTileLabels) View.VISIBLE else View.GONE)
+        // When in 2-row heights (3×2, 4×2), hide transaction frame so tiles don't get squished
+        val showContentFrame = heightDp >= 215
+        views.setViewVisibility(R.id.layout_today_content_frame, if (showContentFrame) View.VISIBLE else View.GONE)
+
+        if (!showContentFrame) return
 
         val todayTxnsCount = data.getInt("today_count", 0)
 
@@ -405,7 +397,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setViewVisibility(R.id.layout_empty_txns, View.GONE)
         views.setViewVisibility(R.id.layout_txns_container, View.VISIBLE)
 
-        val availableListHeightDp = max(0, heightDp - 190)
+        val availableListHeightDp = max(0, heightDp - 200)
         val maxWholeRows = min(8, floor(availableListHeightDp / 54.0).toInt())
 
         var visibleCount = 0
@@ -488,7 +480,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         val balanceLabel = if (isNegative) "$monthName · Deficit" else "$monthName · Balance"
 
         if (force3Col) {
-            // 4×2 or compact: All 3 in one row
+            // 4×2 mode: All 3 metrics in single horizontal row
             views.setViewVisibility(R.id.layout_month_3_col, View.VISIBLE)
             views.setViewVisibility(R.id.layout_month_hero_plus_dual, View.GONE)
 
@@ -503,7 +495,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             views.setTextColor(R.id.tv_month_3col_balance, balanceColor)
             views.setInt(R.id.iv_month_3col_balance_icon, "setColorFilter", balanceColor)
         } else {
-            // Tall mode (3×3, 4×4): Hero Balance on top, dual side-by-side below
+            // Tall mode (3×3, 4×4): Hero Balance on top, dual tiles below
             views.setViewVisibility(R.id.layout_month_3_col, View.GONE)
             views.setViewVisibility(R.id.layout_month_hero_plus_dual, View.VISIBLE)
 
@@ -603,7 +595,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 7. 2×2 LAYOUT: Big Add Transaction Action Card
+    // 7. 2×2 LAYOUT: ONLY Add Transaction Button
     // Tapping ANYWHERE on the 2×2 widget opens the instant transparent add modal!
     // ==========================================
     private fun buildSmallLayout(context: Context, widgetId: Int): RemoteViews {
@@ -618,7 +610,6 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         // Attach add action to root background and all touchable elements
         views.setOnClickPendingIntent(android.R.id.background, addPi)
         views.setOnClickPendingIntent(R.id.btn_widget_add_hero, addPi)
-        views.setOnClickPendingIntent(R.id.layout_small_brand, addPi)
 
         return views
     }
@@ -649,11 +640,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         val openPi = PendingIntent.getActivity(context, widgetId * 40 + 2, openIntent, piFlags)
         views.setOnClickPendingIntent(android.R.id.background, openPi)
 
-        // If in 3x2: Today badge tap opens app
-        if (is3x2) {
-            views.setOnClickPendingIntent(R.id.badge_today_header, openPi)
-            return
-        }
+        if (is3x2) return
 
         // Tab Buttons
         val tabIds = arrayOf(R.id.tab_btn_today, R.id.tab_btn_month, R.id.tab_btn_donut, R.id.tab_btn_heatmap)

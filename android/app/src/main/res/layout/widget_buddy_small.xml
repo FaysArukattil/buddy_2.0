@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   2×2 Quick Add Widget
-  Designed as an elegant, prominent Quick Add card with Buddy branding.
-  Tapping anywhere opens the instant Add Transaction modal popup.
+  Shows ONLY the Add Transaction button with clean Buddy branding.
+  Tapping anywhere on the 2×2 widget opens the instant transparent add modal.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@android:id/background"
@@ -11,69 +11,32 @@
     android:background="@drawable/widget_bg"
     android:gravity="center"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="8dp">
 
-    <!-- Top: Buddy Icon & Branding -->
+    <!-- Big Full-Widget Add Transaction Hero Button -->
     <LinearLayout
-        android:id="@+id/layout_small_brand"
+        android:id="@+id/btn_widget_add_hero"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_height="match_parent"
+        android:background="@drawable/widget_btn_add"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="10dp">
 
-        <!-- App Icon: clean 34dp icon that fills nicely -->
+        <!-- App Icon: clean 30dp launcher icon -->
         <ImageView
             android:id="@+id/iv_small_app_logo"
-            android:layout_width="34dp"
-            android:layout_height="34dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:contentDescription="@null"
             android:scaleType="fitCenter"
             android:src="@mipmap/ic_launcher" />
 
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="-0.02"
-                android:maxLines="1"
-                android:text="Buddy"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:maxLines="1"
-                android:text="Quick Add"
-                android:textColor="@color/widget_text_muted"
-                android:textSize="10sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Center: Elegant Big Add Transaction Hero Card -->
-    <LinearLayout
-        android:id="@+id/btn_widget_add_hero"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="10dp"
-        android:layout_weight="1"
-        android:background="@drawable/widget_btn_add"
-        android:gravity="center"
-        android:orientation="vertical"
-        android:padding="8dp">
-
-        <!-- + Icon -->
+        <!-- + Add Emblem -->
         <ImageView
             android:layout_width="26dp"
             android:layout_height="26dp"
+            android:layout_marginTop="8dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_add" />
 
@@ -85,18 +48,18 @@
             android:maxLines="1"
             android:text="Add Transaction"
             android:textColor="@color/widget_accent_text"
-            android:textSize="12.5sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
+            android:layout_marginTop="2dp"
             android:fontFamily="sans-serif"
             android:maxLines="1"
             android:text="Tap to record"
             android:textColor="#CCFFFFFF"
-            android:textSize="9.5sp" />
+            android:textSize="10sp" />
     </LinearLayout>
 
 </LinearLayout>

@@ -8,91 +8,97 @@
     android:padding="@dimen/widget_padding">
 
     <!--
-      Header Row: Brand (weight=1, fills space) + [Today Badge in 3x2 OR Tab Bar in 4x2 / 3x3+]
-      "Buddy" never wraps because:
-        • tv_app_name has maxLines="1"
-        • layout_brand_text is wrap_content, NOT weight-based
-        • brand container gets all leftover space so it only ever has MORE room
+      Row 1: Brand Header Row (App Icon + "Buddy" on left, Date Badge on right)
+      "Buddy" is on its OWN line with full width, so it NEVER gets cut or squeezed!
     -->
     <LinearLayout
-        android:id="@+id/layout_widget_header"
+        android:id="@+id/layout_brand_header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_marginBottom="8dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <!-- Brand: takes leftover space (weight=1) -->
-        <LinearLayout
-            android:id="@+id/layout_brand_container"
+        <!-- App Icon -->
+        <ImageView
+            android:id="@+id/iv_app_logo"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter"
+            android:src="@mipmap/ic_launcher" />
+
+        <!-- Buddy Wordmark (takes all remaining space, never wraps) -->
+        <TextView
+            android:id="@+id/tv_app_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="-0.02"
+            android:maxLines="1"
+            android:text="Buddy"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
-            <!-- 36dp Clean App Icon: covers area properly without shrunken border -->
-            <ImageView
-                android:id="@+id/iv_app_logo"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:contentDescription="@null"
-                android:scaleType="fitCenter"
-                android:src="@mipmap/ic_launcher" />
-
-            <!-- Wordmark + Date — hidden on very narrow widths via Kotlin -->
-            <LinearLayout
-                android:id="@+id/layout_brand_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/tv_app_name"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:letterSpacing="-0.02"
-                    android:maxLines="1"
-                    android:text="Buddy"
-                    android:textColor="@color/widget_text_primary"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tv_today_date"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:text="Today"
-                    android:textColor="@color/widget_text_muted"
-                    android:textSize="11sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Today Badge: shown in 3x2 mode where tab switcher is removed -->
-        <LinearLayout
-            android:id="@+id/badge_today_header"
+        <!-- Date / Today Badge on right -->
+        <TextView
+            android:id="@+id/tv_today_date"
             android:layout_width="wrap_content"
-            android:layout_height="34dp"
+            android:layout_height="wrap_content"
+            android:background="@drawable/widget_tab_active"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="1"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:text="Today"
+            android:textColor="@color/widget_tab_active_text"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!--
+      Row 2: Tab Selector Row (min 36dp)
+      Full width segmented bar: [ Today | Month | Donut | Heatmap ]
+      In 3x2: GONE (since only Today is used)
+      In 4x2: VISIBLE, but only Today and Month are shown (Donut & Heatmap GONE)
+      In 3x3 / 4x4: VISIBLE, all 4 tabs shown!
+    -->
+    <LinearLayout
+        android:id="@+id/layout_tab_bar"
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:layout_marginBottom="8dp"
+        android:background="@drawable/widget_stat_tile_bg"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="3dp">
+
+        <!-- Tab 0: Today -->
+        <LinearLayout
+            android:id="@+id/tab_btn_today"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
             android:background="@drawable/widget_tab_active"
             android:gravity="center"
             android:orientation="horizontal"
-            android:paddingStart="10dp"
-            android:paddingEnd="10dp"
-            android:visibility="gone">
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
             <ImageView
-                android:id="@+id/iv_badge_today_icon"
-                android:layout_width="14dp"
-                android:layout_height="14dp"
+                android:id="@+id/iv_tab_today_icon"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_tab_today" />
 
             <TextView
-                android:id="@+id/tv_badge_today_text"
+                android:id="@+id/tv_tab_today_label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="4dp"
@@ -100,147 +106,108 @@
                 android:maxLines="1"
                 android:text="Today"
                 android:textColor="@color/widget_tab_active_text"
-                android:textSize="11.5sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <!-- Segmented Capsule Tab Bar: shown in 4x2 (Today/Month) and 3x3+ (All 4) -->
+        <!-- Tab 1: Month -->
         <LinearLayout
-            android:id="@+id/layout_tab_bar"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
-            android:background="@drawable/widget_stat_tile_bg"
-            android:gravity="center_vertical"
+            android:id="@+id/tab_btn_month"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tab_inactive"
+            android:gravity="center"
             android:orientation="horizontal"
-            android:padding="3dp">
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
-            <!-- Tab 0: Today -->
-            <LinearLayout
-                android:id="@+id/tab_btn_today"
+            <ImageView
+                android:id="@+id/iv_tab_month_icon"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_tab_month" />
+
+            <TextView
+                android:id="@+id/tv_tab_month_label"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="@drawable/widget_tab_active"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Month"
+                android:textColor="@color/widget_tab_inactive_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-                <ImageView
-                    android:id="@+id/iv_tab_today_icon"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_tab_today" />
+        <!-- Tab 2: Donut -->
+        <LinearLayout
+            android:id="@+id/tab_btn_donut"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tab_inactive"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
-                <TextView
-                    android:id="@+id/tv_tab_today_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="Today"
-                    android:textColor="@color/widget_tab_active_text"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+            <ImageView
+                android:id="@+id/iv_tab_donut_icon"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_tab_donut" />
 
-            <!-- Tab 1: Month -->
-            <LinearLayout
-                android:id="@+id/tab_btn_month"
+            <TextView
+                android:id="@+id/tv_tab_donut_label"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="@drawable/widget_tab_inactive"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Donut"
+                android:textColor="@color/widget_tab_inactive_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
-                <ImageView
-                    android:id="@+id/iv_tab_month_icon"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_tab_month" />
+        <!-- Tab 3: Heatmap -->
+        <LinearLayout
+            android:id="@+id/tab_btn_heatmap"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tab_inactive"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
 
-                <TextView
-                    android:id="@+id/tv_tab_month_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="Month"
-                    android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+            <ImageView
+                android:id="@+id/iv_tab_heatmap_icon"
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_tab_heatmap" />
 
-            <!-- Tab 2: Donut -->
-            <LinearLayout
-                android:id="@+id/tab_btn_donut"
+            <TextView
+                android:id="@+id/tv_tab_heatmap_label"
                 android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="@drawable/widget_tab_inactive"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
-
-                <ImageView
-                    android:id="@+id/iv_tab_donut_icon"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_tab_donut" />
-
-                <TextView
-                    android:id="@+id/tv_tab_donut_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="Donut"
-                    android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <!-- Tab 3: Heatmap -->
-            <LinearLayout
-                android:id="@+id/tab_btn_heatmap"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:background="@drawable/widget_tab_inactive"
-                android:gravity="center"
-                android:orientation="horizontal"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
-
-                <ImageView
-                    android:id="@+id/iv_tab_heatmap_icon"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_tab_heatmap" />
-
-                <TextView
-                    android:id="@+id/tv_tab_heatmap_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:text="Heatmap"
-                    android:textColor="@color/widget_tab_inactive_text"
-                    android:textSize="11sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Heatmap"
+                android:textColor="@color/widget_tab_inactive_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Multi-Page ViewFlipper: Today(0), Month(1), Donut(2), Heatmap(3) -->
+    <!-- Row 3: Multi-Page ViewFlipper: Today(0), Month(1), Donut(2), Heatmap(3) -->
     <ViewFlipper
         android:id="@+id/flipper_pages"
         android:layout_width="match_parent"
@@ -265,12 +232,12 @@
             android:layout_height="match_parent" />
     </ViewFlipper>
 
-    <!-- Pinned Add Button -->
+    <!-- Row 4: Pinned Add Button -->
     <LinearLayout
         android:id="@+id/btn_widget_add"
         android:layout_width="match_parent"
-        android:layout_height="42dp"
-        android:layout_marginTop="8dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="6dp"
         android:background="@drawable/widget_btn_add"
         android:gravity="center"
         android:orientation="horizontal">
