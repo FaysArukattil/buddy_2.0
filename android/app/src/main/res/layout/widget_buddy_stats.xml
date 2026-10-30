@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
+
+    <!-- Header: Title + Big Segmented Toggle between Donut and Heatmap (40dp) -->
+    <LinearLayout
+        android:id="@+id/layout_stats_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <!-- 38dp Rounded Squircle Icon -->
+        <FrameLayout
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/widget_icon_squircle">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@mipmap/ic_launcher" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:fontFamily="sans-serif-medium"
+            android:letterSpacing="-0.02"
+            android:text="Buddy Stats"
+            android:textColor="@color/widget_text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <!-- Toggle Capsule [ Donut | Heatmap ] (min 40dp height) -->
+        <LinearLayout
+            android:id="@+id/layout_stats_tab_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_stat_tile_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <TextView
+                android:id="@+id/tab_stats_donut"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_tab_active"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Donut"
+                android:textColor="@color/widget_tab_active_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tab_stats_heatmap"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_tab_inactive"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:paddingStart="12dp"
+                android:paddingEnd="12dp"
+                android:text="Heatmap"
+                android:textColor="@color/widget_tab_inactive_text"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Flipper between Donut and Heatmap -->
+    <ViewFlipper
+        android:id="@+id/flipper_stats_pages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <include
+            layout="@layout/widget_buddy_page_donut"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <include
+            layout="@layout/widget_buddy_page_heatmap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </ViewFlipper>
+
+</LinearLayout>

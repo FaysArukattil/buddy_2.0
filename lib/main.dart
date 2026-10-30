@@ -27,6 +27,42 @@ void main() {
   });
 }
 
+/// Dedicated lightweight entrypoint for the pre-warmed widget engine.
+/// Renders the Add Transaction modal bottom sheet with zero cold-start delay.
+@pragma('vm:entry-point')
+void widgetAddMain() {
+  WidgetsFlutterBinding.ensureInitialized();
+  debugPrint('⚡ WIDGET_ENTRY: Dedicated widget quick-add engine starting...');
+
+  // Initialize core services needed for adding transactions
+  final initFuture = _initCoreServices();
+
+  runApp(WidgetAddApp(initFuture: initFuture));
+}
+
+class WidgetAddApp extends StatelessWidget {
+  final Future<void>? initFuture;
+  const WidgetAddApp({super.key, this.initFuture});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentMode, child) {
+        return MaterialApp(
+          title: 'Buddy Quick Add',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: currentMode,
+          themeAnimationDuration: Duration.zero,
+          home: WidgetAddModalHost(initFuture: initFuture),
+        );
+      },
+    );
+  }
+}
+
 Future<void> _initCoreServices() async {
   try {
     await Future.wait([

@@ -4,370 +4,255 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:orientation="horizontal"
-    android:padding="14dp">
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
 
-    <!-- Left Column: Hero & Today Metrics -->
+    <!-- 1. Header: Big Buddy Icon & Wordmark + Big Segmented Tab Switcher (min 40dp) -->
     <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_weight="1.15"
+        android:id="@+id/layout_widget_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
         android:gravity="center_vertical"
-        android:orientation="vertical">
+        android:orientation="horizontal">
 
-        <!-- App Brand + Date -->
+        <!-- App Brand Container (Icon + Wordmark) -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:id="@+id/layout_brand_container"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:contentDescription="@null"
-                android:src="@mipmap/ic_launcher" />
-
-            <TextView
-                android:id="@+id/tv_app_name"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:fontFamily="sans-serif-medium"
-                android:text="Buddy"
-                android:textColor="@color/widget_text_primary"
-                android:textSize="11.5sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/tv_today_date"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="4dp"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="· Today"
-                android:textColor="@color/widget_text_muted"
-                android:textSize="10.5sp" />
-        </LinearLayout>
-
-        <!-- Spent Today Hero Number -->
-        <TextView
-            android:id="@+id/tv_spent_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:letterSpacing="0.04"
-            android:text="SPENT TODAY"
-            android:textColor="@color/widget_text_muted"
-            android:textSize="9.5sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_hero_spent"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:autoSizeMaxTextSize="28sp"
-            android:autoSizeMinTextSize="18sp"
-            android:autoSizeTextType="uniform"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:text="₹0"
-            android:textColor="@color/widget_text_primary"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <!-- Income & Count Chips -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="5dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:id="@+id/chip_today_income"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/widget_chip_income"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="6dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="7dp"
-                android:paddingBottom="2dp">
+            <!-- 40dp Rounded Squircle Icon -->
+            <FrameLayout
+                android:id="@+id/container_app_icon"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/widget_icon_squircle">
 
                 <ImageView
-                    android:layout_width="10dp"
-                    android:layout_height="10dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
                     android:contentDescription="@null"
-                    android:src="@drawable/ic_widget_arrow_up" />
+                    android:src="@mipmap/ic_launcher" />
+            </FrameLayout>
 
-                <TextView
-                    android:id="@+id/tv_today_income"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="2dp"
-                    android:maxLines="1"
-                    android:text="₹0"
-                    android:textColor="@color/widget_income"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/tv_today_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:background="@drawable/widget_chip"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:paddingStart="6dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="7dp"
-                android:paddingBottom="2dp"
-                android:text="0 txns"
-                android:textColor="@color/widget_text_secondary"
-                android:textSize="10sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Right Column: Add Button + Latest Transactions -->
-    <LinearLayout
-        android:layout_width="0dp"
-        android:layout_height="match_parent"
-        android:layout_marginStart="10dp"
-        android:layout_weight="1.35"
-        android:orientation="vertical">
-
-        <!-- Prominent Add Button -->
-        <LinearLayout
-            android:id="@+id/btn_widget_add"
-            android:layout_width="match_parent"
-            android:layout_height="34dp"
-            android:background="@drawable/widget_btn_add"
-            android:gravity="center"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="13dp"
-                android:layout_height="13dp"
-                android:layout_marginEnd="5dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_widget_add" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:text="Add Transaction"
-                android:textColor="@color/widget_accent_text"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <!-- Recent Transactions Card -->
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="6dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_surface"
-            android:paddingStart="7dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="7dp"
-            android:paddingBottom="3dp">
-
-            <!-- Empty State -->
             <LinearLayout
-                android:id="@+id/layout_empty_txns"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:visibility="gone">
+                android:id="@+id/layout_brand_text"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/tv_app_name"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="No spending today"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="-0.02"
+                    android:text="Buddy"
+                    android:textColor="@color/widget_text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_today_date"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="Today"
                     android:textColor="@color/widget_text_muted"
                     android:textSize="11sp" />
             </LinearLayout>
+        </LinearLayout>
 
-            <!-- 2 Compact Rows -->
+        <!-- Big Segmented Capsule Tab Bar (min 40dp height) -->
+        <LinearLayout
+            android:id="@+id/layout_tab_bar"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_stat_tile_bg"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <!-- Tab 0: Today -->
             <LinearLayout
-                android:id="@+id/layout_txns_container"
-                android:layout_width="match_parent"
+                android:id="@+id/tab_btn_today"
+                android:layout_width="wrap_content"
                 android:layout_height="match_parent"
-                android:gravity="center_vertical"
-                android:orientation="vertical">
+                android:background="@drawable/widget_tab_active"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
 
-                <!-- Row 0 -->
-                <LinearLayout
-                    android:id="@+id/row_txn_0"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                <ImageView
+                    android:id="@+id/iv_tab_today_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_tab_today" />
 
-                    <FrameLayout
-                        android:layout_width="22dp"
-                        android:layout_height="22dp">
-
-                        <ImageView
-                            android:id="@+id/iv_txn_0_icon_bg"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/widget_cat_bg" />
-
-                        <ImageView
-                            android:id="@+id/iv_txn_0_icon"
-                            android:layout_width="13dp"
-                            android:layout_height="13dp"
-                            android:layout_gravity="center"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_cat_food" />
-
-                        <ImageView
-                            android:id="@+id/iv_txn_0_auto_badge"
-                            android:layout_width="8dp"
-                            android:layout_height="8dp"
-                            android:layout_gravity="bottom|end"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_widget_bolt"
-                            android:visibility="gone" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tv_txn_0_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="Expense"
-                            android:textColor="@color/widget_text_primary"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tv_txn_0_subtitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="Category • 12:00 PM"
-                            android:textColor="@color/widget_text_muted"
-                            android:textSize="8.5sp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tv_txn_0_amount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:maxLines="1"
-                        android:text="-₹0"
-                        android:textColor="@color/widget_expense"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-                <FrameLayout
-                    android:id="@+id/divider_txn_0"
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="@color/widget_divider" />
-
-                <!-- Row 1 -->
-                <LinearLayout
-                    android:id="@+id/row_txn_1"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <FrameLayout
-                        android:layout_width="22dp"
-                        android:layout_height="22dp">
-
-                        <ImageView
-                            android:id="@+id/iv_txn_1_icon_bg"
-                            android:layout_width="22dp"
-                            android:layout_height="22dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/widget_cat_bg" />
-
-                        <ImageView
-                            android:id="@+id/iv_txn_1_icon"
-                            android:layout_width="13dp"
-                            android:layout_height="13dp"
-                            android:layout_gravity="center"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_cat_transport" />
-
-                        <ImageView
-                            android:id="@+id/iv_txn_1_auto_badge"
-                            android:layout_width="8dp"
-                            android:layout_height="8dp"
-                            android:layout_gravity="bottom|end"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_widget_bolt"
-                            android:visibility="gone" />
-                    </FrameLayout>
-
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:id="@+id/tv_txn_1_title"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="Expense"
-                            android:textColor="@color/widget_text_primary"
-                            android:textSize="11sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/tv_txn_1_subtitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:ellipsize="end"
-                            android:maxLines="1"
-                            android:text="Category • 12:00 PM"
-                            android:textColor="@color/widget_text_muted"
-                            android:textSize="8.5sp" />
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tv_txn_1_amount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
-                        android:maxLines="1"
-                        android:text="-₹0"
-                        android:textColor="@color/widget_expense"
-                        android:textSize="11sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
+                <TextView
+                    android:id="@+id/tv_tab_today_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Today"
+                    android:textColor="@color/widget_tab_active_text"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
             </LinearLayout>
-        </FrameLayout>
+
+            <!-- Tab 1: Month -->
+            <LinearLayout
+                android:id="@+id/tab_btn_month"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_tab_inactive"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_month_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_tab_month" />
+
+                <TextView
+                    android:id="@+id/tv_tab_month_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Month"
+                    android:textColor="@color/widget_tab_inactive_text"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Tab 2: Donut -->
+            <LinearLayout
+                android:id="@+id/tab_btn_donut"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_tab_inactive"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_donut_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_tab_donut" />
+
+                <TextView
+                    android:id="@+id/tv_tab_donut_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Donut"
+                    android:textColor="@color/widget_tab_inactive_text"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Tab 3: Heatmap -->
+            <LinearLayout
+                android:id="@+id/tab_btn_heatmap"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:background="@drawable/widget_tab_inactive"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <ImageView
+                    android:id="@+id/iv_tab_heatmap_icon"
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_tab_heatmap" />
+
+                <TextView
+                    android:id="@+id/tv_tab_heatmap_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="Heatmap"
+                    android:textColor="@color/widget_tab_inactive_text"
+                    android:textSize="11.5sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
+
+    <!-- 2. Multi-Page ViewFlipper: Today (0), Month (1), Donut (2), Heatmap (3) -->
+    <ViewFlipper
+        android:id="@+id/flipper_pages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <include
+            layout="@layout/widget_buddy_page_today"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <include
+            layout="@layout/widget_buddy_page_month"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <include
+            layout="@layout/widget_buddy_page_donut"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+        <include
+            layout="@layout/widget_buddy_page_heatmap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </ViewFlipper>
+
+    <!-- 3. Full-Width Pinned Add Button (min 44dp height) -->
+    <LinearLayout
+        android:id="@+id/btn_widget_add"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_btn_add"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_add" />
+
+        <TextView
+            android:id="@+id/tv_btn_add_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="Add Transaction"
+            android:textColor="@color/widget_accent_text"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
 </LinearLayout>

@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/page_heatmap"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <!-- Top Sub-Header: Segmented Control [ Expense | Income ] (min 40dp tall) -->
+    <LinearLayout
+        android:id="@+id/layout_heatmap_toggle_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="6dp"
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="@drawable/widget_stat_tile_bg"
+            android:orientation="horizontal"
+            android:padding="3dp">
+
+            <!-- Expense Button -->
+            <TextView
+                android:id="@+id/btn_heatmap_expense"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/widget_tab_active"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:text="Expense"
+                android:textColor="@color/widget_tab_active_text"
+                android:textSize="12.5sp"
+                android:textStyle="bold" />
+
+            <!-- Income Button -->
+            <TextView
+                android:id="@+id/btn_heatmap_income"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/widget_tab_inactive"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:text="Income"
+                android:textColor="@color/widget_tab_inactive_text"
+                android:textSize="12.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Native Canvas Heatmap Slot: Fills remaining height/width with transparent background -->
+    <FrameLayout
+        android:id="@+id/container_heatmap_chart"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ImageView
+            android:id="@+id/iv_stats_heatmap"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:contentDescription="Calendar Heatmap"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
+
+</LinearLayout>

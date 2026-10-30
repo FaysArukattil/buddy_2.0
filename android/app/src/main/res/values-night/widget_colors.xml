@@ -22,5 +22,17 @@
     <color name="widget_expense">#FFFB7185</color>
     <color name="widget_expense_bg">#26FB7185</color>
     <color name="widget_amber">#FFFBBF24</color>
+
+    <!-- AI Transaction Styles (matching home_screen.dart) -->
+    <color name="widget_ai_card_bg">#FF102825</color>
+    <color name="widget_ai_card_border">#332DD4BF</color>
+    <color name="widget_ai_badge_start">#FF163E3B</color>
+    <color name="widget_ai_badge_end">#FF2C7A72</color>
+    <color name="widget_ai_badge_text">#FF2DD4BF</color>
+
+    <!-- Tab navigation -->
+    <color name="widget_tab_active_bg">#292DD4BF</color>
+    <color name="widget_tab_active_text">#FF2DD4BF</color>
+    <color name="widget_tab_inactive_text">#99EBEBF5</color>
 </resources>
 

@@ -1,106 +1,175 @@
 // lib/services/widget_service.dart
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:buddy/models/transaction.dart';
+import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
 
 class WidgetService {
   static const String appWidgetProviderName = 'BuddyWidgetProvider';
+  static const String statsWidgetProviderName = 'BuddyStatsWidgetProvider';
 
-  /// Updates the home screen widget with today's transactions and metrics only
-  static Future<void> updateFromTransactions(
-      List<TransactionModel> transactions) async {
+  /// Updates the home screen widgets with today's transactions and month metrics
+  static Future<void> updateFromTransactions(List<TransactionModel> transactions) async {
     try {
       final now = DateTime.now();
+      final monthName = DateFormat('MMMM').format(now);
 
-      double todayExpense = 0;
-      double todayIncome = 0;
-      int todayCount = 0;
-      int todayAutoCount = 0;
-      int todayManualCount = 0;
-      double todayAutoExpense = 0;
-      double todayManualExpense = 0;
+      // 1. Deduplicate transactions once
+      final deduped = TransactionModel.deduplicate(transactions);
 
-      final visible = TransactionModel.deduplicate(transactions)
+      // 2. Today page base: strictly exclude Lending & Borrowing
+      final todayBase = deduped
           .where((t) => t.category != 'Lending' && t.category != 'Borrowing')
           .toList(growable: false);
 
+      double todayExpense = 0;
+      double todayIncome = 0;
       final List<TransactionModel> todayTxns = [];
 
-      for (final txn in visible) {
+      for (final txn in todayBase) {
         final isToday = txn.date.year == now.year &&
             txn.date.month == now.month &&
             txn.date.day == now.day;
         if (!isToday) continue;
 
         final isIncome = txn.type.toLowerCase().trim() == 'income';
-        todayCount++;
-
         if (isIncome) {
           todayIncome += txn.amount;
         } else {
           todayExpense += txn.amount;
-          if (txn.autoDetected) {
-            todayAutoExpense += txn.amount;
-            todayAutoCount++;
-          } else {
-            todayManualExpense += txn.amount;
-            todayManualCount++;
-          }
         }
-
         todayTxns.add(txn);
       }
-
-      // Sort newest first
       todayTxns.sort((a, b) => b.date.compareTo(a.date));
 
-      final dateLabel = DateFormat('EEE, d MMM').format(now);
+      // 3. Month totals: match HomeScreen._recalculateTotals exactly
+      final bool includeDebts = PreferenceService.includeDebtsInHome;
+      final monthBase = includeDebts
+          ? deduped
+          : deduped
+              .where((t) => t.category != 'Lending' && t.category != 'Borrowing')
+              .toList(growable: false);
 
+      double monthExpense = 0;
+      double monthIncome = 0;
+      double lastMonthExpense = 0;
+      final lastMonthDate = DateTime(now.year, now.month - 1, 1);
+
+      for (final txn in monthBase) {
+        final isIncome = txn.type.toLowerCase().trim() == 'income';
+        final isThisMonth = txn.date.year == now.year && txn.date.month == now.month;
+        final isLastMonth = txn.date.year == lastMonthDate.year && txn.date.month == lastMonthDate.month;
+
+        if (isThisMonth) {
+          if (isIncome) {
+            monthIncome += txn.amount;
+          } else {
+            monthExpense += txn.amount;
+          }
+        } else if (isLastMonth && !isIncome) {
+          lastMonthExpense += txn.amount;
+        }
+      }
+
+      final monthBalance = monthIncome - monthExpense;
+      final isNegativeBalance = monthBalance < 0;
+
+      // Delta % vs last month
+      final deltaPct = lastMonthExpense > 0
+          ? ((monthExpense - lastMonthExpense) / lastMonthExpense * 100)
+          : 0.0;
+      final deltaSign = deltaPct >= 0 ? '+' : '';
+      final deltaStr = lastMonthExpense > 0
+          ? '$deltaSign${deltaPct.toStringAsFixed(1)}% vs last mo'
+          : 'First month';
+
+      // 4. Compact JSON archive (last 65 days) for Kotlin native canvas rendering
+      // Contains both normal & debt transactions, flagged with is_debt
+      final cutoff65Days = now.subtract(const Duration(days: 65));
+      final List<Map<String, dynamic>> compactTxns = [];
+      final Map<String, String> categoryColors = {};
+
+      for (final txn in deduped) {
+        if (txn.date.isAfter(cutoff65Days)) {
+          final isIncome = txn.type.toLowerCase().trim() == 'income';
+          final isDebt = txn.category == 'Lending' || txn.category == 'Borrowing';
+          final note = txn.cleanNote?.trim() ?? '';
+          final title = note.isNotEmpty ? note : txn.category;
+          final timeStr = _formatTime(txn.date);
+          final subtitle = '${txn.category} • ${txn.autoDetected ? 'Auto' : 'Manual'} • $timeStr';
+          final amountStr = '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount)}';
+
+          final color = isIncome ? AppColors.income : AppColors.getCategoryColor(txn.category);
+          final colorHex = '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
+          categoryColors[txn.category] = colorHex;
+
+          compactTxns.add({
+            'year': txn.date.year,
+            'month': txn.date.month,
+            'day': txn.date.day,
+            'amount': txn.amount,
+            'is_income': isIncome,
+            'is_auto': txn.autoDetected,
+            'is_debt': isDebt,
+            'title': title,
+            'subtitle': subtitle,
+            'amount_str': amountStr,
+            'category': txn.category,
+            'color': colorHex,
+          });
+        }
+      }
+
+      // 5. Assemble SharedPreferences Map
+      final dateLabel = DateFormat('EEE, d MMM').format(now);
       final Map<String, Object> data = {
         'today_date_label': dateLabel,
         'today_spent': FormatUtils.formatCurrency(todayExpense),
         'today_income': FormatUtils.formatCurrency(todayIncome),
         'today_income_formatted': '+${FormatUtils.formatCurrency(todayIncome)}',
-        'today_count': todayCount,
-        'today_count_label': '$todayCount transaction${todayCount == 1 ? '' : 's'}',
-        'today_auto_count': todayAutoCount,
-        'today_manual_count': todayManualCount,
-        'today_auto_pill':
-            '⚡ $todayAutoCount auto · ${FormatUtils.formatCurrency(todayAutoExpense)}',
-        'today_manual_pill':
-            '✍️ $todayManualCount manual · ${FormatUtils.formatCurrency(todayManualExpense)}',
-        'today_split_summary':
-            '⚡ $todayAutoCount auto · ✍️ $todayManualCount manual',
-        'has_txns': todayTxns.isNotEmpty,
+        'today_count': todayTxns.length,
+
+        // Month Page 3-Tile Data
+        'month_name': monthName,
+        'month_spent': FormatUtils.formatCurrency(monthExpense),
+        'month_spent_label': '$monthName · Spent',
+        'month_income': '+${FormatUtils.formatCurrency(monthIncome)}',
+        'month_earned_label': '$monthName · Earned',
+        'month_balance': (isNegativeBalance ? '-' : '') + FormatUtils.formatCurrency(monthBalance.abs()),
+        'month_balance_label': isNegativeBalance ? '$monthName · Deficit' : '$monthName · Balance',
+        'month_is_negative': isNegativeBalance,
+        'month_delta': deltaStr,
+        'month_ratio': (monthIncome > 0) ? (monthExpense / monthIncome).clamp(0.0, 2.0) : 1.0,
+
+        // Preferences & Raw Data for Kotlin Native Canvas Rendering
+        'include_debts_in_home': includeDebts,
+        'recent_txns_json': jsonEncode(compactTxns),
+        'category_colors_json': jsonEncode(categoryColors),
       };
 
-      // Populate up to 4 today's transactions
-      for (int i = 0; i < 4; i++) {
+      // Populate up to 8 today's transactions for the responsive list
+      for (int i = 0; i < 8; i++) {
         if (i < todayTxns.length) {
           final t = todayTxns[i];
           final isInc = t.type.toLowerCase().trim() == 'income';
           final note = t.cleanNote?.trim() ?? '';
           final title = note.isNotEmpty ? note : t.category;
           final timeStr = _formatTime(t.date);
-          final autoBadge = t.autoDetected ? 'Auto' : 'Manual';
-          final subtitle = '${t.category} • $autoBadge • $timeStr';
-          final amountStr =
-              '${isInc ? '+' : '-'}${FormatUtils.formatCurrency(t.amount)}';
+          final subtitle = '${t.category} • $timeStr';
+          final amountStr = '${isInc ? '+' : '-'}${FormatUtils.formatCurrency(t.amount)}';
 
-          final color = isInc
-              ? AppColors.income
-              : AppColors.getCategoryColor(t.category);
-          final colorHex =
-              '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
+          final color = isInc ? AppColors.income : AppColors.getCategoryColor(t.category);
+          final colorHex = '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
 
           data['txn_${i}_exists'] = true;
           data['txn_${i}_title'] = title;
-          data['txn_${i}_category'] = t.category;
           data['txn_${i}_subtitle'] = subtitle;
           data['txn_${i}_amount'] = amountStr;
+          data['txn_${i}_category'] = t.category;
           data['txn_${i}_color'] = colorHex;
           data['txn_${i}_is_income'] = isInc;
           data['txn_${i}_is_auto'] = t.autoDetected;
@@ -109,18 +178,26 @@ class WidgetService {
         }
       }
 
+      // Save key-values to SharedPreferences
       await Future.wait(
         data.entries.map((e) => HomeWidget.saveWidgetData<Object>(e.key, e.value)),
       );
 
-      await HomeWidget.updateWidget(
-        name: appWidgetProviderName,
-        androidName: appWidgetProviderName,
-      );
+      // 6. Push Widget Updates (Kotlin renders Canvas charts instantly on update)
+      await Future.wait([
+        HomeWidget.updateWidget(
+          name: appWidgetProviderName,
+          androidName: appWidgetProviderName,
+        ),
+        HomeWidget.updateWidget(
+          name: statsWidgetProviderName,
+          androidName: statsWidgetProviderName,
+        ),
+      ]);
 
-      debugPrint('📱 WIDGET: Updated TODAY data (${todayTxns.length} txns today)');
-    } catch (e) {
-      debugPrint('⚠️ WIDGET: Error updating widget: $e');
+      debugPrint('📱 WIDGET: Pushed Today & Month data (${todayTxns.length} txns today, $monthName)');
+    } catch (e, stack) {
+      debugPrint('⚠️ WIDGET: Error updating widget: $e\n$stack');
     }
   }
 

@@ -5,42 +5,49 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="11dp">
 
     <!-- Header Row -->
     <LinearLayout
+        android:id="@+id/layout_small_header"
         android:layout_width="match_parent"
-        android:layout_height="24dp"
+        android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
+        <FrameLayout
+            android:layout_width="26dp"
+            android:layout_height="26dp"
+            android:background="@drawable/widget_icon_squircle">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@mipmap/ic_launcher" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/tv_app_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
+            android:layout_marginStart="5dp"
             android:fontFamily="sans-serif-medium"
+            android:letterSpacing="-0.02"
             android:text="Buddy"
             android:textColor="@color/widget_text_primary"
-            android:textSize="12sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
-
-        <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="1dp"
-            android:layout_weight="1" />
 
         <TextView
             android:id="@+id/tv_today_date"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="3dp"
+            android:layout_weight="1"
             android:ellipsize="end"
+            android:gravity="end"
             android:maxLines="1"
             android:text="Today"
             android:textColor="@color/widget_text_muted"
@@ -49,73 +56,142 @@
 
     <!-- Center Hero Section -->
     <LinearLayout
+        android:id="@+id/layout_small_stats"
         android:layout_width="match_parent"
         android:layout_height="0dp"
+        android:layout_marginTop="5dp"
+        android:layout_marginBottom="5dp"
         android:layout_weight="1"
         android:gravity="center_vertical"
         android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/tv_spent_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:letterSpacing="0.05"
-            android:text="SPENT TODAY"
-            android:textColor="@color/widget_text_muted"
-            android:textSize="10sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_hero_spent"
+        <!-- Spent Box -->
+        <LinearLayout
+            android:id="@+id/box_small_spent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="1dp"
-            android:autoSizeMaxTextSize="28sp"
-            android:autoSizeMinTextSize="18sp"
-            android:autoSizeTextType="uniform"
-            android:fontFamily="sans-serif-medium"
-            android:maxLines="1"
-            android:text="₹0"
-            android:textColor="@color/widget_text_primary"
-            android:textSize="26sp"
-            android:textStyle="bold" />
+            android:background="@drawable/widget_stat_tile_bg"
+            android:orientation="vertical"
+            android:paddingStart="7dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="7dp"
+            android:paddingBottom="5dp">
 
-        <TextView
-            android:id="@+id/tv_secondary_hint"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="9dp"
+                    android:layout_height="9dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow_down" />
+
+                <TextView
+                    android:id="@+id/tv_small_spent_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.04"
+                    android:text="SPENT"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_hero_spent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="₹0"
+                android:textColor="@color/widget_expense"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Earned Box -->
+        <LinearLayout
+            android:id="@+id/box_small_earned"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="0 transactions"
-            android:textColor="@color/widget_text_secondary"
-            android:textSize="10.5sp" />
+            android:layout_marginTop="3dp"
+            android:background="@drawable/widget_stat_tile_bg"
+            android:orientation="vertical"
+            android:paddingStart="7dp"
+            android:paddingTop="5dp"
+            android:paddingEnd="7dp"
+            android:paddingBottom="5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="9dp"
+                    android:layout_height="9dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_widget_arrow_up" />
+
+                <TextView
+                    android:id="@+id/tv_small_earned_label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="3dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:letterSpacing="0.04"
+                    android:text="EARNED"
+                    android:textColor="@color/widget_text_muted"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tv_hero_earned"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="1dp"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="₹0"
+                android:textColor="@color/widget_income"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Primary Add Action -->
     <LinearLayout
         android:id="@+id/btn_widget_add"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
+        android:layout_height="36dp"
         android:background="@drawable/widget_btn_add"
         android:gravity="center"
         android:orientation="horizontal">
 
         <ImageView
-            android:layout_width="14dp"
-            android:layout_height="14dp"
-            android:layout_marginEnd="6dp"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_widget_add" />
 
         <TextView
+            android:id="@+id/tv_small_add_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
             android:fontFamily="sans-serif-medium"
             android:text="Add"
             android:textColor="@color/widget_accent_text"
-            android:textSize="13sp"
+            android:textSize="11.5sp"
             android:textStyle="bold" />
     </LinearLayout>
-</LinearLayout>
 
+</LinearLayout>

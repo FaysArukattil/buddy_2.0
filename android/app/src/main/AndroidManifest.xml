@@ -11,7 +11,7 @@
 
     <application
         android:label="Buddy"
-        android:name="${applicationName}"
+        android:name=".BuddyApplication"
         android:icon="@mipmap/ic_launcher">
         
         <!-- Main Activity -->
@@ -86,10 +86,33 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_MIDNIGHT_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_SWITCH_PAGE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_STATS_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_DONUT_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_HEATMAP_MODE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/buddy_widget_info" />
+        </receiver>
+
+        <!-- Dedicated Buddy Stats Widget Provider (Donut & Heatmap) -->
+        <receiver
+            android:name=".BuddyStatsWidgetProvider"
+            android:label="Buddy Stats"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_MIDNIGHT_UPDATE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_SWITCH_PAGE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_STATS_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_DONUT_MODE" />
+                <action android:name="com.faysarukattil.buddy.ACTION_TOGGLE_HEATMAP_MODE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/buddy_stats_widget_info" />
         </receiver>
 
         <!-- Transparent Modal Activity for Instant Add Transaction from Widget -->
