@@ -41,6 +41,7 @@
                     android:src="@drawable/ic_widget_arrow_down" />
 
                 <TextView
+                    android:id="@+id/tv_spent_today_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
@@ -92,6 +93,7 @@
                     android:src="@drawable/ic_widget_arrow_up" />
 
                 <TextView
+                    android:id="@+id/tv_earned_today_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"

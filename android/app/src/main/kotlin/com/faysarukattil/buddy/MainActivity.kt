@@ -62,6 +62,9 @@ class MainActivity : FlutterFragmentActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // Register the widget data channel (replaces home_widget plugin)
+        BuddyWidgetChannel(this).register(flutterEngine.dartExecutor.binaryMessenger)
+
         channel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             CHANNEL

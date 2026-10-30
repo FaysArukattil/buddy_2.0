@@ -1,7 +1,11 @@
 // lib/services/widget_service.dart
+// Native implementation — no home_widget dependency.
+// Writes data directly to the shared-preferences file that the Kotlin widget
+// providers read, then triggers widget updates via a MethodChannel call into
+// the platform side.
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:home_widget/home_widget.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/services/preference_service.dart';
@@ -12,8 +16,15 @@ class WidgetService {
   static const String appWidgetProviderName = 'BuddyWidgetProvider';
   static const String statsWidgetProviderName = 'BuddyStatsWidgetProvider';
 
-  /// Updates the home screen widgets with today's transactions and month metrics
-  static Future<void> updateFromTransactions(List<TransactionModel> transactions) async {
+  // MethodChannel used by the native BuddyWidgetChannel.kt to:
+  //  1. Save key-value pairs into the SharedPreferences file the widget reads.
+  //  2. Trigger AppWidgetManager.updateAppWidget for our two providers.
+  static const MethodChannel _channel =
+      MethodChannel('com.faysarukattil.buddy/widget');
+
+  /// Updates the home screen widgets with today's transactions and month metrics.
+  static Future<void> updateFromTransactions(
+      List<TransactionModel> transactions) async {
     try {
       final now = DateTime.now();
       final monthName = DateFormat('MMMM').format(now);
@@ -51,7 +62,8 @@ class WidgetService {
       final monthBase = includeDebts
           ? deduped
           : deduped
-              .where((t) => t.category != 'Lending' && t.category != 'Borrowing')
+              .where(
+                  (t) => t.category != 'Lending' && t.category != 'Borrowing')
               .toList(growable: false);
 
       double monthExpense = 0;
@@ -61,8 +73,10 @@ class WidgetService {
 
       for (final txn in monthBase) {
         final isIncome = txn.type.toLowerCase().trim() == 'income';
-        final isThisMonth = txn.date.year == now.year && txn.date.month == now.month;
-        final isLastMonth = txn.date.year == lastMonthDate.year && txn.date.month == lastMonthDate.month;
+        final isThisMonth =
+            txn.date.year == now.year && txn.date.month == now.month;
+        final isLastMonth = txn.date.year == lastMonthDate.year &&
+            txn.date.month == lastMonthDate.month;
 
         if (isThisMonth) {
           if (isIncome) {
@@ -88,7 +102,6 @@ class WidgetService {
           : 'First month';
 
       // 4. Compact JSON archive (last 65 days) for Kotlin native canvas rendering
-      // Contains both normal & debt transactions, flagged with is_debt
       final cutoff65Days = now.subtract(const Duration(days: 65));
       final List<Map<String, dynamic>> compactTxns = [];
       final Map<String, String> categoryColors = {};
@@ -96,15 +109,20 @@ class WidgetService {
       for (final txn in deduped) {
         if (txn.date.isAfter(cutoff65Days)) {
           final isIncome = txn.type.toLowerCase().trim() == 'income';
-          final isDebt = txn.category == 'Lending' || txn.category == 'Borrowing';
+          final isDebt =
+              txn.category == 'Lending' || txn.category == 'Borrowing';
           final note = txn.cleanNote?.trim() ?? '';
           final title = note.isNotEmpty ? note : txn.category;
           final timeStr = _formatTime(txn.date);
-          final subtitle = '${txn.category} • ${txn.autoDetected ? 'Auto' : 'Manual'} • $timeStr';
-          final amountStr = '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount)}';
+          final subtitle =
+              '${txn.category} • ${txn.autoDetected ? 'Auto' : 'Manual'} • $timeStr';
+          final amountStr =
+              '${isIncome ? '+' : '-'}${FormatUtils.formatCurrency(txn.amount)}';
 
-          final color = isIncome ? AppColors.income : AppColors.getCategoryColor(txn.category);
-          final colorHex = '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
+          final color =
+              isIncome ? AppColors.income : AppColors.getCategoryColor(txn.category);
+          final colorHex =
+              '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
           categoryColors[txn.category] = colorHex;
 
           compactTxns.add({
@@ -124,7 +142,7 @@ class WidgetService {
         }
       }
 
-      // 5. Assemble SharedPreferences Map
+      // 5. Assemble the data map
       final dateLabel = DateFormat('EEE, d MMM').format(now);
       final Map<String, Object> data = {
         'today_date_label': dateLabel,
@@ -139,11 +157,15 @@ class WidgetService {
         'month_spent_label': '$monthName · Spent',
         'month_income': '+${FormatUtils.formatCurrency(monthIncome)}',
         'month_earned_label': '$monthName · Earned',
-        'month_balance': (isNegativeBalance ? '-' : '') + FormatUtils.formatCurrency(monthBalance.abs()),
-        'month_balance_label': isNegativeBalance ? '$monthName · Deficit' : '$monthName · Balance',
+        'month_balance': (isNegativeBalance ? '-' : '') +
+            FormatUtils.formatCurrency(monthBalance.abs()),
+        'month_balance_label':
+            isNegativeBalance ? '$monthName · Deficit' : '$monthName · Balance',
         'month_is_negative': isNegativeBalance,
         'month_delta': deltaStr,
-        'month_ratio': (monthIncome > 0) ? (monthExpense / monthIncome).clamp(0.0, 2.0) : 1.0,
+        'month_ratio': (monthIncome > 0)
+            ? (monthExpense / monthIncome).clamp(0.0, 2.0)
+            : 1.0,
 
         // Preferences & Raw Data for Kotlin Native Canvas Rendering
         'include_debts_in_home': includeDebts,
@@ -160,10 +182,13 @@ class WidgetService {
           final title = note.isNotEmpty ? note : t.category;
           final timeStr = _formatTime(t.date);
           final subtitle = '${t.category} • $timeStr';
-          final amountStr = '${isInc ? '+' : '-'}${FormatUtils.formatCurrency(t.amount)}';
+          final amountStr =
+              '${isInc ? '+' : '-'}${FormatUtils.formatCurrency(t.amount)}';
 
-          final color = isInc ? AppColors.income : AppColors.getCategoryColor(t.category);
-          final colorHex = '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
+          final color =
+              isInc ? AppColors.income : AppColors.getCategoryColor(t.category);
+          final colorHex =
+              '#${color.toARGB32().toRadixString(16).padLeft(8, '0')}';
 
           data['txn_${i}_exists'] = true;
           data['txn_${i}_title'] = title;
@@ -178,24 +203,11 @@ class WidgetService {
         }
       }
 
-      // Save key-values to SharedPreferences
-      await Future.wait(
-        data.entries.map((e) => HomeWidget.saveWidgetData<Object>(e.key, e.value)),
-      );
+      // 6. Push data & trigger update via native channel
+      await _channel.invokeMethod('updateWidget', data);
 
-      // 6. Push Widget Updates (Kotlin renders Canvas charts instantly on update)
-      await Future.wait([
-        HomeWidget.updateWidget(
-          name: appWidgetProviderName,
-          androidName: appWidgetProviderName,
-        ),
-        HomeWidget.updateWidget(
-          name: statsWidgetProviderName,
-          androidName: statsWidgetProviderName,
-        ),
-      ]);
-
-      debugPrint('📱 WIDGET: Pushed Today & Month data (${todayTxns.length} txns today, $monthName)');
+      debugPrint(
+          '📱 WIDGET: Pushed Today & Month data (${todayTxns.length} txns today, $monthName)');
     } catch (e, stack) {
       debugPrint('⚠️ WIDGET: Error updating widget: $e\n$stack');
     }

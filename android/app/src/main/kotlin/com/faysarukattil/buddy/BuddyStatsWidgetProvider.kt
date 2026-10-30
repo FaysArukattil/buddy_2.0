@@ -2,19 +2,17 @@ package com.faysarukattil.buddy
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
+import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import android.widget.RemoteViews
-import es.antonborri.home_widget.HomeWidgetPlugin
-import es.antonborri.home_widget.HomeWidgetProvider
 import kotlin.math.max
 
-class BuddyStatsWidgetProvider : HomeWidgetProvider() {
+class BuddyStatsWidgetProvider : AppWidgetProvider() {
 
     companion object {
         const val TAG = "BuddyStatsWidget"
@@ -34,7 +32,7 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
         val componentName = ComponentName(context, BuddyStatsWidgetProvider::class.java)
         val appWidgetIds = appWidgetManager.getAppWidgetIds(componentName)
 
-        val data = HomeWidgetPlugin.getData(context)
+        val data = BuddyWidgetProvider.getData(context)
 
         when (action) {
             ACTION_SWITCH_PAGE -> {
@@ -74,11 +72,11 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray,
-        widgetData: SharedPreferences
+        appWidgetIds: IntArray
     ) {
+        val data = BuddyWidgetProvider.getData(context)
         appWidgetIds.forEach { widgetId ->
-            render(context, appWidgetManager, widgetId, widgetData)
+            render(context, appWidgetManager, widgetId, data)
         }
     }
 
@@ -89,14 +87,14 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
         newOptions: Bundle
     ) {
         super.onAppWidgetOptionsChanged(context, appWidgetManager, appWidgetId, newOptions)
-        render(context, appWidgetManager, appWidgetId, HomeWidgetPlugin.getData(context))
+        render(context, appWidgetManager, appWidgetId, BuddyWidgetProvider.getData(context))
     }
 
     private fun render(
         context: Context,
         manager: AppWidgetManager,
         widgetId: Int,
-        data: SharedPreferences
+        data: android.content.SharedPreferences
     ) {
         try {
             val views = RemoteViews(context.packageName, R.layout.widget_buddy_stats)
@@ -113,11 +111,9 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
             val safeW = max(140, widthDp)
             val safeH = max(140, heightDp)
 
-            // 1. Page Selection: 0 = Donut, 1 = Heatmap
             val activePage = data.getInt("stats_page_$widgetId", 0).coerceIn(0, 1)
             views.setDisplayedChild(R.id.flipper_stats_pages, activePage)
 
-            // 2. Tab Highlights (using setInt "setBackgroundResource")
             val activeColor = if (isDark) 0xFF2DD4BF.toInt() else 0xFF1E5D57.toInt()
             val inactiveColor = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
 
@@ -135,27 +131,23 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
             )
             views.setTextColor(R.id.tab_stats_heatmap, if (activePage == 1) activeColor else inactiveColor)
 
-            // 3. Modes
             val donutMode = data.getString("donut_chart_mode", "spending") ?: "spending"
             val heatmapMode = data.getString("heatmap_chart_mode", "expense") ?: "expense"
             val txnsJson = data.getString("recent_txns_json", null)
             val colorsJson = data.getString("category_colors_json", null)
 
-            // Update Donut Segmented Control [ Spending | Earning ]
             val isDonutSpending = donutMode.equals("spending", ignoreCase = true)
             views.setInt(R.id.btn_donut_spending, "setBackgroundResource", if (isDonutSpending) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setTextColor(R.id.btn_donut_spending, if (isDonutSpending) activeColor else inactiveColor)
             views.setInt(R.id.btn_donut_earning, "setBackgroundResource", if (!isDonutSpending) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setTextColor(R.id.btn_donut_earning, if (!isDonutSpending) activeColor else inactiveColor)
 
-            // Update Heatmap Segmented Control [ Expense | Income ]
             val isHeatmapExpense = heatmapMode.equals("expense", ignoreCase = true)
             views.setInt(R.id.btn_heatmap_expense, "setBackgroundResource", if (isHeatmapExpense) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setTextColor(R.id.btn_heatmap_expense, if (isHeatmapExpense) activeColor else inactiveColor)
             views.setInt(R.id.btn_heatmap_income, "setBackgroundResource", if (!isHeatmapExpense) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
             views.setTextColor(R.id.btn_heatmap_income, if (!isHeatmapExpense) activeColor else inactiveColor)
 
-            // 4. Render Charts Natively with Canvas directly into exact physical slot pixels
             val slotWidthPx = ((safeW - 32) * density).toInt().coerceAtLeast(100)
             val slotHeightPx = ((safeH - 110) * density).toInt().coerceAtLeast(100)
 
@@ -183,7 +175,6 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
     private fun attachIntents(context: Context, widgetId: Int, views: RemoteViews) {
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
-        // Tab: Donut (0)
         val tabDonutIntent = Intent(context, BuddyStatsWidgetProvider::class.java).apply {
             action = ACTION_SWITCH_PAGE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -194,7 +185,6 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
             PendingIntent.getBroadcast(context, widgetId * 50 + 1, tabDonutIntent, piFlags)
         )
 
-        // Tab: Heatmap (1)
         val tabHeatmapIntent = Intent(context, BuddyStatsWidgetProvider::class.java).apply {
             action = ACTION_SWITCH_PAGE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -205,7 +195,6 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
             PendingIntent.getBroadcast(context, widgetId * 50 + 2, tabHeatmapIntent, piFlags)
         )
 
-        // Donut Segmented Toggle: Spending & Earning
         val donutToggleIntent = Intent(context, BuddyStatsWidgetProvider::class.java).apply {
             action = ACTION_TOGGLE_DONUT_MODE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -214,7 +203,6 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
         views.setOnClickPendingIntent(R.id.btn_donut_spending, donutPi)
         views.setOnClickPendingIntent(R.id.btn_donut_earning, donutPi)
 
-        // Heatmap Segmented Toggle: Expense & Income
         val heatmapToggleIntent = Intent(context, BuddyStatsWidgetProvider::class.java).apply {
             action = ACTION_TOGGLE_HEATMAP_MODE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -223,7 +211,6 @@ class BuddyStatsWidgetProvider : HomeWidgetProvider() {
         views.setOnClickPendingIntent(R.id.btn_heatmap_expense, heatmapPi)
         views.setOnClickPendingIntent(R.id.btn_heatmap_income, heatmapPi)
 
-        // Background Tap -> Open Main App
         val openIntent = Intent(context, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }

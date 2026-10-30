@@ -7,7 +7,13 @@
     android:orientation="vertical"
     android:padding="@dimen/widget_padding">
 
-    <!-- 1. Header: Big Buddy Icon & Wordmark + Big Segmented Tab Switcher (min 40dp) -->
+    <!--
+      Header Row: Brand (weight=1, fills space) + Tab Bar (wrap_content, fixed)
+      "Buddy" never wraps because:
+        • tv_app_name has maxLines="1"
+        • layout_brand_text is wrap_content, NOT weight-based
+        • brand container gets all leftover space so it only ever has MORE room
+    -->
     <LinearLayout
         android:id="@+id/layout_widget_header"
         android:layout_width="match_parent"
@@ -16,7 +22,7 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <!-- App Brand Container (Icon + Wordmark) -->
+        <!-- Brand: takes leftover space (weight=1), tab bar is always to the right -->
         <LinearLayout
             android:id="@+id/layout_brand_container"
             android:layout_width="0dp"
@@ -25,7 +31,7 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <!-- 40dp Rounded Squircle Icon -->
+            <!-- 38dp Squircle Icon -->
             <FrameLayout
                 android:id="@+id/container_app_icon"
                 android:layout_width="38dp"
@@ -40,6 +46,7 @@
                     android:src="@mipmap/ic_launcher" />
             </FrameLayout>
 
+            <!-- Wordmark + Date — hidden on very narrow widths via Kotlin -->
             <LinearLayout
                 android:id="@+id/layout_brand_text"
                 android:layout_width="wrap_content"
@@ -53,6 +60,7 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="sans-serif-medium"
                     android:letterSpacing="-0.02"
+                    android:maxLines="1"
                     android:text="Buddy"
                     android:textColor="@color/widget_text_primary"
                     android:textSize="18sp"
@@ -70,7 +78,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Big Segmented Capsule Tab Bar (min 40dp height) -->
+        <!-- Segmented Capsule Tab Bar (wrap_content, pushed to end by weight above) -->
         <LinearLayout
             android:id="@+id/layout_tab_bar"
             android:layout_width="wrap_content"
@@ -104,6 +112,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
                     android:text="Today"
                     android:textColor="@color/widget_tab_active_text"
                     android:textSize="11.5sp"
@@ -134,6 +143,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
                     android:text="Month"
                     android:textColor="@color/widget_tab_inactive_text"
                     android:textSize="11.5sp"
@@ -164,6 +174,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
                     android:text="Donut"
                     android:textColor="@color/widget_tab_inactive_text"
                     android:textSize="11.5sp"
@@ -194,6 +205,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="4dp"
                     android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
                     android:text="Heatmap"
                     android:textColor="@color/widget_tab_inactive_text"
                     android:textSize="11.5sp"
@@ -202,7 +214,7 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- 2. Multi-Page ViewFlipper: Today (0), Month (1), Donut (2), Heatmap (3) -->
+    <!-- Multi-Page ViewFlipper: Today(0), Month(1), Donut(2), Heatmap(3) -->
     <ViewFlipper
         android:id="@+id/flipper_pages"
         android:layout_width="match_parent"
@@ -227,7 +239,7 @@
             android:layout_height="match_parent" />
     </ViewFlipper>
 
-    <!-- 3. Full-Width Pinned Add Button (min 44dp height) -->
+    <!-- Pinned Add Button -->
     <LinearLayout
         android:id="@+id/btn_widget_add"
         android:layout_width="match_parent"

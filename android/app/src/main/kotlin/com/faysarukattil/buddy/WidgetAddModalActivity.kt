@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterActivityLaunchConfigs.BackgroundMode
+import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.FlutterEngineCache
 
 class WidgetAddModalActivity : FlutterActivity() {
@@ -31,18 +32,17 @@ class WidgetAddModalActivity : FlutterActivity() {
         }
     }
 
-    override fun shouldDestroyEngineWithHost(): Boolean {
-        // Allow activity to destroy the view attachment
-        return false
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        // Register the widget channel so the quick-add flow can also update the widget
+        BuddyWidgetChannel(this).register(flutterEngine.dartExecutor.binaryMessenger)
     }
 
-    override fun getBackgroundMode(): BackgroundMode {
-        return BackgroundMode.transparent
-    }
+    override fun shouldDestroyEngineWithHost(): Boolean = false
 
-    override fun getInitialRoute(): String {
-        return "/widget-add"
-    }
+    override fun getBackgroundMode(): BackgroundMode = BackgroundMode.transparent
+
+    override fun getInitialRoute(): String = "/widget-add"
 
     override fun onFlutterUiDisplayed() {
         super.onFlutterUiDisplayed()
@@ -52,7 +52,6 @@ class WidgetAddModalActivity : FlutterActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Re-warm fresh engine in background for the next tap
         BuddyApplication.reWarmEngine(applicationContext)
     }
 }
