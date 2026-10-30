@@ -549,8 +549,9 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.btn_donut_earning, "setBackgroundResource", if (!isSpending) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
         views.setTextColor(R.id.btn_donut_earning, if (!isSpending) activeColor else inactiveColor)
 
-        val availableChartHeightDp = max(70, heightDp - 146)
-        val availableChartWidthDp = max(100, widthDp - 28)
+        // Exact container dimensions: subtract fixed UI vertical overhead (~178dp) & horizontal padding (32dp)
+        val availableChartHeightDp = max(60, heightDp - 178)
+        val availableChartWidthDp = max(80, widthDp - 32)
         val slotWidthPx = (availableChartWidthDp * density).toInt()
         val slotHeightPx = (availableChartHeightDp * density).toInt()
 
@@ -589,8 +590,8 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.btn_heatmap_income, "setBackgroundResource", if (!isExpense) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
         views.setTextColor(R.id.btn_heatmap_income, if (!isExpense) activeColor else inactiveColor)
 
-        val availableChartHeightDp = max(70, heightDp - 146)
-        val availableChartWidthDp = max(100, widthDp - 28)
+        val availableChartHeightDp = max(60, heightDp - 178)
+        val availableChartWidthDp = max(80, widthDp - 32)
         val slotWidthPx = (availableChartWidthDp * density).toInt()
         val slotHeightPx = (availableChartHeightDp * density).toInt()
 

@@ -129,13 +129,21 @@ object BuddyChartRenderer {
 
             val textColor = if (isDark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
             val textMuted = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
-            val trackColor = if (isDark) 0x1AFFFFFF.toInt() else 0x14000000.toInt()
+            val trackColor = if (isDark) 0x1AFFFFFF else 0x14000000
 
-            val isWide = (widthPx >= 180f * density || widthPx >= heightPx * 0.9f) && slices.isNotEmpty() && totalAmount > 0
+            val hasLedger = slices.isNotEmpty() && totalAmount > 0
+            val aspectRatio = widthPx.toFloat() / max(1f, heightPx.toFloat())
 
-            if (isWide) {
-                // Wide layout: Donut on left, Ledger on right - uses full width
-                val donutDiameter = min(heightPx - 8f * density, widthPx * 0.44f).coerceAtLeast(60f * density)
+            // SIZING MODES:
+            // 1. Wide Layout (Side-by-side): when aspectRatio >= 1.15 && widthPx >= 170dp * density && hasLedger
+            // 2. Stacked Layout (Donut on top, Ledger below): when widget is square or tall && hasLedger
+            // 3. Centered Layout: when no ledger entries (zero transactions)
+            if (hasLedger && aspectRatio >= 1.15f && widthPx >= 170f * density) {
+                // Wide Layout: Donut on left, Ledger on right - uses full width and height
+                val maxDiameterByHeight = heightPx - 10f * density
+                val maxDiameterByWidth = widthPx * 0.48f
+                val donutDiameter = min(maxDiameterByHeight, maxDiameterByWidth).coerceAtLeast(60f * density)
+
                 val donutCx = 8f * density + donutDiameter / 2f
                 val donutCy = heightPx / 2f
 
@@ -144,17 +152,43 @@ object BuddyChartRenderer {
                     isExpense, isDark, textColor, textMuted, density
                 )
 
-                // Ledger on right
-                val ledgerLeft = donutCx + donutDiameter / 2f + 10f * density
+                // Ledger on right: expands across full remaining width and height
+                val ledgerLeft = donutCx + donutDiameter / 2f + 12f * density
                 val ledgerWidth = widthPx - ledgerLeft - 6f * density
+                val ledgerHeight = heightPx - 8f * density
+                val ledgerTop = 4f * density
+
                 if (ledgerWidth > 50f * density) {
                     drawLedgerBreakdown(
-                        canvas, ledgerLeft, 4f * density, ledgerWidth, heightPx - 8f * density,
+                        canvas, ledgerLeft, ledgerTop, ledgerWidth, ledgerHeight,
+                        slices, totalAmount, textColor, textMuted, trackColor, density
+                    )
+                }
+            } else if (hasLedger) {
+                // Stacked Layout: Donut on top, Ledger below (for squarish or tall sizes)
+                val donutAreaHeight = heightPx * 0.52f
+                val donutDiameter = min(widthPx - 20f * density, donutAreaHeight - 8f * density).coerceAtLeast(60f * density)
+                val donutCx = widthPx / 2f
+                val donutCy = 6f * density + donutDiameter / 2f
+
+                drawDonutRing(
+                    canvas, donutCx, donutCy, donutDiameter, slices, totalAmount,
+                    isExpense, isDark, textColor, textMuted, density
+                )
+
+                val ledgerTop = donutCy + donutDiameter / 2f + 8f * density
+                val ledgerHeight = heightPx - ledgerTop - 4f * density
+                val ledgerWidth = widthPx - 16f * density
+                val ledgerLeft = 8f * density
+
+                if (ledgerHeight > 30f * density) {
+                    drawLedgerBreakdown(
+                        canvas, ledgerLeft, ledgerTop, ledgerWidth, ledgerHeight,
                         slices, totalAmount, textColor, textMuted, trackColor, density
                     )
                 }
             } else {
-                // Centered Donut layout (when no ledger or narrow width)
+                // Centered Donut layout (when no ledger or zero spend/earn)
                 val donutDiameter = min(widthPx - 16f * density, heightPx - 8f * density).coerceAtLeast(60f * density)
                 val donutCx = widthPx / 2f
                 val donutCy = heightPx / 2f
@@ -186,7 +220,7 @@ object BuddyChartRenderer {
         textMuted: Int,
         density: Float
     ) {
-        val strokeWidth = diameter * 0.14f
+        val strokeWidth = (diameter * 0.135f).coerceIn(8f * density, 22f * density)
         val radius = (diameter - strokeWidth) / 2f
         val oval = RectF(cx - radius, cy - radius, cx + radius, cy + radius)
 
@@ -197,7 +231,7 @@ object BuddyChartRenderer {
         }
 
         if (total <= 0 || slices.isEmpty()) {
-            arcPaint.color = if (isDark) 0x22FFFFFF.toInt() else 0x14000000.toInt()
+            arcPaint.color = if (isDark) 0x22FFFFFF else 0x14000000
             canvas.drawCircle(cx, cy, radius, arcPaint)
         } else {
             var currentAngle = -90f
@@ -221,28 +255,27 @@ object BuddyChartRenderer {
 
         val modeStr = if (isExpense) "Spent" else "Earned"
         textPaint.color = textMuted
-        textPaint.textSize = (diameter * 0.09f).coerceIn(8f * density, 12f * density)
-        canvas.drawText(modeStr, cx, cy - diameter * 0.10f, textPaint)
+        textPaint.textSize = (diameter * 0.095f).coerceIn(8.5f * density, 16f * density)
+        canvas.drawText(modeStr, cx, cy - diameter * 0.11f, textPaint)
 
-        // Amount
-        val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+        // Amount: scales smoothly with diameter up to 30dp
+        val currencyFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN"))
         currencyFormat.maximumFractionDigits = 0
         val amountStr = currencyFormat.format(total)
 
         textPaint.color = textColor
-        textPaint.textSize = (diameter * 0.15f).coerceIn(11f * density, 20f * density)
-        // Auto-shrink text if amount string is wide
+        textPaint.textSize = (diameter * 0.18f).coerceIn(12f * density, 30f * density)
         val textWidth = textPaint.measureText(amountStr)
-        val maxAllowedWidth = diameter * 0.65f
+        val maxAllowedWidth = diameter * 0.60f
         if (textWidth > maxAllowedWidth && textWidth > 0) {
             textPaint.textSize *= (maxAllowedWidth / textWidth)
         }
         canvas.drawText(amountStr, cx, cy + diameter * 0.06f, textPaint)
 
-        // Category count
+        // Category count: scales with diameter
         textPaint.color = textMuted
-        textPaint.textSize = (diameter * 0.08f).coerceIn(7.5f * density, 11f * density)
-        canvas.drawText("${slices.size} categories", cx, cy + diameter * 0.19f, textPaint)
+        textPaint.textSize = (diameter * 0.085f).coerceIn(7.5f * density, 13f * density)
+        canvas.drawText("${slices.size} categories", cx, cy + diameter * 0.20f, textPaint)
     }
 
     private fun drawLedgerBreakdown(
@@ -258,76 +291,90 @@ object BuddyChartRenderer {
         trackColor: Int,
         density: Float
     ) {
-        val rowHeight = (height / min(slices.size.coerceAtLeast(1), 4)).coerceIn(18f * density, 24f * density)
-        val maxRows = min(slices.size, floor(height / rowHeight).toInt())
-        if (maxRows <= 0) return
+        val count = slices.size
+        if (count <= 0) return
+
+        val maxDisplay = when {
+            height >= 140f * density -> min(count, 5)
+            height >= 100f * density -> min(count, 4)
+            height >= 65f * density -> min(count, 3)
+            else -> min(count, 2)
+        }
+        if (maxDisplay <= 0) return
+
+        val rowHeight = (height / maxDisplay).coerceIn(20f * density, 42f * density)
+        val scale = (rowHeight / (24f * density)).coerceIn(0.95f, 1.55f)
+
+        val nameTextSize = 10.5f * density * scale
+        val amountTextSize = 10.5f * density * scale
+        val pctTextSize = 9.5f * density * scale
+        val dotRadius = 3.5f * density * scale
+        val barHeight = (3.5f * density * scale).coerceIn(3f * density, 6f * density)
 
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            textSize = 10.5f * density
+            textSize = nameTextSize
         }
 
         val trackPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
         }
 
-        val currencyFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+        val currencyFormat = NumberFormat.getCurrencyInstance(Locale.forLanguageTag("en-IN"))
         currencyFormat.maximumFractionDigits = 0
 
         var currentY = y
 
-        for (i in 0 until maxRows) {
+        for (i in 0 until maxDisplay) {
             val s = slices[i]
             val pct = if (total > 0) (s.amount / total * 100).toInt() else 0
 
-            // 1. Color Squircle / Dot
+            val textBaselineY = currentY + rowHeight * 0.42f
+            val dotCenterY = textBaselineY - dotRadius * 0.8f
+
+            // 1. Color Dot
             trackPaint.color = s.color
-            val dotRadius = 3.5f * density
-            canvas.drawCircle(x + dotRadius, currentY + 7f * density, dotRadius, trackPaint)
+            canvas.drawCircle(x + dotRadius, dotCenterY, dotRadius, trackPaint)
 
-            // 2. Category Name
-            textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
-            textPaint.color = textColor
-            textPaint.textAlign = Paint.Align.LEFT
-            textPaint.textSize = 10.5f * density
-            val nameX = x + dotRadius * 2 + 6f * density
-
-            // 3. Amount & Pct on Right
+            // 2. Amount & Percentage on Right
             val amountStr = currencyFormat.format(s.amount)
             val pctStr = "$pct%"
+
+            textPaint.typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
             textPaint.textAlign = Paint.Align.RIGHT
             textPaint.color = textColor
-            canvas.drawText(amountStr, x + width, currentY + 10f * density, textPaint)
+            textPaint.textSize = amountTextSize
+            canvas.drawText(amountStr, x + width, textBaselineY, textPaint)
 
             textPaint.color = textMuted
-            textPaint.textSize = 9.5f * density
+            textPaint.textSize = pctTextSize
             val pctWidth = textPaint.measureText(pctStr)
             val amountWidth = textPaint.measureText(amountStr)
-            canvas.drawText(pctStr, x + width - amountWidth - 8f * density, currentY + 10f * density, textPaint)
+            canvas.drawText(pctStr, x + width - amountWidth - 8f * density * scale, textBaselineY, textPaint)
 
-            // Truncate name if it collides with right side
+            // 3. Category Name
+            val nameX = x + dotRadius * 2 + 6f * density * scale
             textPaint.textAlign = Paint.Align.LEFT
             textPaint.color = textColor
-            textPaint.textSize = 10.5f * density
-            val maxNameWidth = width - amountWidth - pctWidth - 24f * density
+            textPaint.textSize = nameTextSize
+            val maxNameWidth = width - amountWidth - pctWidth - (24f * density * scale)
             val truncatedName = truncateText(s.name, textPaint, maxNameWidth)
-            canvas.drawText(truncatedName, nameX, currentY + 10f * density, textPaint)
+            canvas.drawText(truncatedName, nameX, textBaselineY, textPaint)
 
             // 4. Progress Bar
-            val barY = currentY + 15f * density
-            val barHeight = 3.5f * density
+            val barY = currentY + rowHeight * 0.64f
             val barTrackWidth = width
 
             // Background Track
             trackPaint.color = trackColor
             val trackRect = RectF(x, barY, x + barTrackWidth, barY + barHeight)
-            canvas.drawRoundRect(trackRect, 2f * density, 2f * density, trackPaint)
+            canvas.drawRoundRect(trackRect, barHeight / 2f, barHeight / 2f, trackPaint)
 
             // Progress Fill
             val fillWidth = if (total > 0) (barTrackWidth * (s.amount / total).toFloat()).coerceAtLeast(3f * density) else 0f
             trackPaint.color = s.color
             val fillRect = RectF(x, barY, x + fillWidth, barY + barHeight)
-            canvas.drawRoundRect(fillRect, 2f * density, 2f * density, trackPaint)
+            canvas.drawRoundRect(fillRect, barHeight / 2f, barHeight / 2f, trackPaint)
 
             currentY += rowHeight
         }
@@ -401,7 +448,7 @@ object BuddyChartRenderer {
 
             val textColor = if (isDark) 0xFFFFFFFF.toInt() else 0xFF1C1C1E.toInt()
             val textMuted = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
-            val emptyCellBg = if (isDark) 0x14FFFFFF.toInt() else 0x0A000000.toInt()
+            val emptyCellBg = if (isDark) 0x14FFFFFF else 0x0A000000
             val accentColor = if (isIncomeMode) 0xFF34D399.toInt() else 0xFFFB7185.toInt()
 
             val headerHeight = 13f * density
