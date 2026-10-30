@@ -15,15 +15,15 @@
         android:id="@+id/layout_brand_header_row"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="8dp"
+        android:layout_marginBottom="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <!-- App Icon -->
         <ImageView
             android:id="@+id/iv_app_logo"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
             android:contentDescription="@null"
             android:scaleType="fitCenter"
             android:src="@mipmap/ic_launcher" />
@@ -40,7 +40,7 @@
             android:maxLines="1"
             android:text="Buddy"
             android:textColor="@color/widget_text_primary"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <!-- Date / Today Badge on right -->
@@ -62,7 +62,7 @@
     </LinearLayout>
 
     <!--
-      Row 2: Tab Selector Row (min 36dp)
+      Row 2: Tab Selector Row (compact 34dp)
       Full width segmented bar: [ Today | Month | Donut | Heatmap ]
       In 3x2: GONE (since only Today is used)
       In 4x2: VISIBLE, but only Today and Month are shown (Donut & Heatmap GONE)
@@ -71,12 +71,12 @@
     <LinearLayout
         android:id="@+id/layout_tab_bar"
         android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:layout_marginBottom="8dp"
+        android:layout_height="34dp"
+        android:layout_marginBottom="6dp"
         android:background="@drawable/widget_stat_tile_bg"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="3dp">
+        android:padding="2dp">
 
         <!-- Tab 0: Today -->
         <LinearLayout
@@ -232,12 +232,12 @@
             android:layout_height="match_parent" />
     </ViewFlipper>
 
-    <!-- Row 4: Pinned Add Button -->
+    <!-- Row 4: Pinned Add Button (compact 36dp) -->
     <LinearLayout
         android:id="@+id/btn_widget_add"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_marginTop="6dp"
+        android:layout_height="36dp"
+        android:layout_marginTop="5dp"
         android:background="@drawable/widget_btn_add"
         android:gravity="center"
         android:orientation="horizontal">

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Backgrounds & Surfaces (iOS Dark theme with deep subtle teal gradient) -->
-    <color name="widget_bg_start">#FF162422</color>
-    <color name="widget_bg_end">#FF0F1A19</color>
-    <color name="widget_border">#1FFFFFFF</color>
+    <!-- Backgrounds & Surfaces (App-matching sleek Dark Slate theme, no border bezels) -->
+    <color name="widget_bg_start">#FF1E2630</color>
+    <color name="widget_bg_end">#FF151C23</color>
+    <color name="widget_border">#00000000</color>
     <color name="widget_surface">#1AFFFFFF</color>
     <color name="widget_surface_elevated">#26FFFFFF</color>
     <color name="widget_divider">#12FFFFFF</color>

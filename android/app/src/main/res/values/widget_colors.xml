@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Backgrounds & Surfaces (Softer, eye-friendly light mode - turned down from harsh white) -->
+    <!-- Backgrounds & Surfaces (Eye-friendly soft warm neutral - no harsh white glare, no bezels) -->
     <color name="widget_bg_start">#FFF4F6F8</color>
     <color name="widget_bg_end">#FFEAEFF2</color>
-    <color name="widget_border">#20000000</color>
+    <color name="widget_border">#00000000</color>
     <color name="widget_surface">#12000000</color>
     <color name="widget_surface_elevated">#1C000000</color>
     <color name="widget_divider">#14000000</color>

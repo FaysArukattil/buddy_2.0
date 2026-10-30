@@ -248,17 +248,23 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             Log.d(TAG, "📏 Size: ${widthDp}w x ${heightDp}h dp for widgetId $widgetId (${this.javaClass.simpleName})")
 
             // ─────────────────────────────────────────────────────────────
-            // SIZING MODES:
-            // 1. 2×2: width < 215dp && height < 215dp (or BuddyQuickAddWidgetProvider with width < 220dp)
-            // 2. 3×2: width in 215..295dp && height < 215dp (no tabs, Today badge, compact currency)
-            // 3. 4×2: width >= 295dp && height < 215dp (Today + Month only, 3 tiles in 1 row)
-            // 4. 3×3 & 4×4: height >= 215dp (full tabs: Today, Month, Donut, Heatmap)
+            // ROBUST SIZING CLASSIFICATION (One UI & all Android launchers):
+            // 2 cols: widthDp <= 220
+            // 3 cols: widthDp in 221..295
+            // 4 cols: widthDp > 295
+            // 2 rows: heightDp <= 240 (Samsung S24 Ultra reports ~218..232dp for 2 rows!)
+            // Tall (3+ rows): heightDp > 240
+            //
+            // 1. 2×2: widthDp <= 220 || heightDp <= 140
+            // 2. 3×2: !is2x2 && widthDp <= 295 && heightDp <= 240 (no tabs, Today badge, compact currency)
+            // 3. 4×2: !is2x2 && widthDp > 295 && heightDp <= 240 (Today + Month only, 3 tiles in 1 row)
+            // 4. 3×3 & 4×4: !is2x2 && heightDp > 240 (full tabs: Today, Month, Donut, Heatmap)
             // ─────────────────────────────────────────────────────────────
 
-            val is2x2 = (widthDp < 215 && heightDp < 215) || (this is BuddyQuickAddWidgetProvider && widthDp < 220) || widthDp < 160 || heightDp < 130
-            val is3x2 = !is2x2 && widthDp < 295 && heightDp < 215
-            val is4x2 = !is2x2 && widthDp >= 295 && heightDp < 215
-            val isTallMode = !is2x2 && heightDp >= 215
+            val is2x2 = widthDp <= 220 || heightDp <= 140
+            val is3x2 = !is2x2 && widthDp <= 295 && heightDp <= 240
+            val is4x2 = !is2x2 && widthDp > 295 && heightDp <= 240
+            val isTallMode = !is2x2 && heightDp > 240
 
             // 1. 2×2 Mode: ONLY Add Transaction Button
             if (is2x2) {
@@ -300,10 +306,10 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             }
 
             // Page 0: Today (In 3×2 / 4×2, hides the transaction list frame to prevent vertical overflow)
-            bindTodayPage(context, views, heightDp, data, isCompact = is3x2 || widthDp < 300)
+            bindTodayPage(context, views, heightDp, data, isCompact = is3x2 || widthDp < 300, isTallMode = isTallMode)
 
             // Page 1: Month (In 4×2, forces all 3 tiles: Spent, Earned, Balance into 1 row)
-            bindMonthPage(views, widthDp, heightDp, data, isDark, force3Col = is4x2 || heightDp < 215)
+            bindMonthPage(views, widthDp, heightDp, data, isDark, force3Col = is4x2 || !isTallMode)
 
             // Page 2: Donut (3×3+ only)
             if (showChartsAllowed) {
@@ -372,7 +378,8 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views: RemoteViews,
         heightDp: Int,
         data: SharedPreferences,
-        isCompact: Boolean
+        isCompact: Boolean,
+        isTallMode: Boolean
     ) {
         val spentToday = getFormattedAmount(data, "today_spent_raw", "today_spent", isCompact)
         val incomeToday = getFormattedAmount(data, "today_income_raw", "today_income_formatted", isCompact, isIncome = true)
@@ -381,10 +388,9 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setTextViewText(R.id.tv_hero_earned, incomeToday)
 
         // When in 2-row heights (3×2, 4×2), hide transaction frame so tiles don't get squished
-        val showContentFrame = heightDp >= 215
-        views.setViewVisibility(R.id.layout_today_content_frame, if (showContentFrame) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.layout_today_content_frame, if (isTallMode) View.VISIBLE else View.GONE)
 
-        if (!showContentFrame) return
+        if (!isTallMode) return
 
         val todayTxnsCount = data.getInt("today_count", 0)
 
@@ -543,8 +549,10 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.btn_donut_earning, "setBackgroundResource", if (!isSpending) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
         views.setTextColor(R.id.btn_donut_earning, if (!isSpending) activeColor else inactiveColor)
 
-        val slotWidthPx = ((widthDp - 32) * density).toInt().coerceAtLeast(100)
-        val slotHeightPx = ((heightDp - 150) * density).toInt().coerceAtLeast(100)
+        val availableChartHeightDp = max(70, heightDp - 146)
+        val availableChartWidthDp = max(100, widthDp - 28)
+        val slotWidthPx = (availableChartWidthDp * density).toInt()
+        val slotHeightPx = (availableChartHeightDp * density).toInt()
 
         val txnsJson = data.getString("recent_txns_json", null)
         val colorsJson = data.getString("category_colors_json", null)
@@ -581,8 +589,10 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         views.setInt(R.id.btn_heatmap_income, "setBackgroundResource", if (!isExpense) R.drawable.widget_tab_active else R.drawable.widget_tab_inactive)
         views.setTextColor(R.id.btn_heatmap_income, if (!isExpense) activeColor else inactiveColor)
 
-        val slotWidthPx = ((widthDp - 32) * density).toInt().coerceAtLeast(100)
-        val slotHeightPx = ((heightDp - 150) * density).toInt().coerceAtLeast(100)
+        val availableChartHeightDp = max(70, heightDp - 146)
+        val availableChartWidthDp = max(100, widthDp - 28)
+        val slotWidthPx = (availableChartWidthDp * density).toInt()
+        val slotHeightPx = (availableChartHeightDp * density).toInt()
 
         val txnsJson = data.getString("recent_txns_json", null)
 
@@ -607,8 +617,9 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
         }
         val addPi = PendingIntent.getActivity(context, widgetId * 40 + 1, addIntent, piFlags)
 
-        // Attach add action to root background and all touchable elements
+        // Attach add action to root background, app logo, and action container
         views.setOnClickPendingIntent(android.R.id.background, addPi)
+        views.setOnClickPendingIntent(R.id.iv_small_app_logo, addPi)
         views.setOnClickPendingIntent(R.id.btn_widget_add_hero, addPi)
 
         return views

@@ -131,12 +131,12 @@ object BuddyChartRenderer {
             val textMuted = if (isDark) 0x99EBEBF5.toInt() else 0x993C3C43.toInt()
             val trackColor = if (isDark) 0x1AFFFFFF.toInt() else 0x14000000.toInt()
 
-            val isWide = widthPx >= heightPx * 1.3f
+            val isWide = (widthPx >= 180f * density || widthPx >= heightPx * 0.9f) && slices.isNotEmpty() && totalAmount > 0
 
             if (isWide) {
-                // Wide layout: Donut on left, Ledger on right
-                val donutDiameter = min(heightPx - 16f * density, widthPx * 0.44f).coerceAtLeast(60f * density)
-                val donutCx = 12f * density + donutDiameter / 2f
+                // Wide layout: Donut on left, Ledger on right - uses full width
+                val donutDiameter = min(heightPx - 8f * density, widthPx * 0.44f).coerceAtLeast(60f * density)
+                val donutCx = 8f * density + donutDiameter / 2f
                 val donutCy = heightPx / 2f
 
                 drawDonutRing(
@@ -145,41 +145,24 @@ object BuddyChartRenderer {
                 )
 
                 // Ledger on right
-                val ledgerLeft = donutCx + donutDiameter / 2f + 14f * density
-                val ledgerWidth = widthPx - ledgerLeft - 10f * density
-                if (ledgerWidth > 80f * density) {
+                val ledgerLeft = donutCx + donutDiameter / 2f + 10f * density
+                val ledgerWidth = widthPx - ledgerLeft - 6f * density
+                if (ledgerWidth > 50f * density) {
                     drawLedgerBreakdown(
-                        canvas, ledgerLeft, 8f * density, ledgerWidth, heightPx - 16f * density,
+                        canvas, ledgerLeft, 4f * density, ledgerWidth, heightPx - 8f * density,
                         slices, totalAmount, textColor, textMuted, trackColor, density
                     )
                 }
             } else {
-                // Tall / Stacked layout: Donut on top, Ledger below if height permits
-                val availableForLedger = heightPx * 0.45f
-                val showLedger = availableForLedger >= 40f * density && slices.isNotEmpty()
-
-                val donutDiameter = if (showLedger) {
-                    min(widthPx - 20f * density, heightPx * 0.50f).coerceAtLeast(60f * density)
-                } else {
-                    min(widthPx - 20f * density, heightPx - 20f * density).coerceAtLeast(60f * density)
-                }
-
+                // Centered Donut layout (when no ledger or narrow width)
+                val donutDiameter = min(widthPx - 16f * density, heightPx - 8f * density).coerceAtLeast(60f * density)
                 val donutCx = widthPx / 2f
-                val donutCy = if (showLedger) 10f * density + donutDiameter / 2f else heightPx / 2f
+                val donutCy = heightPx / 2f
 
                 drawDonutRing(
                     canvas, donutCx, donutCy, donutDiameter, slices, totalAmount,
                     isExpense, isDark, textColor, textMuted, density
                 )
-
-                if (showLedger) {
-                    val ledgerTop = donutCy + donutDiameter / 2f + 10f * density
-                    val ledgerHeight = heightPx - ledgerTop - 8f * density
-                    drawLedgerBreakdown(
-                        canvas, 10f * density, ledgerTop, widthPx - 20f * density, ledgerHeight,
-                        slices, totalAmount, textColor, textMuted, trackColor, density
-                    )
-                }
             }
 
             bitmapCache.put(cacheKey, bitmap)
@@ -275,7 +258,7 @@ object BuddyChartRenderer {
         trackColor: Int,
         density: Float
     ) {
-        val rowHeight = 24f * density
+        val rowHeight = (height / min(slices.size.coerceAtLeast(1), 4)).coerceIn(18f * density, 24f * density)
         val maxRows = min(slices.size, floor(height / rowHeight).toInt())
         if (maxRows <= 0) return
 
@@ -421,12 +404,12 @@ object BuddyChartRenderer {
             val emptyCellBg = if (isDark) 0x14FFFFFF.toInt() else 0x0A000000.toInt()
             val accentColor = if (isIncomeMode) 0xFF34D399.toInt() else 0xFFFB7185.toInt()
 
-            val headerHeight = 16f * density
-            val gridTop = headerHeight + 3f * density
+            val headerHeight = 13f * density
+            val gridTop = headerHeight + 2f * density
             val gridHeight = heightPx - gridTop - 2f * density
             val colWidth = widthPx / 7f
             val rowHeight = gridHeight / rows
-            val cellGap = 2.5f * density
+            val cellGap = 2f * density
 
             val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textAlign = Paint.Align.CENTER

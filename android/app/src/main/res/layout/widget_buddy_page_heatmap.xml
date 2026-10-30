@@ -5,21 +5,21 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Top Sub-Header: Segmented Control [ Expense | Income ] (min 40dp tall) -->
+    <!-- Top Sub-Header: Segmented Control [ Expense | Income ] (compact 28dp) -->
     <LinearLayout
         android:id="@+id/layout_heatmap_toggle_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="6dp"
+        android:layout_marginBottom="4dp"
         android:gravity="center"
         android:orientation="horizontal">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="40dp"
+            android:layout_height="28dp"
             android:background="@drawable/widget_stat_tile_bg"
             android:orientation="horizontal"
-            android:padding="3dp">
+            android:padding="2dp">
 
             <!-- Expense Button -->
             <TextView
@@ -32,7 +32,7 @@
                 android:gravity="center"
                 android:text="Expense"
                 android:textColor="@color/widget_tab_active_text"
-                android:textSize="12.5sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
 
             <!-- Income Button -->
@@ -46,12 +46,12 @@
                 android:gravity="center"
                 android:text="Income"
                 android:textColor="@color/widget_tab_inactive_text"
-                android:textSize="12.5sp"
+                android:textSize="11sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Native Canvas Heatmap Slot: Fills remaining height/width with transparent background -->
+    <!-- Native Canvas Heatmap Slot: Expands to full width and height with zero margin waste -->
     <FrameLayout
         android:id="@+id/container_heatmap_chart"
         android:layout_width="match_parent"
@@ -64,7 +64,7 @@
             android:layout_height="match_parent"
             android:layout_gravity="center"
             android:contentDescription="Calendar Heatmap"
-            android:scaleType="fitCenter" />
+            android:scaleType="fitXY" />
     </FrameLayout>
 
 </LinearLayout>
