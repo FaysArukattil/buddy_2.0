@@ -7,6 +7,7 @@ import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/preference_service.dart';
+import 'package:buddy/views/screens/widget_add_modal_host.dart';
 import 'firebase_options.dart';
 
 void main() {
@@ -111,7 +112,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           darkTheme: AppTheme.darkTheme,
           themeMode: currentMode,
           themeAnimationDuration: Duration.zero,
-          home: SplashScreen(initFuture: widget.initFuture),
+          onGenerateInitialRoutes: (initialRoute) {
+            if (initialRoute == '/widget-add') {
+              return [
+                MaterialPageRoute(
+                  builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
+                  settings: const RouteSettings(name: '/widget-add'),
+                ),
+              ];
+            }
+            return [
+              MaterialPageRoute(
+                builder: (_) => SplashScreen(initFuture: widget.initFuture),
+                settings: const RouteSettings(name: '/'),
+              ),
+            ];
+          },
+          onGenerateRoute: (settings) {
+            if (settings.name == '/widget-add') {
+              return MaterialPageRoute(
+                builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
+                settings: settings,
+              );
+            }
+            return null;
+          },
         );
       },
     );

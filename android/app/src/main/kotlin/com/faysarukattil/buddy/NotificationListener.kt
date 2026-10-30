@@ -1,7 +1,9 @@
 package com.faysarukattil.buddy
 
+import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -1171,6 +1173,20 @@ class NotificationListener : NotificationListenerService() {
             .putString("${KEY_PREFIX}txn_$hash", json.toString())
             .putString("${KEY_PREFIX}history_$hash", historyJson.toString())
             .apply()
+
+        // Notify widget of auto-tracked transaction update
+        try {
+            val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
+            val thisWidget = ComponentName(applicationContext, BuddyWidgetProvider::class.java)
+            val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
+            if (allWidgetIds.isNotEmpty()) {
+                val updateIntent = Intent(applicationContext, BuddyWidgetProvider::class.java).apply {
+                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, allWidgetIds)
+                }
+                applicationContext.sendBroadcast(updateIntent)
+            }
+        } catch (_: Exception) {}
     }
 
     private fun storePendingTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {

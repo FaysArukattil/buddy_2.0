@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds & Surfaces (iOS Dark theme with deep subtle teal gradient) -->
+    <color name="widget_bg_start">#FF162422</color>
+    <color name="widget_bg_end">#FF0F1A19</color>
+    <color name="widget_border">#1FFFFFFF</color>
+    <color name="widget_surface">#1AFFFFFF</color>
+    <color name="widget_surface_elevated">#26FFFFFF</color>
+    <color name="widget_divider">#12FFFFFF</color>
+
+    <!-- Typography -->
+    <color name="widget_text_primary">#FFFFFFFF</color>
+    <color name="widget_text_secondary">#99EBEBF5</color>
+    <color name="widget_text_muted">#66EBEBF5</color>
+
+    <!-- Brand Accents -->
+    <color name="widget_accent">#FF2DD4BF</color>
+    <color name="widget_accent_bright">#FF34D399</color>
+    <color name="widget_accent_text">#FF0C2723</color>
+    <color name="widget_income">#FF34D399</color>
+    <color name="widget_income_bg">#2634D399</color>
+    <color name="widget_expense">#FFFB7185</color>
+    <color name="widget_expense_bg">#26FB7185</color>
+    <color name="widget_amber">#FFFBBF24</color>
+</resources>
+

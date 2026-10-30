@@ -20,6 +20,7 @@ import 'package:buddy/views/screens/bottomnavbarscreen/bottom_navbar_screen.dart
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
+import 'package:buddy/services/widget_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -289,6 +290,9 @@ class HomeScreenState extends State<HomeScreen>
       _cachedGroupedIncome = groupedIncome;
       _cachedGroupedExpense = groupedExpense;
     });
+
+    // Update Home Screen Widget in background without blocking frame
+    WidgetService.updateFromTransactions(transactions);
   }
 
   Future<void> refreshData() async {
