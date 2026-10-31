@@ -1,68 +1,102 @@
 # Buddy — Release Checklist
 
-> This checklist must be completed before any release that includes the changes from Tasks 1–4.
+> **For version 17.2.0+19** — includes Tasks 1–4 changes.
+> This is the pre-release checklist for deploying to Google Play.
 
-## Firestore Security Rules
-- [ ] Add validation for new user document fields:
-  - `countryCode` — string, max 2 chars, required format `[A-Z]{2}`
-  - `currencyCode` — string, max 3 chars, required format `[A-Z]{3}`
-  - `localeCode` — string, max 10 chars, format like `en_US`, `hi_IN`
-  - `currencySymbol` — string, max 5 chars
-- [ ] Ensure only the owning user (`request.auth.uid == userId`) can read/write these fields
-- [ ] Deploy updated rules BEFORE releasing the app update
+---
 
-## Play Console Data Safety Form
-- [ ] Update Data Safety form to declare:
-  - Country selection (collected, not shared, required for app functionality)
-  - Currency preference (collected, not shared, required for app functionality)
-  - Anonymous analytics events (collected, not shared, analytics purpose)
-- [ ] Declare that no SMS content is transmitted off-device
+## ✅ Already Done (in code)
 
-## Privacy Policy Updates
+- [x] **Version bumped** → `pubspec.yaml`: `version: 17.2.0+19`
+  - `versionCode` = 19 (read from pubspec by `flutter.versionCode`)
+  - `versionName` = 17.2.0 (read from pubspec by `flutter.versionName`)
+- [x] **Firestore security rules reviewed** — `firestore.rules` already uses
+  `allow read, write: if request.auth != null && request.auth.uid == userId`
+  on the user document; this covers all new fields (`countryCode`, `currencyCode`,
+  `localeCode`, `currencySymbol`) without any rule changes needed. ✅
+- [x] `flutter analyze` — No issues ✅
+- [x] `flutter test` — 130 tests, all pass ✅
+
+---
+
+## 🔲 Before Building the AAB
+
+### Play Console — Data Safety Form
+- [ ] Declare **Country selection** (user preference, stored in Firestore, not shared)
+- [ ] Declare **Currency preference** (user preference, stored in Firestore, not shared)
+- [ ] Declare **Anonymous analytics events** (parse_success/ignored/failed — no financial data; purpose: app analytics)
+- [ ] Declare **no SMS content is transmitted off-device** (processed on-device only)
+
+### Privacy Policy Updates
 - [ ] Update privacy policy to mention:
   - Country and currency preferences are stored in Firebase Firestore
-  - Anonymous parse success/failure analytics (no message content)
-  - SMS content is processed on-device only and never uploaded
+  - Anonymous parse success/failure analytics events (no message text, no amounts)
+  - SMS content is processed entirely on-device and never uploaded
 
-## Migration Testing
-- [ ] Test on a build with existing user data (India/INR user):
-  1. Install the OLD version, create some transactions
-  2. Upgrade to the NEW version
-  3. Verify: app opens without crash
-  4. Verify: defaults to India / INR / en_IN silently
-  5. Verify: all existing transactions display with ₹ symbol
-  6. Verify: SMS auto-detection still works correctly
-  7. Verify: home screen widget still shows ₹ amounts
-  8. Verify: PDF export shows Rs. / ₹ correctly with new Unicode font
-  9. Verify: changing currency in Settings works and refreshes everything
-  10. Verify: onboarding is NOT forced for existing users
+### Kotlin Unit Tests (requires Android SDK / Gradle)
+```bash
+cd android && ./gradlew test
+```
+- [ ] `BankSmsParserTest.kt` passes — protects Indian SMS parsing regression
 
-## Version Bump
-- [ ] Bump `versionName` in `pubspec.yaml` (e.g. 17.1.0 → 18.0.0)
-- [ ] Bump `versionCode` (build number) (e.g. +18 → +19)
-- [ ] Update Remote Config `latest_version` to match the new version
+### Manual Smoke Tests (physical device)
+- [ ] **Migration test** — install OLD version, create transactions, upgrade:
+  1. Defaults to India / INR / en_IN silently (no forced onboarding) ✅?
+  2. All existing transactions show ₹ symbol ✅?
+  3. SMS auto-detection still works ✅?
+  4. Home screen widget still shows ₹ ✅?
+  5. PDF export renders ₹ with Noto Sans font ✅?
+  6. Changing currency in Settings works ✅?
+- [ ] **Fresh install test** — new user onboarding shows currency picker ✅?
+- [ ] **Offline test** — airplane mode, app still opens and displays data ✅?
+- [ ] **Update prompt test** — trigger update check with Remote Config ✅?
 
-## Pre-Release Checks
-- [ ] `flutter analyze` — zero warnings, zero errors
-- [ ] `flutter test` — all Dart tests pass
-- [ ] Kotlin unit tests — all pass (including India regression)
-- [ ] Manual smoke test on a physical device
-- [ ] Test with airplane mode (offline behavior)
-- [ ] Test fresh install (new user onboarding flow)
+---
 
-## Release Process
-- [ ] Build signed AAB: `flutter build appbundle --release`
-- [ ] Upload to Play Console
-- [ ] **Staged rollout: 10-20% first**
-- [ ] Monitor crash reports for 24-48 hours
-- [ ] If stable: expand to 100%
-- [ ] **ONLY AFTER 100% rollout:**
-  - [ ] Set Remote Config `min_supported_version` to force old versions to update
-  - [ ] Set Remote Config `force_update` = true only if critical
-  - [ ] NEVER set min_supported_version before the new version is live
+## 🔲 Build & Release
 
-## Post-Release
-- [ ] Monitor Firebase Analytics for parse_success/ignored/failed events
-- [ ] Check which banks/countries are hitting parse_failed
-- [ ] Update bank_rules.json via Remote Config if needed (no new release required)
+```bash
+flutter build appbundle --release
+```
 
+- [ ] Upload signed AAB to Play Console (Internal Testing track first)
+- [ ] Verify the Internal Testing build on a real device
+- [ ] Promote to Production — **staged rollout: 10% first**
+- [ ] Monitor crash-free rate and ANR rate for 24–48 hours
+- [ ] If stable → expand to 50% → 100%
+
+---
+
+## 🔲 Remote Config (AFTER new version is live at 100%)
+
+> ⚠️ **NEVER set `min_supported_version` before the new version has reached 100% rollout**
+
+```
+min_supported_version: "17.2.0"
+latest_version: "17.2.0"
+force_update: false
+update_message: ""
+```
+
+Set these keys in Firebase Console → Remote Config **only after** 100% rollout.
+
+---
+
+## 🔲 Post-Release Monitoring
+
+- [ ] Firebase Analytics → `parse_success` event count increasing
+- [ ] Firebase Analytics → `parse_ignored` breakdown by `reason_code` (expect `promo` + `otp` to dominate)
+- [ ] Firebase Analytics → `parse_failed` breakdown by `country_code` (shows which banks need fixing)
+- [ ] Crashlytics → no new crash signatures
+- [ ] Play Console → rating / reviews — watch for complaints about currency display
+
+---
+
+## Future Work (post-launch)
+
+| Item | Where documented |
+|------|-----------------|
+| Wire `ParserRegistry.reloadFromRemoteConfig()` to actual RC fetch | `DECISIONS.md` #22 |
+| iOS / non-SMS country support (manual entry flow) | `DECISIONS.md` #18 |
+| User-consented "report this message" button | `DECISIONS.md` #19 |
+| Kotlin SMS parsing for non-India countries (current architecture: Dart-only) | `PARSING_RESEARCH.md` |

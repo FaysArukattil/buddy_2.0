@@ -1,12 +1,12 @@
 # Buddy — Handoff State
 
-**Last updated:** 2026-10-31T14:17:00+05:30
-**Last completed task:** Task 4 — Privacy-safe Firebase Analytics for parser monitoring
-**Git HEAD:** e1d5131 (Task 3) + uncommitted Task 4 changes (commit pending)
+**Last updated:** 2026-10-31T14:20:00+05:30
+**Status: ALL TASKS COMPLETE ✅**
+**Version:** `17.2.0+19` (bumped from 17.1.0+18)
 
 ---
 
-## Completed Tasks
+## Task Status
 
 | Task | Status | Commit |
 |------|--------|--------|
@@ -14,119 +14,121 @@
 | Task 1 — Forced/Prompted App Update | ✅ DONE | `cce44af` |
 | Task 2 — Country/Currency Selection & Global Symbol | ✅ DONE | `04b9c6d`, `8454a3c` |
 | Task 3 — Global Bank SMS Parsing architecture | ✅ DONE | `e1d5131` |
-| Task 4 — Firebase Analytics (parser monitoring) | ✅ DONE | to be committed |
-| Task 5 — Release Checklist | 🔴 NOT STARTED | — |
+| Task 4 — Firebase Analytics (parser monitoring) | ✅ DONE | `c86ab4f` |
+| Task 5 — Release Checklist | ✅ DONE | to be committed |
 
 ---
 
-## Current State (after Task 4)
+## Final Verification
 
-- `flutter analyze` → **No issues**
-- `flutter test` → **130 tests, all pass** (was 115; +15 new analytics tests)
-- `pubspec.yaml` has `firebase_analytics: ^11.3.6` (fetched)
-- `android/app/build.gradle.kts` has `implementation("com.google.firebase:firebase-analytics-ktx")`
-- Task 4 changes are **not yet committed** — commit immediately before starting Task 5
-
----
-
-## Task 4 — What Was Done
-
-### New Files
-- `lib/services/parse_analytics_service.dart` — privacy-safe analytics service
-  - 3 events: `parse_success`, `parse_ignored`, `parse_failed`
-  - `ParseIgnoreReason` constants: `otp`, `promo`, `no_amount`, `no_verb`, `no_bank_id`, `auto_detect_off`, `duplicate`
-  - `ParseFailedReason` constants: `invalid_amount`, `unknown`, `no_rule`
-  - Every call wrapped in try/catch — analytics **NEVER** crashes the parser
-  - NEVER logs: message text, amounts, merchant names, account numbers
-  - Only logs: country_code (ISO 3166-1), source_pkg (app package name), parser_used, reason_code
-- `test/parse_analytics_service_test.dart` — 15 tests verifying non-throwing behavior
-
-### Modified Files
-- `lib/services/notification_service.dart`
-  - Added `dart:async` (unawaited) import
-  - Added `parse_analytics_service.dart` import
-  - After successful Firestore sync in `syncSavedTransactions()`: calls `ParseAnalyticsService.logParseSuccess()` with `country_code` and `parser_used` read from the SharedPrefs JSON written by Kotlin
-- `android/app/src/main/kotlin/com/faysarukattil/buddy/NotificationListener.kt`
-  - Added `android.os.Bundle` and `com.google.firebase.analytics.FirebaseAnalytics` imports
-  - Added `logParserEvent()` private helper (wraps Firebase Analytics; all in try/catch)
-  - `parseTransaction()`: reads `country_code` from SharedPrefs (lazy val); logs `parse_ignored` at every rejection point (otp, promo, no_verb, no_bank_id, no_amount); logs `parse_failed` for invalid_amount
-  - `onNotificationPosted()`: logs `parse_success` after successful `saveTransaction()`
-  - `saveTransaction()`: now writes `country_code` and `parser_used: "india"` into the SharedPrefs JSON so the Dart sync path can read them for analytics
-- `android/app/build.gradle.kts`
-  - Added `implementation("com.google.firebase:firebase-analytics-ktx")`
+- `flutter analyze` → **No issues** ✅
+- `flutter test` → **130 tests, all pass** ✅
+- `pubspec.yaml` version → `17.2.0+19` ✅
+- `firestore.rules` → **No changes needed** — existing `allow read, write` covers all new fields ✅
 
 ---
 
-## Exact Next Step: Task 5 — Release Checklist
+## What the Next Human/Agent Needs to Do
 
-### 5.0 Commit Task 4 first
+These items require **manual action or physical device access** — they cannot be automated:
+
+### Immediate (before build)
+1. **Run Kotlin tests** (requires Android SDK):
+   ```bash
+   cd android && ./gradlew test
+   ```
+   Runs `BankSmsParserTest.kt` — protects India SMS parsing regression.
+
+2. **Update Play Console Data Safety form** — new analytics events + country/currency preferences need to be declared.
+
+3. **Update Privacy Policy** — note that country/currency prefs are stored in Firestore; analytics events contain no financial data.
+
+### Build & deploy
 ```bash
-cd "/Users/faysarukattil/Desktop/Personal Projects/buddy_2.0"
-git add -A
-git commit -m "Task 4: Privacy-safe parser monitoring via Firebase Analytics"
+flutter build appbundle --release
 ```
+Upload to Play Console. Start with **10% staged rollout**.
 
-### 5.1 Check Firestore security rules
-- Look for `firestore.rules` in project root
-- Add read/write rules for new user doc fields: `countryCode`, `currencyCode`, `localeCode`, `currencySymbol`
-- These are stored at `users/{uid}` (the user document)
-
-### 5.2 Bump version
-In `pubspec.yaml`:
-```yaml
-version: 17.2.0+19
+### After 100% rollout — set Remote Config:
 ```
-In `android/app/build.gradle.kts` — version is read from `flutter.versionCode` / `flutter.versionName` (from pubspec), so only pubspec needs updating.
-
-### 5.3 Run full verification
-```bash
-flutter analyze   # must be clean
-flutter test      # must pass (130 tests)
+min_supported_version: "17.2.0"
+latest_version: "17.2.0"
+force_update: false
 ```
+⚠️ NEVER set `min_supported_version` before the new version has reached 100% rollout.
 
-### 5.4 Kotlin tests
-```bash
-cd android && ./gradlew test
-```
-Runs `BankSmsParserTest.kt` — protects India parsing. Requires Android SDK / Gradle.
-
-### 5.5 Update HANDOFF.md + TASKS.md, final git commit
-Commit message: `Task 5: Release prep — bump version, security rules, release checklist`
+### Post-release
+- Monitor Firebase Analytics → `parse_success`, `parse_ignored`, `parse_failed` events
+- `parse_failed` by `country_code` shows which banks need `bank_rules.json` fixes
+- Fix bank rules via Remote Config (no new Play Store release needed)
 
 ---
 
-## Architecture Decisions (key ones — see DECISIONS.md for full list)
+## Architecture Summary (for new agents)
 
-| # | Decision |
-|---|----------|
-| 1 | Indian SMS parsing stays hardcoded in Kotlin `NotificationListener.kt` — never touched |
-| 2 | Non-India parsing: `GenericParser` + `bank_rules.json` (Dart side only) |
-| 3 | `CurrencyService` is the single source of truth for currency — no hardcoded ₹ |
-| 4 | Existing users default to India/INR/en_IN silently — no forced re-onboarding |
-| 5 | Currency change = display-only; no value conversion |
-| 6 | Analytics events NEVER include message text, amounts, names, account numbers |
-| 7 | `Task 3C` (bank_rules.json via Remote Config): `reloadFromRemoteConfig()` is implemented; wiring to actual RC fetch is **deferred post-launch** |
+| Component | File | Role |
+|-----------|------|------|
+| Update service | `lib/services/update_service.dart` | Play Core + Remote Config version checking |
+| Currency service | `lib/services/currency_service.dart` | Single source of truth for symbol/formatting |
+| Currency picker | `lib/views/widgets/currency_picker_sheet.dart` | 45-country searchable picker |
+| Bank parser interface | `lib/parsing/bank_parser.dart` | Abstract `BankParser` + `ParsedTransaction` model |
+| Parser registry | `lib/parsing/parser_registry.dart` | Loads `bank_rules.json`, routes by country |
+| Generic parser | `lib/parsing/generic_parser.dart` | Data-driven, handles 40+ countries |
+| Bank rules | `assets/parsing/bank_rules.json` | 42 country rules (India entry = docs only) |
+| Parse analytics | `lib/services/parse_analytics_service.dart` | Privacy-safe parse event logging |
+| India SMS parser | `NotificationListener.kt` | Hardcoded Kotlin; NEVER touch this |
+
+### Key Constraints
+- **India parser in `NotificationListener.kt` is frozen** — add-only, `BankSmsParserTest.kt` is the regression guard
+- **Never force existing users** through onboarding (they default to India/INR/en_IN)
+- **All analytics wrapped in try/catch** — Firebase failures must never crash the app
+- **`bank_rules.json` + `ParserRegistry`** are the Dart-side parsers for non-India countries
+- **`ParserRegistry.reloadFromRemoteConfig(json)`** is implemented and ready to wire — deferred post-launch (see DECISIONS.md #22)
 
 ---
 
-## Critical Constraints
+## Files Changed Since v17.1.0+18 (by task)
 
-- **NEVER change** `NotificationListener.kt` Indian parsing logic (add-only; `BankSmsParserTest.kt` is the regression guard)
-- **NEVER force existing users** through onboarding again
-- All update checks, analytics, and parsing wrapped in try/catch — nothing may crash the app
-- Git commands require `BypassSandbox: true`; Flutter commands require `BypassSandbox: true`
-- After EVERY sub-task: tick TASKS.md, update HANDOFF.md, git commit
+### Task 1 (commit `cce44af`)
+- `pubspec.yaml` — added `in_app_update`, `firebase_remote_config`
+- `lib/services/update_service.dart` — NEW
+- `lib/main.dart` — navigatorKey, resume update check
+- `lib/views/screens/onboarding/splashscreen/splash_screen.dart` — post-nav update check
+- `test/update_service_test.dart` — NEW (12 tests)
 
----
+### Task 2 (commits `04b9c6d`, `8454a3c`)
+- `lib/services/currency_service.dart` — NEW (singleton, 3 fields, formatters)
+- `lib/utils/format_utils.dart` — delegates to CurrencyService
+- `lib/services/pdf_service.dart` — Noto Sans + CurrencyService
+- `lib/views/widgets/currency_picker_sheet.dart` — NEW (45 countries)
+- `lib/features/onboarding/onboarding_screen.dart` — new user picker
+- `lib/views/widgets/setting_modal.dart` — Currency & region section
+- `lib/services/widget_service.dart` — passes symbol to native
+- `android/.../BuddyWidgetProvider.kt` — dynamic symbol
+- `android/.../NotificationActionReciever.kt` — reads symbol
+- `android/.../DuplicateConfirmationActivity.kt` — reads symbol
+- XML widget layouts — ₹ defaults → `--`
+- `assets/fonts/NotoSans-Regular.ttf`, `NotoSans-Bold.ttf` — NEW
 
-## Test Suite State
+### Task 3 (commit `e1d5131`)
+- `assets/parsing/bank_rules.json` — NEW (42 rules)
+- `lib/parsing/bank_parser.dart` — NEW
+- `lib/parsing/parser_registry.dart` — NEW
+- `lib/parsing/generic_parser.dart` — NEW
+- `lib/services/app_init_helper.dart` — parser init on startup
+- `test/parsing/bank_sms_test_vectors.json` — NEW (50+ vectors)
+- `test/parsing/dart_parser_test.dart` — NEW (62 tests)
+- `android/app/src/test/.../BankSmsParserTest.kt` — NEW
+- `docs/agent/PARSING_RESEARCH.md` — NEW
 
-| File | Tests | Status |
-|------|-------|--------|
-| `test/update_service_test.dart` | 12 | ✅ pass |
-| `test/deduplication_and_note_clean_test.dart` | 5 | ✅ pass |
-| `test/withdrawal_sms_test.dart` | varies | ✅ pass |
-| `test/parsing/dart_parser_test.dart` | 62 | ✅ pass |
-| `test/parse_analytics_service_test.dart` | 15 | ✅ pass |
-| Other widget/network/pdf tests | ~36 | ✅ pass |
-| **Total** | **130** | **✅ all pass** |
+### Task 4 (commit `c86ab4f`)
+- `lib/services/parse_analytics_service.dart` — NEW
+- `test/parse_analytics_service_test.dart` — NEW (15 tests)
+- `lib/services/notification_service.dart` — logParseSuccess after sync
+- `android/.../NotificationListener.kt` — logParserEvent helper + calls
+- `android/app/build.gradle.kts` — firebase-analytics-ktx
+
+### Task 5 (this commit)
+- `pubspec.yaml` — version 17.1.0+18 → 17.2.0+19
+- `docs/agent/RELEASE_CHECKLIST.md` — updated for v17.2.0+19
+- `docs/agent/TASKS.md`, `HANDOFF.md`, `DECISIONS.md` — updated
