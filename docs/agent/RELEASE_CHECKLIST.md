@@ -1,21 +1,38 @@
 # Buddy — Release Checklist
 
-> **For version 17.2.0+19** — includes Tasks 1–4 changes.
+> **For version 17.3.0+20** — includes Global Bank Notification Auto-Detection (Task 6).
 > This is the pre-release checklist for deploying to Google Play.
 
 ---
 
 ## ✅ Already Done (in code)
 
-- [x] **Version bumped** → `pubspec.yaml`: `version: 17.2.0+19`
-  - `versionCode` = 19 (read from pubspec by `flutter.versionCode`)
-  - `versionName` = 17.2.0 (read from pubspec by `flutter.versionName`)
-- [x] **Firestore security rules reviewed** — `firestore.rules` already uses
-  `allow read, write: if request.auth != null && request.auth.uid == userId`
-  on the user document; this covers all new fields (`countryCode`, `currencyCode`,
-  `localeCode`, `currencySymbol`) without any rule changes needed. ✅
-- [x] `flutter analyze` — No issues ✅
-- [x] `flutter test` — 130 tests, all pass ✅
+- [x] **Version bumped** → `pubspec.yaml`: `version: 17.3.0+20`
+  - `versionCode` = 20 (read from pubspec by `flutter.versionCode`)
+  - `versionName` = 17.3.0 (read from pubspec by `flutter.versionName`)
+- [x] **Firestore security rules reviewed** — `firestore.rules` already covers all fields ✅
+- [x] `flutter analyze` — No issues found ✅
+- [x] `flutter test` — 151 tests, all pass ✅
+- [x] Kotlin unit tests (`./gradlew :app:testDebugUnitTest`) — 45 tests, all pass (India regression + CurrencySymbol + GlobalBankParser) ✅
+- [x] Remote Config default safety: `enable_global_native_parsing` defaults to `false` in code ✅
+
+---
+
+## 🔲 Remote Config Deployment Strategy (Critical)
+
+1. **Deploy with flag OFF:**
+   - App bundle released with `enable_global_native_parsing: false`.
+   - Play Store release notes and description must **NOT** promise worldwide automatic bank detection until verified.
+2. **Gradual Country Rollout:**
+   - Set in Firebase Remote Config:
+     ```
+     enable_global_native_parsing: true
+     global_parsing_countries: "AE,SA"
+     ```
+   - Monitor Firebase Analytics `parse_success`, `parse_ignored`, `parse_failed` filtered by `country_code` and `parser_used`.
+   - Once verified clean, add additional country codes (e.g. `NG,KE,GB,US,SG,BR`).
+3. **Emergency Kill-Switch:**
+   - If any country experiences false positives, set `enable_global_native_parsing: false` or remove the country code from `global_parsing_countries` in Remote Config. It takes effect on next app launch without an app update.
 
 ---
 

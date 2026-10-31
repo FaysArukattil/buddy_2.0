@@ -44,6 +44,17 @@ class GenericParser implements BankParser {
     'kontostand', 'disponível', 'solde',
   ];
 
+  // Universal ignore patterns applied before country-specific ones (mirrors GlobalBankParser.kt)
+  static final _universalIgnore = [
+    'otp', 'one time password', 'verification code', 'login code',
+    'failed', 'declined', 'unsuccessful', 'cancelled', 'rejected',
+    'bill due', 'payment due', 'amount due', 'due on',
+    'requested money', 'has requested', 'request received',
+    'pre-approved', 'pre approved', 'loan offer', 'loan approved',
+    'congratulations', 'congrats', 'click here', 'tap here',
+    'promo code', 'coupon code', 'discount code',
+  ];
+
   GenericParser._({
     required this.countryCode,
     required String currencyCode,
@@ -150,6 +161,17 @@ class GenericParser implements BankParser {
   @override
   ParsedTransaction? parse(String text, String sourcePackage) {
     final lower = text.toLowerCase();
+
+    // 0. Universal ignore patterns applied before country-specific ones
+    for (final pattern in _universalIgnore) {
+      if (lower.contains(pattern)) {
+        if (pattern == 'otp' &&
+            !RegExp(r'\botp\b', caseSensitive: false).hasMatch(text)) {
+          continue;
+        }
+        return null;
+      }
+    }
 
     // 1. Hard ignore patterns — no exceptions
     for (final pattern in _ignorePatterns) {

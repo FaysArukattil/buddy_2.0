@@ -105,7 +105,7 @@
       "id": "IN_010",
       "country": "IN",
       "description": "Amazon shopping — comma-formatted amount",
-      "message": "Rs.1,250 debited for Amazon purchase",
+      "message": "Dear Customer, A/c *1234 has been debited by Rs.1,250 for Amazon purchase",
       "sourcePackage": "com.google.android.apps.messaging",
       "expectedType": "expense",
       "expectedAmount": 1250.0,

@@ -583,7 +583,7 @@ class _SettingsModalState extends State<SettingsModal> {
                         children: [
                           _buildSwitchRow(
                             icon: Icons.bolt_rounded,
-                            title: 'Track bank SMS',
+                            title: 'Track bank notifications',
                             subtitle: 'Auto-record incoming transactions',
                             value: _autoDetectionEnabled,
                             isLoading: _isLoading,

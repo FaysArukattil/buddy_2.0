@@ -354,6 +354,16 @@ class TestableNotificationParser {
             RegexOption.IGNORE_CASE
         )
 
+        private val PAYMENT_APPS = setOf(
+            "com.phonepe.app",
+            "com.google.android.apps.nbu.paisa.user",
+            "net.one97.paytm",
+            "in.org.npci.upiapp",
+            "com.dreamplug.androidapp",
+            "com.mobikwik_new",
+            "com.freecharge.android"
+        )
+
         private fun isFraudReportingDisclaimer(lowerText: String): Boolean {
             return lowerText.contains("if not done by") ||
                     lowerText.contains("if not you") ||
@@ -405,21 +415,40 @@ class TestableNotificationParser {
 
         if (!hasDebit && !hasCredit) return null
 
-        // Step 3: Must have bank identifier
-        val hasBankId = ACCOUNT_PATTERN.containsMatchIn(text) ||
-                lowerText.contains("a/c") || lowerText.contains("acct") ||
-                lowerText.contains("account") || lowerText.contains("card") ||
-                lowerText.contains("bank") || lowerText.contains("upi") ||
-                lowerText.contains("imps") || lowerText.contains("neft") ||
-                lowerText.contains("rtgs") || lowerText.contains("atm") ||
-                lowerText.contains("ref no") || lowerText.contains("utr") ||
-                lowerText.contains("rrn") || lowerText.contains("txn id") ||
-                listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara",
-                    "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank",
-                    "indian bank", "central bank", "iob", "uco bank", "idbi", "okaxis",
-                    "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
+        // Step 3: Must have bank identifier (or be confirmed receipt from a payment app)
+        val isPaymentApp = PAYMENT_APPS.contains(packageName)
+        if (isPaymentApp) {
+            val isExplicitPaymentReceipt =
+                lowerText.contains("you paid") ||
+                lowerText.contains("paid to") ||
+                lowerText.contains("payment to") ||
+                lowerText.contains("payment of") ||
+                lowerText.contains("money sent to") ||
+                lowerText.contains("you received") ||
+                lowerText.contains("received from") ||
+                (lowerText.contains("received") && lowerText.contains("from") &&
+                    !lowerText.contains("received your") &&
+                    !lowerText.contains("received application") &&
+                    !lowerText.contains("at branch")) ||
+                lowerText.contains("sent you") ||
+                lowerText.contains("paid you")
+            if (!isExplicitPaymentReceipt) return null
+        } else {
+            val hasBankId = ACCOUNT_PATTERN.containsMatchIn(text) ||
+                    lowerText.contains("a/c") || lowerText.contains("acct") ||
+                    lowerText.contains("account") || lowerText.contains("card") ||
+                    lowerText.contains("bank") || lowerText.contains("upi") ||
+                    lowerText.contains("imps") || lowerText.contains("neft") ||
+                    lowerText.contains("rtgs") || lowerText.contains("atm") ||
+                    lowerText.contains("ref no") || lowerText.contains("utr") ||
+                    lowerText.contains("rrn") || lowerText.contains("txn id") ||
+                    listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara",
+                        "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank",
+                        "indian bank", "central bank", "iob", "uco bank", "idbi", "okaxis",
+                        "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
 
-        if (!hasBankId) return null
+            if (!hasBankId) return null
+        }
 
         // Step 4: Extract amount (excluding balance)
         val allAmounts = AMOUNT_PATTERN.findAll(text).toList()

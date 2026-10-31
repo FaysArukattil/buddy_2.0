@@ -51,29 +51,6 @@ class GlobalBankParser private constructor(
         val parserUsed: String,
     )
 
-    companion object {
-        private const val TAG = "GlobalBankParser"
-
-        // Common balance keyword segments to exclude from amount extraction
-        private val BALANCE_MARKERS = listOf(
-            "bal", "balance", "avl bal", "avbl bal", "avail bal",
-            "available bal", "available balance", "avail balance",
-            "a/c bal", "saldo", "kontostand", "disponível", "solde",
-            "bakiye", "残高", "잔액",
-        )
-
-        // Universal ignore patterns applied before country-specific ones
-        private val UNIVERSAL_IGNORE = listOf(
-            "otp", "one time password", "verification code", "login code",
-            "failed", "declined", "unsuccessful", "cancelled", "rejected",
-            "bill due", "payment due", "amount due", "due on",
-            "requested money", "has requested", "request received",
-            "pre-approved", "pre approved", "loan offer", "loan approved",
-            "congratulations", "congrats", "click here", "tap here",
-            "promo code", "coupon code", "discount code",
-        )
-    }
-
     /**
      * Attempt to parse [text] from [sourcePackage].
      * Returns null if:
@@ -196,6 +173,27 @@ class GlobalBankParser private constructor(
     // ── Factory ────────────────────────────────────────────────────────────
 
     companion object {
+        private const val TAG = "GlobalBankParser"
+
+        // Common balance keyword segments to exclude from amount extraction
+        private val BALANCE_MARKERS = listOf(
+            "bal", "balance", "avl bal", "avbl bal", "avail bal",
+            "available bal", "available balance", "avail balance",
+            "a/c bal", "saldo", "kontostand", "disponível", "solde",
+            "bakiye", "残高", "잔액",
+        )
+
+        // Universal ignore patterns applied before country-specific ones
+        private val UNIVERSAL_IGNORE = listOf(
+            "otp", "one time password", "verification code", "login code",
+            "failed", "declined", "unsuccessful", "cancelled", "rejected",
+            "bill due", "payment due", "amount due", "due on",
+            "requested money", "has requested", "request received",
+            "pre-approved", "pre approved", "loan offer", "loan approved",
+            "congratulations", "congrats", "click here", "tap here",
+            "promo code", "coupon code", "discount code",
+        )
+
         /**
          * Build a [GlobalBankParser] from one JSON rule entry.
          * Returns null if required fields are missing or the pattern is invalid.

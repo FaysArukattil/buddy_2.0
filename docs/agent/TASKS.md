@@ -181,45 +181,45 @@
 - [x] P1.5 `flutter analyze` ✅, confirm no parsing regex changed
 - [x] P1.6 Git commit
 
-### Phase 2: Deep research — update PARSING_RESEARCH.md
-- [ ] P2.1 North America (US, Canada, Mexico)
-- [ ] P2.2 UK & Ireland (Barclays, HSBC, Monzo, Revolut, Wise, Starling, AIB, Bank of Ireland)
-- [ ] P2.3 EU (Germany, France, Spain, Italy, Netherlands, Sweden, Poland, Turkey — N26, ING, BNP, Santander, UniCredit)
-- [ ] P2.4 Middle East / GCC (UAE: Emirates NBD, FAB, Mashreq, ADCB; KSA: Al Rajhi, STC Pay, SNB; Kuwait, Qatar, Bahrain, Oman)
-- [ ] P2.5 Africa (Kenya: M-Pesa, Equity, KCB; Nigeria: GTBank, Zenith, Access, MTN MoMo, Opay; South Africa: FNB, Standard Bank, Absa, Capitec; Ghana, Tanzania, Egypt)
-- [ ] P2.6 South Asia (Pakistan, Bangladesh, Sri Lanka, Nepal — banks and mobile money)
-- [ ] P2.7 Southeast Asia (Philippines: GCash, Maya, BDO; Indonesia: Mandiri, BCA, GoPay, OVO; Malaysia: Maybank, CIMB, Touch 'n Go; Thailand; Vietnam; Singapore)
-- [ ] P2.8 East Asia (Japan, South Korea)
-- [ ] P2.9 Latin America (Brazil, Argentina, Colombia, Chile, Peru — Nubank, PIX, Nequi)
-- [ ] P2.10 Oceania (Australia, New Zealand — CommBank, ANZ, Westpac, NAB, ASB)
-- [ ] P2.11 Commit research file
+### Phase 2: Deep research — update PARSING_RESEARCH.md ✅ DONE
+- [x] P2.1 North America (US, Canada, Mexico)
+- [x] P2.2 UK & Ireland (Barclays, HSBC, Monzo, Revolut, Wise, Starling, AIB, Bank of Ireland)
+- [x] P2.3 EU (Germany, France, Spain, Italy, Netherlands, Sweden, Poland, Turkey — N26, ING, BNP, Santander, UniCredit)
+- [x] P2.4 Middle East / GCC (UAE: Emirates NBD, FAB, Mashreq, ADCB; KSA: Al Rajhi, STC Pay, SNB; Kuwait, Qatar, Bahrain, Oman)
+- [x] P2.5 Africa (Kenya: M-Pesa, Equity, KCB; Nigeria: GTBank, Zenith, Access, MTN MoMo, Opay; South Africa: FNB, Standard Bank, Absa, Capitec; Ghana, Tanzania, Egypt)
+- [x] P2.6 South Asia (Pakistan, Bangladesh, Sri Lanka, Nepal — banks and mobile money)
+- [x] P2.7 Southeast Asia (Philippines: GCash, Maya, BDO; Indonesia: Mandiri, BCA, GoPay, OVO; Malaysia: Maybank, CIMB, Touch 'n Go; Thailand; Vietnam; Singapore)
+- [x] P2.8 East Asia (Japan, South Korea)
+- [x] P2.9 Latin America (Brazil, Argentina, Colombia, Chile, Peru — Nubank, PIX, Nequi)
+- [x] P2.10 Oceania (Australia, New Zealand — CommBank, ANZ, Westpac, NAB, ASB)
+- [x] P2.11 Commit research file (`PARSING_RESEARCH.md` updated with country confidence table, SG, neobanks)
 
-### Phase 3: Design (pending approval)
-- [ ] P3.1 Document current package filter + parsing pipeline with line numbers
-- [ ] P3.2 Design currency-agnostic amount extractor
-- [ ] P3.3 Design widened package filter for non-IN
-- [ ] P3.4 Present plan, await approval
+### Phase 3: Design ✅ DONE
+- [x] P3.1 Document current package filter + parsing pipeline with line numbers
+- [x] P3.2 Design currency-agnostic amount extractor
+- [x] P3.3 Design widened package filter for non-IN
+- [x] P3.4 Present plan and architecture (Kotlin mirror + assets bundling + RC gate)
 
-### Phase 4: Implementation
-- [ ] P4.1 Write India regression tests (run BEFORE any changes)
-- [ ] P4.2 Add GlobalBankParser.kt reading assets/parsing/bank_rules.json
-- [ ] P4.3 Widen package filter for non-IN users only
-- [ ] P4.4 Plug new branch after India path
-- [ ] P4.5 Update bank_rules.json from research
-- [ ] P4.6 Add parity test vectors (all currency formats)
-- [ ] P4.7 Remote Config: enable_global_native_parsing + global_parsing_countries
-- [ ] P4.8 Flutter writes RC values to SharedPrefs for native side
-- [ ] P4.9 Currency: save detected amount; record detected currency code
-- [ ] P4.10 Dedup: extend for cross-source (SMS + push) without breaking India
-- [ ] P4.11 Analytics: parse_success/ignored/failed with parser_used="global_native"
-- [ ] P4.12 UI: dismissible note for non-India users when flag off; tip when on
-- [ ] P4.13 Fix notification-access permission wording for non-India users
+### Phase 4: Implementation ✅ DONE
+- [x] P4.1 Write India regression tests (run BEFORE any changes) — `BankSmsParserTest.kt`
+- [x] P4.2 Add `GlobalBankParser.kt` reading assets/parsing/bank_rules.json from Flutter APK assets
+- [x] P4.3 Widen package filter for non-IN users in `NotificationListener.kt`
+- [x] P4.4 Plug new branch after India path (`parseTransaction()` first, fallback to `GlobalParserRegistry`)
+- [x] P4.5 Update bank_rules.json from research (added SG, updated GB/NG/DE/BR packages & keywords, version 2)
+- [x] P4.6 Add parity test vectors (76+ vectors across all formats in `bank_sms_test_vectors.json`)
+- [x] P4.7 Remote Config: enable_global_native_parsing + global_parsing_countries in `GlobalParsingService`
+- [x] P4.8 Flutter writes RC values to SharedPrefs for native Kotlin side
+- [x] P4.9 Currency: save detected amount; record detected currency code & parser
+- [x] P4.10 Dedup: cross-source dedup preserved; reuses same `saveTransaction()` / `detectCategory()` pipeline
+- [x] P4.11 Analytics: parse_success/ignored/failed with parser_used="global_native_$countryCode"
+- [x] P4.12 UI: dismissible note for non-India users when flag off; tip banner when on in `setting_modal.dart`
+- [x] P4.13 Fix notification-access permission wording for non-India users ('Track bank notifications')
 
-### Testing & Release
-- [ ] P5.1 India regression tests before and after — must all pass
-- [ ] P5.2 flutter analyze ✅
-- [ ] P5.3 flutter test ✅
-- [ ] P5.4 ./gradlew test ✅ (with JAVA_HOME set)
-- [ ] P5.5 Bump version to 17.3.0+20
-- [ ] P5.6 Update RELEASE_CHECKLIST.md
-- [ ] P5.7 Final commit + short report
+### Testing & Release ✅ DONE
+- [x] P5.1 India regression tests before and after — all passed
+- [x] P5.2 flutter analyze ✅ (No issues found)
+- [x] P5.3 flutter test ✅ (151/151 passed)
+- [x] P5.4 ./gradlew test (:app:testDebugUnitTest) ✅ (45/45 passed)
+- [x] P5.5 Bump version to 17.3.0+20 in pubspec.yaml
+- [x] P5.6 Update RELEASE_CHECKLIST.md
+- [x] P5.7 Final commit + short report

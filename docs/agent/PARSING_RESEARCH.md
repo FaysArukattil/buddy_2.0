@@ -28,6 +28,40 @@
 
 ---
 
+## Overall Country Confidence Table
+
+| Country | Code | Currency | Notification Channels | Confidence |
+|---|---|---|---|---|
+| India | IN | INR (₹) | SMS, Bank App, UPI Push | High (Production tested) |
+| United States | US | USD ($) | Push, SMS (above threshold) | High |
+| United Kingdom | GB | GBP (£) | Bank App Push, SMS | High |
+| Germany | DE | EUR (€) | Bank App Push, SMS | High |
+| France | FR | EUR (€) | Bank App Push, SMS | Medium |
+| Spain | ES | EUR (€) | Bank App Push, SMS, Bizum | Medium |
+| Italy | IT | EUR (€) | Bank App Push, SMS | Medium |
+| United Arab Emirates | AE | AED | SMS, Bank App Push | High |
+| Saudi Arabia | SA | SAR | SMS, Bank App Push | High |
+| Nigeria | NG | NGN (₦) | SMS, Fintech Push | High |
+| Kenya | KE | KES | SMS (M-Pesa), Bank Push | High |
+| Singapore | SG | SGD (S$) | SMS, Push, PayNow | High |
+| Brazil | BR | BRL (R$) | Push (PIX), SMS | High |
+| Indonesia | ID | IDR (Rp) | Push, SMS, E-Wallet | High |
+| Japan | JP | JPY (¥) | Email/Push, SMS | Medium |
+| Pakistan | PK | PKR (Rs) | SMS, Wallet Push | Medium |
+| Bangladesh | BD | BDT (৳) | SMS (bKash/Nagad) | Medium |
+| Philippines | PH | PHP (₱) | SMS, GCash/Maya Push | High |
+| Malaysia | MY | MYR (RM) | SMS, Bank Push, DuitNow | Medium |
+| South Africa | ZA | ZAR (R) | SMS, Bank App Push | High |
+| Turkey | TR | TRY (₺) | SMS, Bank Push | Medium |
+| Mexico | MX | MXN ($) | Push, SMS | Medium |
+| Egypt | EG | EGP | SMS, InstaPay Push | Medium |
+| Australia | AU | AUD ($) | Bank Push, SMS | Medium |
+| New Zealand | NZ | NZD ($) | Bank Push, SMS | Low |
+| Kuwait / Bahrain / Oman | KW/BH/OM | KWD/BHD/OMR | SMS, Bank Push (3 decimals) | Medium |
+| Others (40+ countries) | Various | Various | SMS / Bank Push | Medium / Low |
+
+---
+
 ## India (IN) — Baseline ✅
 
 **Currency:** INR (₹), `en_IN` locale, Indian numbering (1,23,456)  
@@ -900,6 +934,52 @@ Touch 'n Go: RM50.00 paid to MerchantName. Balance: RM200.00. Ref: TNG123456.
 
 ---
 
+## Singapore (SG)
+
+**Currency:** SGD (S$), `en_SG` locale  
+**Confidence:** High (Clean English formats, high digital penetration, PayNow alerts)
+
+### Notification Channels
+- SMS: Sent for card transactions above threshold (usually S$100 or S$500 by default, customizable down to S$0.01) and PayNow transfers.
+- In-App Push Notifications: DBS digibank, OCBC Digital, UOB TMRW send real-time push for every card transaction and transfer.
+
+### Source Packages
+- Default SMS apps: `com.google.android.apps.messaging`, `com.samsung.android.messaging`
+- Bank apps:
+  - DBS / POSB: `com.dbs.sg.dbsmbanking` (digibank SG), `com.dbs.sg.posbmbanking`
+  - OCBC: `com.ocbc.mobile`
+  - UOB: `com.uob.mcp.digital` (UOB TMRW SG)
+  - Standard Chartered SG: `com.sc.bca`
+  - Citibank SG: `com.citibank.mobile.sg`
+  - GXS Bank: `com.gxs.bank`
+  - Trust Bank: `sg.trustbank.trust`
+  - GrabPay: `com.grabtaxi.passenger`
+
+### Sender / Title Patterns
+- Sender: `DBS`, `POSB`, `OCBC`, `UOB`, `SCBSG`, `CITISG`, `PAYNOW`
+- Title: Transaction Alert, Card Debit Alert, PayNow Alert, DBS digibank, OCBC Digital
+
+### Amount Patterns
+- Prefix: `S$ 500.00`, `S$500.00`, `SGD 500.00`, `SGD500`
+- Suffix: `500.00 SGD`, `500 SGD`
+- Number format: Standard comma-thousands and dot-decimal (`1,234.56`)
+
+### Wording & Keywords
+- Debit: `debited`, `paid`, `spent`, `transferred`, `has been charged`, `payment of`, `PayNow to`, `sent`
+- Credit: `credited`, `received`, `deposited`, `PayNow from`, `refund`, `cashback`
+- Ignore: `OTP`, `verification code`, `failed`, `declined`, `due`, `statement available`
+
+### Synthetic Samples
+```
+DBS: S$ 500.00 was debited from your account ending 1234 on 31/10/2026. Ref: 2026103112345. Available Balance: S$ 12,450.00.
+
+OCBC: You made a PayNow transfer of S$75.00 to 91234567 on 31 Oct 2026 14:30. Available Bal: S$4,320.50.
+
+UOB: S$ 1,250.00 has been credited to your account ending 5678 on 31/10/2026 via PayNow. Balance: S$ 8,900.00.
+```
+
+---
+
 ## Australia (AU)
 
 **Currency:** AUD ($), `en_AU` locale  
@@ -933,6 +1013,66 @@ ANZ: $1,000.00 was deposited into your account ending 5678 on 31/10/2026. Availa
 ### Source Packages
 - Default SMS app
 - `com.anz.android` (ANZ NZ), `com.asb.banking.tablet` (ASB), `nz.co.bnz.bnzmobile` (BNZ), `nz.co.westpac` (Westpac NZ)
+
+---
+
+## Global Neo-banks & Wallets
+
+Global and multi-national fintech platforms provide push notifications for transactions across many countries.
+
+### 1. Revolut
+- **Package:** `com.revolut.revolut`
+- **Notification Type:** Real-time push notification for every card transaction, exchange, or transfer.
+- **Formats:** Multi-currency (`€45.99 spent at Tesco`, `You spent $12.50 at Starbucks`, `You received £100.00 from John`).
+- **Confidence:** High
+
+### 2. Wise (formerly TransferWise)
+- **Package:** `com.transferwise.android`
+- **Notification Type:** Real-time push notification for money sent, converted, or received.
+- **Formats:** `You sent $500.00 to John (ref: WISE123)`, `You received €250.00 from Acidity Ltd`.
+- **Confidence:** High
+
+### 3. Monzo
+- **Package:** `co.monzo.android`
+- **Notification Type:** Push for all purchases.
+- **Formats:** `You spent £45.99 at Tesco`, `£1,500.00 deposited into your account`.
+- **Confidence:** High
+
+### 4. N26
+- **Package:** `de.number26.android`
+- **Notification Type:** Push notification for account movements across EU.
+- **Formats:** European format (`1.234,56 EUR wurde abgebucht`, `50,00 € spent at Rewe`).
+- **Confidence:** High
+
+### 5. Nubank
+- **Package:** `com.nu.production`
+- **Notification Type:** Instant push for card and PIX payments in Brazil and Mexico.
+- **Formats:** `Você fez um PIX de R$ 350,00 para Maria Silva`, `Compra de R$ 85,00 aprovada no cartão final 1234`.
+- **Confidence:** High
+
+### 6. GCash & Maya (Philippines)
+- **Packages:** `com.globe.gcash.android`, `com.paymaya`
+- **Notification Type:** SMS and push notification.
+- **Formats:** `You have paid ₱500.00 of GCash to Merchant`, `You received ₱1,000.00 from Juan Cruz`.
+- **Confidence:** High
+
+### 7. bKash (Bangladesh)
+- **Package:** `com.bkash.banking`
+- **Notification Type:** SMS and in-app push.
+- **Formats:** `You have received Tk 1,500.00 from 01712345678. Fee Tk 0.00. Balance Tk 5,420.00. TrxID 9A8B7C6D`.
+- **Confidence:** High
+
+### 8. GoPay & OVO (Indonesia)
+- **Packages:** `com.gojek.app`, `ovo.id`
+- **Notification Type:** Push notifications for QRIS payments, transfers, ride payments.
+- **Formats:** `Kamu telah membayar Rp 50.000 ke Toko XYZ`, `Transfer Rp 200.000 berhasil ke Rekening BCA`.
+- **Confidence:** High
+
+### 9. STC Pay / Urpay (Saudi Arabia)
+- **Packages:** `com.stc.stcpay`, `com.alrajhibank.urpay`
+- **Notification Type:** Push notifications for wallet spends and transfers.
+- **Formats:** `SAR 150.00 paid to Cafe via stc pay`, `SAR 500.00 received from Mohammed`.
+- **Confidence:** High
 
 ---
 

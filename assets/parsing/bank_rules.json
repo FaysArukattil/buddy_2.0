@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "description": "Bank SMS/notification parsing rules for Buddy expense tracker. Used by both Dart and Kotlin parsers. India rules are documented here but India parsing in Kotlin uses hardcoded logic for performance and reliability. This file drives all other countries.",
   "lastUpdated": "2026-10-31",
   "rules": [
@@ -352,6 +352,7 @@
         "com.zenith.bank.mobile",
         "com.uba.mobilebanking",
         "ng.opay.apps",
+        "team.opay.pay",
         "io.kuda.android",
         "moniepoint.hq.agent"
       ],
@@ -524,6 +525,7 @@
         "com.rbs.mobile.android.ubn",
         "com.lloyds.mobile.android",
         "com.hsbc.hsbcuksb",
+        "co.monzo.android",
         "com.monzo.android",
         "com.revolut.revolut",
         "uk.co.starlingbank"
@@ -562,9 +564,10 @@
         "de.dkb.productsapp",
         "de.commerzbank.banking.app",
         "de.ing.banking",
-        "de.postbank.finanzassistent"
+        "de.postbank.finanzassistent",
+        "de.number26.android"
       ],
-      "senderPatterns": ["DKB", "COMMERZBANK", "ING", "POSTBANK", "SPARKASSE"],
+      "senderPatterns": ["DKB", "COMMERZBANK", "ING", "POSTBANK", "SPARKASSE", "N26"],
       "currencyCode": "EUR",
       "currencySymbol": "€",
       "currencyMarkers": ["€", "EUR"],
@@ -580,7 +583,7 @@
         "gutgeschrieben", "eingegangen", "gutschrift", "überweisung erhalten",
         "credited", "received", "deposited"
       ],
-      "bankIdentifiers": ["konto", "karte", "ref", "bank", "€", "EUR", "DKB", "ING", "iban"],
+      "bankIdentifiers": ["konto", "karte", "ref", "bank", "€", "EUR", "DKB", "ING", "iban", "N26"],
       "ignorePatterns": ["otp", "angebot", "offer", "failed"],
       "confidence": "medium"
     },
@@ -824,6 +827,7 @@
         "com.bradesco.prime",
         "com.itau.bankapp",
         "br.com.bb.android",
+        "com.nu.production",
         "com.nu.productionapp",
         "com.santander.br.superapp"
       ],
@@ -837,10 +841,10 @@
       "decimalDigits": 2,
       "debitKeywords": [
         "debitado", "compra", "pagamento", "transferência enviada",
-        "pix enviado", "sacado", "retirado", "foi cobrado", "debited"
+        "pix enviado", "fez um pix", "enviou um pix", "sacado", "retirado", "foi cobrado", "debited"
       ],
       "creditKeywords": [
-        "creditado", "recebido", "depósito", "pix recebido",
+        "creditado", "recebido", "recebeu", "depósito", "pix recebido", "recebeu um pix",
         "transferência recebida", "salário", "credited"
       ],
       "bankIdentifiers": ["conta", "cartão", "ref", "R$", "BRL", "Nubank", "Itaú", "Bradesco", "pix"],
