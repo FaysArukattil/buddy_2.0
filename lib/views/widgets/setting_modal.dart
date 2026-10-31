@@ -19,6 +19,8 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/save_guest_account_modal.dart';
+import 'package:buddy/views/widgets/currency_picker_sheet.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -518,6 +520,27 @@ class _SettingsModalState extends State<SettingsModal> {
                             child: _buildThemeSelector(isDark),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 26),
+
+                      // ── Currency & Region ──
+                      _sectionLabel('Currency & region'),
+                      ValueListenableBuilder<int>(
+                        valueListenable: CurrencyService.currencyNotifier,
+                        builder: (context, _, __) {
+                          return _card(
+                            children: [
+                              _tile(
+                                icon: Icons.language_rounded,
+                                title: 'Country & currency',
+                                subtitle:
+                                    '${CurrencyService.currencyCode} · ${CurrencyService.currencySymbol}  (display only — amounts not converted)',
+                                trailingIcon: Icons.chevron_right_rounded,
+                                onTap: () => CurrencyPickerSheet.show(context),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 26),
 

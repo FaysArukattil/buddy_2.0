@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
 import 'package:buddy/services/currency_service.dart';
+import 'package:buddy/views/widgets/currency_picker_sheet.dart';
 
 /// Buddy Onboarding v6 — same visual language as the Home screen.
 ///
@@ -349,6 +350,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         } catch (_) {
           // Never block signup on a permission failure.
         }
+      }
+    }
+
+    if (!mounted) return;
+
+    // Show country/currency picker for new users (dismissible — they can skip).
+    // Only shown if they haven't already set a country (covers fresh installs).
+    if (!CurrencyService.isInitialized ||
+        CurrencyService.countryCode == CurrencyService.defaultCountryCode) {
+      try {
+        await CurrencyPickerSheet.show(context);
+      } catch (_) {
+        // Never block signup on picker failure.
       }
     }
 
