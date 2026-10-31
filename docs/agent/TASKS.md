@@ -100,13 +100,15 @@
 
 ---
 
-## Task 4: Privacy-Safe Parser Monitoring (Firebase Analytics)
-- [ ] 4.1 Add `firebase_analytics` to pubspec.yaml
-- [ ] 4.2 Create anonymous events (`parse_success`, `parse_ignored`, `parse_failed`)
-  - NEVER include message text, amounts, names, account numbers
-- [ ] 4.3 Integrate into `NotificationListener.kt` and Dart parsers
-- [ ] 4.4 `flutter analyze` ✅
-- [ ] 4.5 Git commit
+## Task 4: Privacy-Safe Parser Monitoring (Firebase Analytics) ✅ DONE (commit pending)
+- [x] 4.1 Add `firebase_analytics: ^11.3.6` to pubspec.yaml; `flutter pub get` ✅
+- [x] 4.2 Create `lib/services/parse_analytics_service.dart` — 3 events (`parse_success`, `parse_ignored`, `parse_failed`); `ParseIgnoreReason` + `ParseFailedReason` constants; all calls in try/catch; NEVER logs text/amounts/names/account numbers
+- [x] 4.3a Wire into `lib/services/notification_service.dart` — `unawaited(ParseAnalyticsService.logParseSuccess(...))` after successful Firestore sync; reads `country_code` + `parser_used` from SharedPrefs JSON written by Kotlin
+- [x] 4.3b Wire into `NotificationListener.kt` — `logParserEvent()` helper using Firebase Android SDK; logs `parse_ignored` (otp/promo/no_verb/no_bank_id/no_amount) and `parse_failed` (invalid_amount) at each rejection point; logs `parse_success` after `saveTransaction()`; also writes `country_code`/`parser_used` into SharedPrefs JSON
+- [x] 4.3c Add `implementation("com.google.firebase:firebase-analytics-ktx")` to `android/app/build.gradle.kts`
+- [x] 4.4 `flutter analyze` ✅ No issues
+- [x] 4.5 Tests: 15 new analytics tests (`test/parse_analytics_service_test.dart`); 130 total — all pass
+- [x] 4.6 Git commit (pending)
 
 ---
 

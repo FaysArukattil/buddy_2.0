@@ -4,9 +4,11 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.google.firebase.analytics.FirebaseAnalytics
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
@@ -471,6 +473,41 @@ class NotificationListener : NotificationListenerService() {
     private val recentlyProcessed = LinkedHashSet<String>()
     private val maxRecentSize = 50
 
+    // ── Analytics ──
+
+    /**
+     * Privacy-safe parser analytics.
+     *
+     * Logs one of: parse_success | parse_ignored | parse_failed
+     *
+     * NEVER logs: message text, amounts, merchant names, account numbers.
+     * Only logs categorical/technical metadata: event name, country code,
+     * source package (which app the SMS came from), parser name, reason code.
+     *
+     * Wrapped in try/catch — analytics must NEVER crash the parser.
+     */
+    private fun logParserEvent(
+        eventName: String,
+        countryCode: String,
+        sourcePkg: String,
+        parserUsed: String = "india",
+        reasonCode: String = ""
+    ) {
+        try {
+            val analytics = FirebaseAnalytics.getInstance(applicationContext)
+            val params = Bundle().apply {
+                putString("country_code", countryCode.take(5))
+                // Truncate to last 40 chars to keep param values short in BigQuery
+                putString("source_pkg", if (sourcePkg.length > 40) sourcePkg.takeLast(40) else sourcePkg)
+                putString("parser_used", parserUsed.take(20))
+                if (reasonCode.isNotEmpty()) putString("reason_code", reasonCode.take(20))
+            }
+            analytics.logEvent(eventName, params)
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ Analytics log failed (non-critical): ${e.message}")
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "✅ NotificationListener created (OS-managed)")
@@ -623,6 +660,10 @@ class NotificationListener : NotificationListenerService() {
 
             Log.d(TAG, "✅ Transaction saved to SharedPreferences (hash=$hash)")
 
+            // Log parse_success analytics (non-PII: country code + source package + parser name).
+            val countryCode = buddyPrefs.getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
+            logParserEvent("parse_success", countryCode, pkg)
+
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error processing notification: ${e.message}", e)
         }
@@ -659,6 +700,14 @@ class NotificationListener : NotificationListenerService() {
     private fun parseTransaction(text: String, packageName: String): Transaction? {
         val lowerText = text.lowercase()
 
+        // Read country code once for analytics (SharedPrefs read is cheap; value is cached by OS)
+        val countryCode: String by lazy {
+            try {
+                getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
+            } catch (_: Exception) { "IN" }
+        }
+
         // ────────────────────────────────────────────────────────────────
         // STEP 1: Mandatory Promotional, Spam, Offer, & Request Rejection
         // ZERO EXCEPTIONS — ANY matching keyword causes immediate discard.
@@ -676,6 +725,11 @@ class NotificationListener : NotificationListenerService() {
                     continue
                 }
                 Log.d(TAG, "🚫 Rejected spam/promotional message (keyword '$keyword'): ${text.take(60)}")
+                // Log parse_ignored with reason: 'otp' for OTP messages, 'promo' for others.
+                val reason = if (keyword == "otp" || keyword == "verification code" ||
+                    keyword == "one time password" || keyword == "secret code" || keyword == "login code")
+                    "otp" else "promo"
+                logParserEvent("parse_ignored", countryCode, packageName, reasonCode = reason)
                 return null
             }
         }
@@ -832,6 +886,7 @@ class NotificationListener : NotificationListenerService() {
 
         // If it doesn't describe money being debited or credited, it is NOT a transaction.
         if (!hasDebitVerb && !hasCreditVerb) {
+            logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_verb")
             return null
         }
 
@@ -861,6 +916,7 @@ class NotificationListener : NotificationListenerService() {
                 listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank", "indian bank", "central bank", "iob", "indian overseas", "uco bank", "idbi", "karnataka bank", "bandhan", "csb", "catholic syrian", "tmb", "tamilnad", "dcb bank", "dhanlaxmi", "dbs bank", "digibank", "hsbc", "standard chartered", "citi", "au bank", "au small", "equitas", "ujjivan", "south indian", "karur vysya", "kvb", "lakshmi vilas", "sbi card", "okaxis", "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
             if (!hasBankIdentifier) {
                 Log.d(TAG, "🚫 Ignored message without banking identifier: ${text.take(60)}")
+                logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_bank_id")
                 return null
             }
         } else if (isPaymentApp) {
@@ -884,6 +940,7 @@ class NotificationListener : NotificationListenerService() {
 
             if (!isExplicitPaymentReceipt) {
                 Log.d(TAG, "🚫 Ignored payment app notification without confirmed receipt action: ${text.take(60)}")
+                logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_verb")
                 return null
             }
         }
@@ -906,7 +963,10 @@ class NotificationListener : NotificationListenerService() {
         // Never capture the bank balance (e.g., BAL-Rs.60001.27) as the transaction amount!
         // ────────────────────────────────────────────────────────────────
         val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
-        if (allAmounts.isEmpty()) return null
+        if (allAmounts.isEmpty()) {
+            logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_amount")
+            return null
+        }
 
         val balanceMatches = BALANCE_PATTERN.findAll(text).toList()
 
@@ -923,6 +983,7 @@ class NotificationListener : NotificationListenerService() {
 
         if (transactionAmounts.isEmpty()) {
             Log.d(TAG, "🚫 Only balance amount found, no transaction amount in: ${text.take(60)}")
+            logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_amount")
             return null
         }
 
@@ -933,8 +994,14 @@ class NotificationListener : NotificationListenerService() {
             .ifEmpty { targetMatch.groupValues.getOrNull(3)?.ifEmpty { "" } ?: "" }
             .replace(",", "")
             .trim()
-        val amount = amountStr.toDoubleOrNull() ?: return null
-        if (amount <= 0.0 || amount > 10000000.0) return null
+        val amount = amountStr.toDoubleOrNull() ?: run {
+            logParserEvent("parse_failed", countryCode, packageName, reasonCode = "invalid_amount")
+            return null
+        }
+        if (amount <= 0.0 || amount > 10000000.0) {
+            logParserEvent("parse_failed", countryCode, packageName, reasonCode = "invalid_amount")
+            return null
+        }
 
         val type = if (isDebit) "expense" else "income"
         val (category, icon) = detectCategory(lowerText, type)
@@ -1150,6 +1217,11 @@ class NotificationListener : NotificationListenerService() {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date())
 
+        // Read country code to embed in the JSON so the Dart sync path can use it for analytics.
+        val countryCode = try {
+            prefs.getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
+        } catch (_: Exception) { "IN" }
+
         val json = JSONObject().apply {
             put("amount", transaction.amount)
             put("type", transaction.type)
@@ -1159,6 +1231,8 @@ class NotificationListener : NotificationListenerService() {
             put("source", source)
             put("timestamp", System.currentTimeMillis())
             put("date", isoDate)
+            put("country_code", countryCode)
+            put("parser_used", "india")   // Kotlin parser is always the India parser
             transaction.upiRef?.let { put("upiRef", it) }
         }
 

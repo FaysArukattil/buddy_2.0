@@ -1,4 +1,5 @@
 // lib/services/notification_service.dart
+import 'dart:async' show unawaited;
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/transaction.dart';
 import '../models/category.dart' as cat;
 import 'firestore_service.dart';
+import 'parse_analytics_service.dart';
 
 typedef OnTransactionDetected =
     Future<void> Function(Map<String, Object?> transactionMap, String hash);
@@ -206,6 +208,14 @@ class NotificationService {
         if (docId.isNotEmpty) {
           syncedCount++;
           debugPrint('✅ SYNC: Transaction synced to Firestore (hash=$hash, id=$docId)');
+
+          // Log analytics event for successful parse (non-PII: country + source pkg + parser name).
+          // The Kotlin parser ("india") set data['country_code'] and data['source'] in SharedPrefs.
+          unawaited(ParseAnalyticsService.logParseSuccess(
+            countryCode: data['country_code'] as String? ?? 'IN',
+            sourcePackage: data['source'] as String? ?? 'unknown',
+            parserUsed: data['parser_used'] as String? ?? 'india',
+          ));
 
           // Ensure history record is preserved for today's duplicate checks
           final histKey = 'history_$hash';

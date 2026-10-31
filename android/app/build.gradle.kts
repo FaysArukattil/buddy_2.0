@@ -78,4 +78,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.activity:activity-ktx:1.9.3")
+    // Firebase Analytics — used by NotificationListener for privacy-safe parser monitoring.
+    // No version needed; managed by the google-services plugin (Firebase BoM via FlutterFire).
+    implementation("com.google.firebase:firebase-analytics-ktx")
 }
