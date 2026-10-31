@@ -29,3 +29,4 @@
 5. **Existing users are on the Play Store.** Nothing may break for them. Default existing users to India/INR. Do not rewrite working Indian SMS parsing without regression tests first.
 
 6. **Order of work:** Step 0 (docs) → Task 1 (update prompt) → Task 2 (currency: B,C,D then A) → Task 3 (parsing research → parser refactor + tests)
+

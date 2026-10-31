@@ -157,3 +157,4 @@ All files that have hardcoded Indian currency that need to change for Task 2:
 - `widget_buddy_page_month.xml` — 6× "₹0" default text
 - `widget_buddy_large.xml` — 6× "₹0"/"+₹0" default text
 - `widget_buddy_medium.xml` — 4× "₹0" default text
+
