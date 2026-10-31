@@ -1145,6 +1145,53 @@
       "notificationPackages": ["com.google.android.apps.messaging", "com.android.messaging", "com.samsung.android.messaging"],
       "senderPatterns": ["ANZ-NZ", "ASB", "BNZ", "WESTPAC-NZ"],
       "confidence": "low"
+    },
+    {
+      "country": "SG",
+      "bankName": "_singapore_generic",
+      "description": "Singapore — DBS/POSB, OCBC, UOB, Grab, PayNow",
+      "currencyCode": "SGD",
+      "currencySymbol": "S$",
+      "currencyMarkers": ["S$", "SGD", "$"],
+      "amountPattern": "(?:S\\$|SGD|\\$)[\\s:.-]*([0-9]+(?:,[0-9]+)*(?:\\.[0-9]+)?)|([0-9]+(?:,[0-9]+)*(?:\\.[0-9]+)?)[\\s:.-]*(?:SGD)",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "decimalDigits": 2,
+      "debitKeywords": [
+        "debited", "payment made", "purchase", "transferred", "paid", "sent",
+        "withdrawn", "charged", "deducted", "spent", "transaction of"
+      ],
+      "creditKeywords": [
+        "credited", "received", "deposited", "transfer received", "paynow received",
+        "refund", "reversal", "salary"
+      ],
+      "bankIdentifiers": [
+        "dbs", "posb", "ocbc", "uob", "standard chartered", "stanchart", "hsbc",
+        "maybank", "citibank", "cimb", "grabpay", "paynow", "sgd", "s$",
+        "account", "acct", "ref no", "ref:"
+      ],
+      "ignorePatterns": [
+        "otp", "one-time", "verification", "failed", "declined", "unsuccessful",
+        "balance enquiry", "bill due", "payment reminder", "offer", "promo",
+        "congratulations", "click here"
+      ],
+      "notificationPackages": [
+        "com.google.android.apps.messaging",
+        "com.android.messaging",
+        "com.samsung.android.messaging",
+        "com.miui.mms",
+        "sg.com.dbs.digibank",
+        "com.dbs.sg.dbsdigibank",
+        "com.ocbc.mobile",
+        "com.uob.mighty",
+        "com.sc.mobile.android",
+        "com.grab.grabpay.merchant",
+        "com.hsbc.hsbcsg"
+      ],
+      "senderPatterns": ["DBS", "POSB", "OCBC", "UOB", "SCBANK", "STANCHART", "GRABPAY", "HSBC-SG"],
+      "titlePatterns": ["DBS", "POSB", "OCBC", "UOB", "Transaction Alert", "Payment Notification"],
+      "confidence": "medium",
+      "notes": "Singapore banks primarily send SMS and in-app push. PayNow (instant transfer) uses SGD. Amount format: S$1,234.56."
     }
   ]
 }

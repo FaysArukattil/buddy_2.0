@@ -21,6 +21,7 @@ import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/save_guest_account_modal.dart';
 import 'package:buddy/views/widgets/currency_picker_sheet.dart';
 import 'package:buddy/services/currency_service.dart';
+import 'package:buddy/services/global_parsing_service.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -37,6 +38,8 @@ class _SettingsModalState extends State<SettingsModal> {
   bool _isLoading = true;
   bool _isToggling = false; // Prevents rapid-fire toggle spam
   bool _isAccountActionLoading = false;
+  // Non-India auto-detection status (loaded asynchronously)
+  bool _globalParsingEnabled = false;
   String _accountActionMessage = 'Please wait...';
   String _appVersion = 'v1.0.0';
   final AuthService _authService = AuthService();
@@ -58,12 +61,14 @@ class _SettingsModalState extends State<SettingsModal> {
       final hasAccess = await NotificationService.isNotificationAccessGranted();
       final includeDebts = PreferenceService.includeDebtsInHome;
       final versionStr = await FeedbackService.getAppVersionDisplay();
+      final globalEnabled = await GlobalParsingService.isEnabledForCurrentUser();
       if (mounted) {
         setState(() {
           _autoDetectionEnabled = enabled && hasAccess;
           _includeDebtsInBalance = includeDebts;
           _appVersion = versionStr;
           _isLoading = false;
+          _globalParsingEnabled = globalEnabled;
         });
       }
     } catch (e) {
@@ -528,16 +533,27 @@ class _SettingsModalState extends State<SettingsModal> {
                       ValueListenableBuilder<int>(
                         valueListenable: CurrencyService.currencyNotifier,
                         builder: (context, _, __) {
-                          return _card(
+                          final isNonIndia = CurrencyService.countryCode != 'IN';
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _tile(
-                                icon: Icons.language_rounded,
-                                title: 'Country & currency',
-                                subtitle:
-                                    '${CurrencyService.currencyCode} · ${CurrencyService.currencySymbol}  (display only — amounts not converted)',
-                                trailingIcon: Icons.chevron_right_rounded,
-                                onTap: () => CurrencyPickerSheet.show(context),
+                              _card(
+                                children: [
+                                  _tile(
+                                    icon: Icons.language_rounded,
+                                    title: 'Country & currency',
+                                    subtitle:
+                                        '${CurrencyService.currencyCode} · ${CurrencyService.currencySymbol}  (display only — amounts not converted)',
+                                    trailingIcon: Icons.chevron_right_rounded,
+                                    onTap: () => CurrencyPickerSheet.show(context),
+                                  ),
+                                ],
                               ),
+                              // Show info banner for non-India users
+                              if (isNonIndia) ...[
+                                const SizedBox(height: 10),
+                                _nonIndiaTipBanner(),
+                              ],
                             ],
                           );
                         },
@@ -1090,6 +1106,55 @@ class _SettingsModalState extends State<SettingsModal> {
   }
 
   // ───────────────────────── Building blocks ─────────────────────────
+
+  /// Info banner shown under "Currency & region" for non-India users.
+  /// - When global parsing is OFF: explains manual entry is needed for now.
+  /// - When global parsing is ON: tips the user to enable transaction alerts
+  ///   in their bank app.
+  Widget _nonIndiaTipBanner() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark
+        ? const Color(0xFF1E2A38)
+        : const Color(0xFFEFF6FF);
+    final borderColor = isDark
+        ? const Color(0xFF2D4A6B)
+        : const Color(0xFFBFDBFE);
+    final textColor = isDark
+        ? const Color(0xFF93C5FD)
+        : const Color(0xFF1D4ED8);
+
+    final String message = _globalParsingEnabled
+        ? 'For automatic tracking, turn on transaction alerts in your bank app. '
+            'Buddy will detect them automatically.'
+        : 'Automatic detection is rolling out gradually for your country. '
+            'Add transactions manually for now — it will activate when ready.';
+
+    final IconData icon = _globalParsingEnabled
+        ? Icons.check_circle_outline_rounded
+        : Icons.info_outline_rounded;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border.all(color: borderColor),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: textColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 13, color: textColor, height: 1.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _sectionLabel(String text) {
     return Padding(

@@ -5,6 +5,7 @@ import 'notification_service.dart';
 import 'firestore_service.dart';
 import 'preference_service.dart';
 import 'currency_service.dart';
+import 'global_parsing_service.dart';
 import '../parsing/parser_registry.dart';
 
 /// Handles app initialization and transaction syncing.
@@ -59,6 +60,14 @@ class AppInitHelper {
       } catch (e) {
         debugPrint('⚠️ ParserRegistry init failed (non-critical): $e');
       }
+
+      // 0c. Fetch Remote Config flags for global native parsing and write
+      //     them to SharedPreferences so the Kotlin NotificationListener can
+      //     read them when the app is closed. Non-fatal.
+      GlobalParsingService.initialize().catchError((e) {
+        debugPrint('⚠️ GlobalParsingService init failed (non-critical): $e');
+        return null;
+      });
 
       // 1. Enable Firestore offline persistence
       debugPrint('📊 Enabling Firestore persistence...');

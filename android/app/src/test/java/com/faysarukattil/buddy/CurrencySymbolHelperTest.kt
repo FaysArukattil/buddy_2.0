@@ -81,3 +81,4 @@ class CurrencySymbolHelperTest {
         assertEquals("SAR", resolveSymbol("SAR"))
     }
 }
+

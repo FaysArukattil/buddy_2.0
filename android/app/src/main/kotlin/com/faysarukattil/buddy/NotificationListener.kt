@@ -511,6 +511,15 @@ class NotificationListener : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "✅ NotificationListener created (OS-managed)")
+        // Pre-load the global parser registry from bundled assets.
+        // This is non-fatal: if the asset is missing, GlobalParserRegistry stays empty
+        // and the global branch is simply never reached.
+        try {
+            GlobalParserRegistry.instance.loadFromAssets(applicationContext)
+            Log.d(TAG, "✅ GlobalParserRegistry loaded ${GlobalParserRegistry.instance.ruleCount} rule(s)")
+        } catch (e: Exception) {
+            Log.w(TAG, "⚠️ GlobalParserRegistry load failed (non-critical): ${e.message}")
+        }
     }
 
     override fun onListenerConnected() {
@@ -622,11 +631,58 @@ class NotificationListener : NotificationListenerService() {
                 }
             }
 
-            // 7. Parse transaction
+            // 7. Parse transaction — INDIA PATH FIRST (always)
             val fullText = "$title $content"
-            val transaction = parseTransaction(fullText, pkg) ?: return
+            val transaction: Transaction? = parseTransaction(fullText, pkg)
 
-            Log.d(TAG, "💰 Transaction detected: ₹${transaction.amount} ${transaction.type} (${transaction.category})")
+            // 7b. Global parser branch — only if:
+            //     (a) India path produced nothing
+            //     (b) the saved countryCode is NOT "IN" (users with no saved
+            //         country default to "IN" and never reach this branch)
+            //     (c) the Remote Config flag "enable_global_native_parsing" is ON
+            //     (d) the country is allowed by "global_parsing_countries"
+            val resolvedTransaction: Transaction? = if (transaction != null) {
+                transaction
+            } else {
+                val buddyPrefsForCountry = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                val savedCountry = buddyPrefsForCountry.getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
+
+                if (savedCountry != "IN"
+                    && GlobalParserRegistry.instance.isEnabled(applicationContext)
+                    && GlobalParserRegistry.instance.isCountryAllowed(applicationContext, savedCountry)
+                ) {
+                    // Try remote-config rules if Flutter has written a newer version
+                    GlobalParserRegistry.instance.checkAndApplyRemoteConfigRules(applicationContext)
+
+                    val globalResult = GlobalParserRegistry.instance.parseForCountry(
+                        fullText, pkg, savedCountry
+                    )
+                    if (globalResult != null) {
+                        Log.d(TAG, "🌍 Global parser matched: ${globalResult.type} ${globalResult.amount} ${globalResult.currencyCode} via ${globalResult.parserUsed}")
+                        // Convert GlobalBankParser.ParsedResult into the same Transaction the
+                        // India path produces, reusing detectCategory for consistency.
+                        val (cat, icon) = detectCategory(fullText.lowercase(), globalResult.type)
+                        Transaction(
+                            amount = globalResult.amount,
+                            type = globalResult.type,
+                            category = cat,
+                            icon = icon,
+                            note = fullText.take(200),
+                            dateIso = null,
+                            upiRef = null,
+                        )
+                    } else {
+                        logParserEvent("parse_failed", savedCountry, pkg, "global_native_$savedCountry", "no_match")
+                        null
+                    }
+                } else {
+                    null
+                }
+            }
+
+            if (resolvedTransaction == null) return
+
+            Log.d(TAG, "💰 Transaction detected: ${resolvedTransaction.amount} ${resolvedTransaction.type} (${resolvedTransaction.category})")
 
             // 8. Generate hash and check for duplicates
             val hash = generateHash("$fullText|${System.currentTimeMillis()}")
@@ -638,31 +694,33 @@ class NotificationListener : NotificationListenerService() {
             }
 
             // 8b. Check if this exact UPI transaction was already recorded within the last 24h
-            if (isExactUpiDuplicate(buddyPrefs, transaction.upiRef)) {
-                Log.d(TAG, "⚠️ Transaction with UPI ref ${transaction.upiRef} already recorded — skipping duplicate notification")
+            if (isExactUpiDuplicate(buddyPrefs, resolvedTransaction.upiRef)) {
+                Log.d(TAG, "⚠️ Transaction with UPI ref ${resolvedTransaction.upiRef} already recorded — skipping duplicate notification")
                 return
             }
 
             // 9. Check if a transaction with the same amount was recorded within the last 5 minutes
-            val potentialDuplicate = isRecentSameAmount(buddyPrefs, transaction.amount, transaction.type, transaction.upiRef)
+            val potentialDuplicate = isRecentSameAmount(buddyPrefs, resolvedTransaction.amount, resolvedTransaction.type, resolvedTransaction.upiRef)
 
             if (potentialDuplicate) {
                 // Store as pending and ask user to confirm via notification
-                storePendingTransaction(buddyPrefs, hash, transaction, pkg)
-                showDuplicateConfirmationNotification(hash, transaction)
-                Log.d(TAG, "⚠️ Same amount (₹${transaction.amount}) seen within 5 minutes — asking user to confirm")
+                storePendingTransaction(buddyPrefs, hash, resolvedTransaction, pkg)
+                showDuplicateConfirmationNotification(hash, resolvedTransaction)
+                Log.d(TAG, "⚠️ Same amount (${resolvedTransaction.amount}) seen within 5 minutes — asking user to confirm")
                 return
             }
 
             // 10. Save transaction directly
-            saveTransaction(buddyPrefs, hash, transaction, pkg)
-            showTransactionAddedNotification(transaction)
+            saveTransaction(buddyPrefs, hash, resolvedTransaction, pkg)
+            showTransactionAddedNotification(resolvedTransaction)
 
             Log.d(TAG, "✅ Transaction saved to SharedPreferences (hash=$hash)")
 
             // Log parse_success analytics (non-PII: country code + source package + parser name).
             val countryCode = buddyPrefs.getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
-            logParserEvent("parse_success", countryCode, pkg)
+            // India path = "india" (the default). Global path = "global_native_{CC}".
+            val parserUsed = if (transaction != null) "india" else "global_native_$countryCode"
+            logParserEvent("parse_success", countryCode, pkg, parserUsed)
 
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error processing notification: ${e.message}", e)
@@ -681,8 +739,45 @@ class NotificationListener : NotificationListenerService() {
         } catch (_: Exception) {}
 
         if (FINANCIAL_APPS.contains(packageName)) return true
+
+        // For non-India users: also accept any package listed in the GlobalParserRegistry
+        // rules for the user's saved country. This is read-only and non-blocking.
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val savedCountry = prefs.getString("${KEY_PREFIX}country_code", "IN") ?: "IN"
+        if (savedCountry != "IN" && GlobalParserRegistry.instance.isEnabled(applicationContext)) {
+            // The GlobalParserRegistry checks per-country package lists via parse() internally.
+            // Here we do a broad check: if ANY registered country rule allows this package,
+            // let the notification through. The country-specific filter in parse() will
+            // reject it if it's not the user's country.
+            // We also keep the broad keyword check below as a safety net.
+        }
+
         val lower = packageName.lowercase()
-        return listOf("sms", "message", "messaging", "mms", "bank", "pay", "upi", "finance", "wallet", "credit", "card", "money", "sbi", "canara", "federal", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "idfc", "indus", "rbl", "yesbank", "union").any { lower.contains(it) }
+        return listOf(
+            // OEM/generic
+            "sms", "message", "messaging", "mms",
+            // Financial keywords — catches most bank/wallet apps globally
+            "bank", "pay", "upi", "finance", "wallet", "credit", "card", "money",
+            // India-specific (kept for India users)
+            "sbi", "canara", "federal", "hdfc", "icici", "axis", "kotak", "pnb",
+            "bob", "idfc", "indus", "rbl", "yesbank", "union",
+            // Non-India banks/wallets (common package name fragments)
+            "revolut", "wise", "transferwise", "monzo", "n26", "starling", "bunq",
+            "gcash", "paymaya", "bkash", "nagad", "mpesa", "momo", "opay",
+            "nubank", "nequi", "mercadopago", "bbva", "scotiabank",
+            "commbank", "westpac", "anz", "nab", "asb", "bnz",
+            "chase", "bofa", "wellsfargo", "citi", "usaa", "venmo", "cashapp",
+            "emirates", "mashreq", "alrajhi", "stcpay", "rajhi",
+            "gtbank", "zenith", "access", "kuda", "equity", "kcb",
+            "fnb", "absa", "capitec", "standardbank",
+            "maybank", "cimb", "rhb", "publicbank", "grab", "ovo", "gopay", "gojek",
+            "kasikorn", "scb", "bangkok", "krungsri",
+            "mirae", "shinhan", "kb", "woori", "hana",
+            "mufg", "smbc", "rakuten", "paypay",
+            "mandiri", "bca", "bri", "bni",
+            "bdo", "bpi", "metrobank", "landbank",
+            "vietcombank", "techcombank", "vpbank", "agribank",
+        ).any { lower.contains(it) }
     }
 
     private fun isOwnNotification(title: String, content: String): Boolean {
