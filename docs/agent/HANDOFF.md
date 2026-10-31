@@ -1,7 +1,7 @@
 # Buddy — Handoff State
 
-**Last updated:** 2026-10-31T14:20:00+05:30
-**Status: ALL TASKS COMPLETE ✅**
+**Last updated:** 2026-10-31T15:00:00+05:30
+**Status: ALL TASKS COMPLETE ✅ (post-release audit done)**
 **Version:** `17.2.0+19` (bumped from 17.1.0+18)
 
 ---
@@ -15,7 +15,8 @@
 | Task 2 — Country/Currency Selection & Global Symbol | ✅ DONE | `04b9c6d`, `8454a3c` |
 | Task 3 — Global Bank SMS Parsing architecture | ✅ DONE | `e1d5131` |
 | Task 4 — Firebase Analytics (parser monitoring) | ✅ DONE | `c86ab4f` |
-| Task 5 — Release Checklist | ✅ DONE | to be committed |
+| Task 5 — Release Checklist | ✅ DONE | `26c7ec9` |
+| **Audit v17.2.0** — Pre-release audit | ✅ DONE | see below |
 
 ---
 
@@ -132,3 +133,119 @@ force_update: false
 - `pubspec.yaml` — version 17.1.0+18 → 17.2.0+19
 - `docs/agent/RELEASE_CHECKLIST.md` — updated for v17.2.0+19
 - `docs/agent/TASKS.md`, `HANDOFF.md`, `DECISIONS.md` — updated
+
+---
+
+## Audit v17.2.0 — Pre-Release Audit Results
+
+**Audit date:** 2026-10-31  
+**flutter analyze:** No issues ✅  
+**flutter test:** 130/130 pass ✅  
+**./gradlew test:** BLOCKED — JAVA_HOME not set (see below)
+
+---
+
+### 1. Hardcoded Symbol Audit
+
+| File | Line(s) | Symbol | Status |
+|------|---------|--------|--------|
+| `lib/services/notification_helper.dart` | all | — | ✅ Uses `CurrencyService.formatFull()` |
+| `lib/services/debt_service.dart` | all | — | ✅ Uses `CurrencyService.formatFull()` |
+| `lib/views/screens/bottomnavbarscreen/borrow_lend_screen.dart` | all | — | ✅ Uses `FormatUtils.formatCurrency()` |
+| `lib/views/screens/add_transaction_screen.dart` | all | — | ✅ Uses `CurrencyService.symbol` |
+| `lib/views/screens/transaction_detail_screen.dart` | all | — | ✅ Uses `CurrencyService.formatSigned()` |
+| `lib/utils/export_manager.dart` | all | — | ✅ Intentional — CSV/JSON exports use raw numbers only |
+| `lib/features/onboarding/onboarding_screen.dart` | 19, 1403, 2069, 2114 | `₹0 forever` | ✅ Intentional — marketing copy meaning "free" |
+| `lib/views/widgets/currency_picker_sheet.dart` | various | `Rs` | ✅ Intentional — correct official symbols for LKR/NPR/PKR |
+| `lib/services/currency_service.dart` | constants | `₹`, `INR` | ✅ Intentional — India default constants |
+| `android/.../DuplicateConfirmationActivity.kt` | 78 | `₹` | ✅ Reads from SharedPrefs — `₹` is fallback only |
+| `android/.../NotificationActionReciever.kt` | 119 | `₹` | ✅ Reads from SharedPrefs — `₹` is fallback only |
+| `android/.../BuddyWidgetProvider.kt` | 67, 69, 71 | `₹` | ✅ Reads from SharedPrefs — `₹` is fallback only |
+| `android/.../NotificationListener.kt` | 214, 218, 281–293 | `₹`, `Rs`, `INR` | ✅ Intentional — India SMS regex patterns |
+| `android/.../NotificationListener.kt` | 629, 653 | `₹` | ✅ Intentional — debug Log statements |
+| `android/.../NotificationListener.kt` | **1323, 1324, 1326, 1347** | **`₹`** | 🔴 **BUG — hardcoded ₹ in notification text shown to non-India users** |
+
+**Known issue (read-only file):** `NotificationListener.kt` lines 1323, 1324, 1326, 1347 build the user-visible notification text for `showDuplicateConfirmationNotification()` and `showTransactionAddedNotification()` using `"₹$amount"` directly. This file is frozen per audit constraints. A future task must replace these with the `currency_symbol` value read from SharedPreferences (same pattern as `DuplicateConfirmationActivity.kt` line 78).
+
+---
+
+### 2. Firebase Storage Check
+
+**Write path (`CurrencyService._syncToFirestore`):**
+- Writes `countryCode`, `currencyCode`, `localeCode`, `currencySymbol`, `updatedAt` to `/users/{uid}` with `merge: true` ✅
+- Called from `setCountry()`, `setCurrency()`, `setLocale()` — covers onboarding and Settings ✅
+
+**Read path (`CurrencyService.syncFromFirestore`):**
+- Called from `lib/services/app_init_helper.dart:50` post-auth ✅
+- Falls back to `IN / INR / en_IN / ₹` if fields are absent ✅ — existing users unaffected
+
+**Firestore rules:** `/users/{userId}` rule is `allow read, write: if request.auth != null && request.auth.uid == userId` — covers all 4 new fields. **No changes needed.** ✅
+
+---
+
+### 3. Currency Change Refresh
+
+| Surface | Status |
+|---------|--------|
+| Home screen amounts | 🔴 **FIXED** — `home_screen.dart` now listens to `CurrencyService.currencyNotifier`; `setState()` + `WidgetService.updateFromTransactions()` called on change |
+| Home screen widget (Android) | ✅ Updated via `WidgetService.updateFromTransactions()` on currency change (wired in fix above) |
+| PDF export | ✅ `pdf_service.dart` calls `CurrencyService.formatForPdf()` at render time |
+| Scheduled / debt notifications | ✅ `notification_helper.dart` calls `CurrencyService.formatFull()` at fire time |
+
+---
+
+### 4. Non-India Notification Flow — VERDICT
+
+> **Non-India auto-detect DOES NOT WORK when the app is closed.**
+
+**What happens for a UAE bank or M-Pesa SMS:**
+
+1. `onNotificationPosted()` fires (L570) — OS-managed, works when app is closed ✅
+2. **Package filter (L673):** UAE banks are not in `FINANCIAL_APPS`, but the default SMS app (`com.samsung.android.messaging`, etc.) is always allowed. A UAE bank SMS arriving via the default SMS app **passes the package filter** ✅
+3. **`parseTransaction()` (L700) — this is where it fails:** The amount pattern (L281) only matches `Rs.?|INR|₹` as currency identifiers. UAE bank SMS uses `AED` or bare numbers. The bank identifier check (L850–865) requires Indian-specific terms (`upi`, `imps`, `neft`, `rtgs`, `a/c`, specific Indian bank names). A typical UAE SMS like `"Your A/C has been debited AED 500.00"` fails amount extraction → `allAmounts.isEmpty()` → **returns null → not saved**.
+4. **Dart `ParserRegistry` / `GenericParser`** for UAE (and all other non-India countries) is defined in `lib/parsing/parser_registry.dart` + `assets/parsing/bank_rules.json`. **These only run inside the Flutter engine** — i.e., only when the app is open and `syncSavedTransactions()` runs. Since Kotlin never saves a non-India transaction, the Dart parser never sees anything to process.
+
+**Non-India users can only record transactions manually** until a Kotlin-side non-India parser is added, or an alternative mechanism is implemented (e.g., foreground service, WorkManager job, or the user opens the app while the notification is still in the shade).
+
+**File/line references:**
+- Package filter: `NotificationListener.kt` L673 `isFromFinancialApp()`
+- Amount pattern: `NotificationListener.kt` L281 (regex: `Rs.?|INR|₹`)
+- Bank ID check: `NotificationListener.kt` L850–865
+- Dart parser entry: `lib/parsing/parser_registry.dart`, `lib/parsing/generic_parser.dart`
+- Dart parser called from: `lib/services/notification_service.dart` `syncSavedTransactions()`
+- Non-India rules: `assets/parsing/bank_rules.json`
+
+**See also:** DECISIONS.md #26.
+
+---
+
+### 5. Test Results
+
+```
+flutter analyze:   No issues ✅  (5.0s)
+flutter test:      130/130 tests pass ✅  (4s)
+./gradlew test:    BLOCKED ❌
+```
+
+**`./gradlew test` failure reason:** `JAVA_HOME` is not set in the terminal session. Java IS installed via Android Studio.
+
+**Fix (run once in terminal before `./gradlew test`):**
+```bash
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+cd "/Users/faysarukattil/Desktop/Personal Projects/buddy_2.0/android"
+./gradlew test
+```
+Alternatively, open Android Studio → use the built-in Terminal tab (it auto-sets `JAVA_HOME`).
+
+---
+
+### Audit — Files Changed
+
+- `lib/views/screens/bottomnavbarscreen/home_screen.dart`
+  - Added `import 'package:buddy/services/currency_service.dart'`
+  - `initState()` — added `CurrencyService.currencyNotifier.addListener(_onCurrencyChanged)`
+  - New method `_onCurrencyChanged()` — `setState()` + `WidgetService.updateFromTransactions()`
+  - `dispose()` — added `CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged)`
+- `docs/agent/HANDOFF.md` — audit results (this section)
+- `docs/agent/TASKS.md` — audit task ticked
+- `docs/agent/DECISIONS.md` — decision #26 added

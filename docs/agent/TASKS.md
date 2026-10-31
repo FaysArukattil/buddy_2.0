@@ -122,3 +122,49 @@
 - [x] 5.7 HANDOFF.md updated with final state
 - [x] 5.8 RELEASE_CHECKLIST.md updated with complete pre-release checklist for v17.2.0+19
 - [x] 5.9 Git commit (pending)
+
+---
+
+## Audit v17.2.0: Pre-Release Audit ✅ DONE
+
+### A1: Hardcoded Symbol Audit ✅ DONE
+- [x] A1.1 Scanned lib/, android Kotlin, XML, strings.xml for ₹, Rs, Rs., INR
+- [x] A1.2 `notification_helper.dart` — uses CurrencyService ✅
+- [x] A1.3 `debt_service.dart` — uses CurrencyService ✅
+- [x] A1.4 `borrow_lend_screen.dart` — uses FormatUtils/CurrencyService ✅
+- [x] A1.5 `add_transaction_screen.dart` — uses CurrencyService ✅
+- [x] A1.6 `transaction_detail_screen.dart` — uses CurrencyService ✅
+- [x] A1.7 `export_manager.dart` — raw numbers only (intentional) ✅
+- [x] A1.8 `onboarding_screen.dart` — "₹0 forever" is marketing copy (intentional) ✅
+- [x] A1.9 `currency_picker_sheet.dart` — 'Rs' for LKR/NPR/PKR (intentional correct symbols) ✅
+- [x] A1.10 `DuplicateConfirmationActivity.kt` / `NotificationActionReciever.kt` — reads SharedPrefs; ₹ is fallback only ✅
+- [x] A1.11 `NotificationListener.kt` L1323–1347 — hardcoded ₹ in user-visible notification text — **KNOWN BUG; file read-only for this audit; documented in HANDOFF.md**
+- [x] A1.12 All findings documented in HANDOFF.md audit section
+
+### A2: Firebase Storage Check ✅ DONE
+- [x] A2.1 `_syncToFirestore` writes all 4 fields (countryCode, currencyCode, localeCode, currencySymbol) ✅
+- [x] A2.2 Called from `setCountry()`, `setCurrency()`, `setLocale()` — covers both onboarding and Settings ✅
+- [x] A2.3 `syncFromFirestore()` called from `app_init_helper.dart:50` post-auth ✅
+- [x] A2.4 Fallback to IN/INR/en_IN/₹ for existing users with no Firestore data ✅
+- [x] A2.5 `firestore.rules` — existing `allow read, write` covers all 4 fields; no changes needed ✅
+
+### A3: Currency Change Refresh ✅ DONE (bug fixed)
+- [x] A3.1 Home screen: **FIXED** — added `CurrencyService.currencyNotifier` listener in `home_screen.dart`
+- [x] A3.2 Home widget: **FIXED** — `WidgetService.updateFromTransactions()` called from `_onCurrencyChanged()`
+- [x] A3.3 PDF export: already correct — `pdf_service.dart` calls CurrencyService at render time ✅
+- [x] A3.4 Scheduled/debt notifications: already correct — `notification_helper.dart` calls CurrencyService at fire time ✅
+
+### A4: Non-India Notification Flow (investigation) ✅ DONE
+- [x] A4.1 Read `NotificationListener.kt` — full flow documented
+- [x] A4.2 Verdict: **Does not work** — Kotlin amount pattern is India-only (Rs./INR/₹); Dart GenericParser only runs when app is open
+- [x] A4.3 Written to HANDOFF.md audit section with file/line references
+- [x] A4.4 DECISIONS.md #26 added
+
+### A5: Tests ✅ DONE
+- [x] A5.1 `flutter analyze` → No issues ✅
+- [x] A5.2 `flutter test` → 130/130 pass ✅
+- [x] A5.3 `./gradlew test` → BLOCKED (JAVA_HOME not set); fix documented in HANDOFF.md
+
+### A6: Commit ✅ DONE
+- [x] A6.1 `home_screen.dart` fix committed
+- [x] A6.2 HANDOFF.md, TASKS.md, DECISIONS.md committed

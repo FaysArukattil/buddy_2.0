@@ -21,6 +21,7 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/services/widget_service.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -77,6 +78,7 @@ class HomeScreenState extends State<HomeScreen>
     _includeDebtsInBalance = PreferenceService.includeDebtsInHome;
     PreferenceService.includeDebtsInHomeNotifier.addListener(_onDebtPreferenceChanged);
     PreferenceService.homeBalanceModeNotifier.addListener(_onHomeModeChanged);
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
 
     _loadUser();
 
@@ -135,11 +137,22 @@ class HomeScreenState extends State<HomeScreen>
     }
   }
 
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    // Rebuild to show the new currency symbol in all amount displays.
+    setState(() {});
+    // Also push the new symbol into the home widget so it updates immediately.
+    if (_transactions.isNotEmpty) {
+      WidgetService.updateFromTransactions(_transactions);
+    }
+  }
+
   @override
   void dispose() {
     _autoCycleTimer?.cancel();
     PreferenceService.includeDebtsInHomeNotifier.removeListener(_onDebtPreferenceChanged);
     PreferenceService.homeBalanceModeNotifier.removeListener(_onHomeModeChanged);
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _txnSubscription?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _scrollController.dispose();
