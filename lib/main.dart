@@ -7,6 +7,7 @@ import 'package:buddy/services/theme_service.dart';
 import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/preference_service.dart';
+import 'package:buddy/services/update_service.dart';
 import 'package:buddy/views/screens/widget_add_modal_host.dart';
 import 'firebase_options.dart';
 
@@ -96,6 +97,10 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  /// Global navigator key used for update dialogs on resume.
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   @override
   void initState() {
     super.initState();
@@ -124,6 +129,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       debugPrint('📱 APP: App resumed - syncing transactions...');
       _syncTransactions();
+
+      // Check for app updates on resume (non-blocking)
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        UpdateService.checkOnResume(ctx);
+      }
     }
   }
 
@@ -142,6 +153,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, child) {
         return MaterialApp(
+          navigatorKey: navigatorKey,
           title: 'Buddy',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,

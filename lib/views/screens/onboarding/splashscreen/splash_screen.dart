@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
 import 'package:buddy/features/onboarding/onboarding_screen.dart';
+import 'package:buddy/services/update_service.dart';
 import 'package:lottie/lottie.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -73,6 +74,16 @@ class _SplashScreenState extends State<SplashScreen>
         },
       ),
     );
+
+    // Check for app updates after navigation (non-blocking, never crashes)
+    if (mounted) {
+      // Use a post-frame callback to ensure the new screen is fully built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          UpdateService.checkForUpdate(context);
+        }
+      });
+    }
   }
 
   @override
