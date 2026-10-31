@@ -5,6 +5,7 @@ import 'notification_service.dart';
 import 'firestore_service.dart';
 import 'preference_service.dart';
 import 'currency_service.dart';
+import '../parsing/parser_registry.dart';
 
 /// Handles app initialization and transaction syncing.
 ///
@@ -47,6 +48,16 @@ class AppInitHelper {
         await PreferenceService.syncFromFirestore();
         // Sync currency settings from Firestore (after auth)
         await CurrencyService.syncFromFirestore();
+      }
+
+      // 0b. Initialize the bank SMS parser registry (non-India countries).
+      //     Non-fatal — fails silently if asset is missing.
+      try {
+        await ParserRegistry.instance.initialize();
+        debugPrint(
+            '✅ ParserRegistry loaded ${ParserRegistry.instance.ruleCount} country rule(s)');
+      } catch (e) {
+        debugPrint('⚠️ ParserRegistry init failed (non-critical): $e');
       }
 
       // 1. Enable Firestore offline persistence

@@ -22,4 +22,9 @@
 | 18 | iOS/non-SMS countries need manual entry — noted as future work | SMS parsing is Android-only. On iOS or in countries where banks don't send SMS, suggest manual entry or notification-based approach. Not built now. |
 | 19 | "Report this message" button — future item if complex | User-consented redacted message reporting. Only if simple to implement; otherwise documented as future work. |
 
+| 20 | India Kotlin parser remains hardcoded — JSON entry is documentation only | The India parser has been in production and is battle-tested. Rewiring it to JSON would risk regressions for the app's primary market. All other countries use GenericParser from JSON rules. |
+| 21 | GenericParser.fromRule() builds a stateless parser per country from JSON | Stateless parsers are safe for concurrent calls; one instance per country cached in ParserRegistry |
+| 22 | Task 3C (Remote Config for bank_rules.json) — design in place, implementation deferred | RemoteConfig can deliver the JSON string; ParserRegistry.reloadFromRemoteConfig(json) is implemented and ready. Wiring to Firebase Remote Config delivery is straightforward (similar to update_service.dart pattern) but adds fetch/validation complexity not worth the risk before v18. Add as a post-launch follow-up. |
+| 23 | Zero-decimal currencies (JPY/KRW/IDR/VND/CLP) tracked in bank_rules.json decimalDigits field | Amount parsing strips thousands separators correctly; no fractional part expected. GenericParser._parseAmount() handles the Indonesian dot-thousands (50.000 = 50000) vs European comma-decimal correctly using decimalSeparator/thousandsSeparator. |
+
 *(More decisions will be added as tasks progress)*

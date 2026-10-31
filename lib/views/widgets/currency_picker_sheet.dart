@@ -383,3 +383,4 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
     );
   }
 }
+
