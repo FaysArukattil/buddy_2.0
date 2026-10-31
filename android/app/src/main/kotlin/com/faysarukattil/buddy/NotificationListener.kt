@@ -1285,10 +1285,25 @@ class NotificationListener : NotificationListenerService() {
 
     // ── Notifications ──
 
+    /**
+     * Returns the user's saved currency symbol from SharedPreferences.
+     * Uses the same preferences file as DuplicateConfirmationActivity and
+     * NotificationActionReceiver so all notification text is consistent.
+     * Falls back to "₹" so existing Indian users see no change.
+     */
+    private fun getCurrencySymbol(): String {
+        val prefs = getSharedPreferences(
+            packageName + "_HomeWidgetPlugin", Context.MODE_PRIVATE
+        )
+        val sym = prefs.getString("currency_symbol", "₹") ?: "₹"
+        return if (sym.isBlank()) "₹" else sym
+    }
+
     private fun showDuplicateConfirmationNotification(hash: String, transaction: Transaction) {
         val channelId = "duplicate_confirmations"
         createNotificationChannel(channelId, "Transaction Confirmations", android.app.NotificationManager.IMPORTANCE_HIGH)
 
+        val sym = getCurrencySymbol()
         val typeIcon = if (transaction.type == "expense") "💸" else "💰"
         val typeLabel = if (transaction.type == "expense") "Expense" else "Income"
         val formattedAmount = if (transaction.amount % 1.0 == 0.0) {
@@ -1320,10 +1335,10 @@ class NotificationListener : NotificationListenerService() {
         )
 
         val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
-            .setContentTitle("⚠️ Same amount detected today: ₹$formattedAmount")
-            .setContentText("$typeIcon ₹$formattedAmount (${transaction.category}) — Not added automatically. Tap Add if new.")
+            .setContentTitle("⚠️ Same amount detected today: $sym$formattedAmount")
+            .setContentText("$typeIcon $sym$formattedAmount (${transaction.category}) — Not added automatically. Tap Add if new.")
             .setStyle(androidx.core.app.NotificationCompat.BigTextStyle()
-                .bigText("$typeIcon ₹$formattedAmount - ${transaction.category} ($typeLabel)\n\nThis amount was already recorded today. To prevent duplicates, it was NOT added automatically.\n\nIf this is a separate transaction, tap \"Add\" below.")
+                .bigText("$typeIcon $sym$formattedAmount - ${transaction.category} ($typeLabel)\n\nThis amount was already recorded today. To prevent duplicates, it was NOT added automatically.\n\nIf this is a separate transaction, tap \"Add\" below.")
             )
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
@@ -1340,11 +1355,17 @@ class NotificationListener : NotificationListenerService() {
         val channelId = "transaction_added"
         createNotificationChannel(channelId, "Transactions Added", android.app.NotificationManager.IMPORTANCE_DEFAULT)
 
+        val sym = getCurrencySymbol()
         val typeIcon = if (transaction.type == "expense") "💸" else "💰"
+        val formattedAmount = if (transaction.amount % 1.0 == 0.0) {
+            "%.0f".format(transaction.amount)
+        } else {
+            "%.2f".format(transaction.amount)
+        }
 
         val notification = androidx.core.app.NotificationCompat.Builder(this, channelId)
             .setContentTitle("✅ Transaction Added")
-            .setContentText("$typeIcon ₹${transaction.amount} - ${transaction.category}")
+            .setContentText("$typeIcon $sym$formattedAmount - ${transaction.category}")
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setPriority(androidx.core.app.NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)

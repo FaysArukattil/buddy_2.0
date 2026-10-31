@@ -168,3 +168,58 @@
 ### A6: Commit ✅ DONE
 - [x] A6.1 `home_screen.dart` fix committed
 - [x] A6.2 HANDOFF.md, TASKS.md, DECISIONS.md committed
+
+---
+
+## Task 6: Buddy v17.3.0 — Global Auto-Detection (all countries)
+
+### Phase 1: Fix hardcoded ₹ in notification text ✅ DONE
+- [x] P1.1 Read docs: README_FIRST.md, PROJECT_CONTEXT.md, TASKS.md, HANDOFF.md, DECISIONS.md, PARSING_RESEARCH.md
+- [x] P1.2 Add `getCurrencySymbol()` helper in NotificationListener.kt reading from `{packageName}_HomeWidgetPlugin` SharedPrefs, fallback `"₹"`
+- [x] P1.3 Replace hardcoded ₹ in `showDuplicateConfirmationNotification()` and `showTransactionAddedNotification()` with helper
+- [x] P1.4 Add Kotlin unit tests: (a) no symbol → ₹, (b) "$" → "$", (c) "AED" → AED
+- [x] P1.5 `flutter analyze` ✅, confirm no parsing regex changed
+- [x] P1.6 Git commit
+
+### Phase 2: Deep research — update PARSING_RESEARCH.md
+- [ ] P2.1 North America (US, Canada, Mexico)
+- [ ] P2.2 UK & Ireland (Barclays, HSBC, Monzo, Revolut, Wise, Starling, AIB, Bank of Ireland)
+- [ ] P2.3 EU (Germany, France, Spain, Italy, Netherlands, Sweden, Poland, Turkey — N26, ING, BNP, Santander, UniCredit)
+- [ ] P2.4 Middle East / GCC (UAE: Emirates NBD, FAB, Mashreq, ADCB; KSA: Al Rajhi, STC Pay, SNB; Kuwait, Qatar, Bahrain, Oman)
+- [ ] P2.5 Africa (Kenya: M-Pesa, Equity, KCB; Nigeria: GTBank, Zenith, Access, MTN MoMo, Opay; South Africa: FNB, Standard Bank, Absa, Capitec; Ghana, Tanzania, Egypt)
+- [ ] P2.6 South Asia (Pakistan, Bangladesh, Sri Lanka, Nepal — banks and mobile money)
+- [ ] P2.7 Southeast Asia (Philippines: GCash, Maya, BDO; Indonesia: Mandiri, BCA, GoPay, OVO; Malaysia: Maybank, CIMB, Touch 'n Go; Thailand; Vietnam; Singapore)
+- [ ] P2.8 East Asia (Japan, South Korea)
+- [ ] P2.9 Latin America (Brazil, Argentina, Colombia, Chile, Peru — Nubank, PIX, Nequi)
+- [ ] P2.10 Oceania (Australia, New Zealand — CommBank, ANZ, Westpac, NAB, ASB)
+- [ ] P2.11 Commit research file
+
+### Phase 3: Design (pending approval)
+- [ ] P3.1 Document current package filter + parsing pipeline with line numbers
+- [ ] P3.2 Design currency-agnostic amount extractor
+- [ ] P3.3 Design widened package filter for non-IN
+- [ ] P3.4 Present plan, await approval
+
+### Phase 4: Implementation
+- [ ] P4.1 Write India regression tests (run BEFORE any changes)
+- [ ] P4.2 Add GlobalBankParser.kt reading assets/parsing/bank_rules.json
+- [ ] P4.3 Widen package filter for non-IN users only
+- [ ] P4.4 Plug new branch after India path
+- [ ] P4.5 Update bank_rules.json from research
+- [ ] P4.6 Add parity test vectors (all currency formats)
+- [ ] P4.7 Remote Config: enable_global_native_parsing + global_parsing_countries
+- [ ] P4.8 Flutter writes RC values to SharedPrefs for native side
+- [ ] P4.9 Currency: save detected amount; record detected currency code
+- [ ] P4.10 Dedup: extend for cross-source (SMS + push) without breaking India
+- [ ] P4.11 Analytics: parse_success/ignored/failed with parser_used="global_native"
+- [ ] P4.12 UI: dismissible note for non-India users when flag off; tip when on
+- [ ] P4.13 Fix notification-access permission wording for non-India users
+
+### Testing & Release
+- [ ] P5.1 India regression tests before and after — must all pass
+- [ ] P5.2 flutter analyze ✅
+- [ ] P5.3 flutter test ✅
+- [ ] P5.4 ./gradlew test ✅ (with JAVA_HOME set)
+- [ ] P5.5 Bump version to 17.3.0+20
+- [ ] P5.6 Update RELEASE_CHECKLIST.md
+- [ ] P5.7 Final commit + short report
