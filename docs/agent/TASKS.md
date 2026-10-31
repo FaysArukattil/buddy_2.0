@@ -10,24 +10,24 @@
 - [x] Create `/docs/agent/RELEASE_CHECKLIST.md`
 
 ## Task 1: Forced / Prompted App Update
-- [ ] 1.1 Add `in_app_update` and `firebase_remote_config` packages to pubspec.yaml
-- [ ] 1.2 Create `lib/services/update_service.dart` with:
-  - [ ] Play Core in-app update (flexible default, immediate for critical)
-  - [ ] Skip in_app_update flow for debug builds and non-Play-Store installs
-  - [ ] Firebase Remote Config with in-app defaults for offline/first-launch
-  - [ ] Sensible minimumFetchInterval (12h prod, 60s debug)
-  - [ ] Numeric segment-by-segment version comparison (1.10.0 > 1.9.0), fallback to build number
-  - [ ] Blocking dialog for version < min_supported_version (opens Play Store listing)
-  - [ ] Dismissible dialog for version < latest_version (once/day via SharedPreferences)
-  - [ ] In-memory guard to prevent double prompts (dialog already showing?)
-  - [ ] Force update ignores daily limit
-  - [ ] Check on app start and on resume
-  - [ ] Silent failure handling (offline, debug, sideloaded) — all in try/catch, never blocks
-- [ ] 1.3 Integrate update check into `main.dart` / `splash_screen.dart` / `_MyAppState`
-- [ ] 1.4 Document Remote Config keys and version comparison logic in DECISIONS.md
-- [ ] 1.5 Run `flutter analyze` — pass
-- [ ] 1.6 Run tests — pass
-- [ ] 1.7 Git commit
+- [x] 1.1 Add `in_app_update` and `firebase_remote_config` packages to pubspec.yaml → `pubspec.yaml`
+- [x] 1.2 Create `lib/services/update_service.dart` with:
+  - [x] Play Core in-app update (flexible default, immediate for critical)
+  - [x] Skip in_app_update flow for debug builds and non-Play-Store installs
+  - [x] Firebase Remote Config with in-app defaults for offline/first-launch
+  - [x] Sensible minimumFetchInterval (12h prod, 60s debug)
+  - [x] Numeric segment-by-segment version comparison (1.10.0 > 1.9.0), fallback to build number
+  - [x] Blocking dialog for version < min_supported_version (opens Play Store listing)
+  - [x] Dismissible dialog for version < latest_version (once/day via SharedPreferences)
+  - [x] In-memory guard to prevent double prompts (dialog already showing?)
+  - [x] Force update ignores daily limit
+  - [x] Check on app start and on resume
+  - [x] Silent failure handling (offline, debug, sideloaded) — all in try/catch, never blocks
+- [x] 1.3 Integrate update check into `main.dart` / `splash_screen.dart` / `_MyAppState` → `lib/main.dart`, `lib/views/screens/onboarding/splashscreen/splash_screen.dart`
+- [x] 1.4 Document Remote Config keys and version comparison logic in DECISIONS.md → `docs/agent/DECISIONS.md`
+- [x] 1.5 Run `flutter analyze` — pass ✅
+- [x] 1.6 Run tests — pass ✅ (53 tests: 41 existing + 12 new version comparison)
+- [x] 1.7 Git commit → `cce44af`
 
 ## Task 2: Country / Currency Selection & Global Currency Symbol
 

@@ -6,6 +6,7 @@ import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'dart:convert';
 import 'firestore_service.dart';
+import 'currency_service.dart';
 import '../models/transaction.dart';
 
 class NotificationHelper {
@@ -236,7 +237,7 @@ class NotificationHelper {
       styleInformation: BigTextStyleInformation(
         'Found $similarCount similar transaction(s) in last 24 hours.\n\nTap "Yes" to add this transaction or "No" to ignore it.',
         contentTitle: '⚠️ Possible Duplicate',
-        summaryText: '$type: ₹$amount',
+        summaryText: '$type: ${CurrencyService.formatFull(amount)}',
       ),
     );
 
@@ -244,7 +245,7 @@ class NotificationHelper {
 
     final typeIcon = type == 'expense' ? '💸' : '💰';
     final title = '⚠️ Duplicate Transaction?';
-    final body = '$typeIcon ₹$amount ($category) - Found $similarCount similar';
+    final body = '$typeIcon ${CurrencyService.formatFull(amount)} ($category) - Found $similarCount similar';
 
     await _notifications.show(
       transactionHash.hashCode,
@@ -255,7 +256,7 @@ class NotificationHelper {
     );
 
     debugPrint(
-      '🔔 Shown duplicate confirmation for ₹$amount (hash: ${transactionHash.hashCode})',
+      '🔔 Shown duplicate confirmation for ${CurrencyService.formatFull(amount)} (hash: ${transactionHash.hashCode})',
     );
   }
 
@@ -283,7 +284,7 @@ class NotificationHelper {
       styleInformation: BigTextStyleInformation(
         'Your transaction has been automatically added to your expense tracker.',
         contentTitle: '✅ Transaction Added',
-        summaryText: '$type: ₹$amount',
+        summaryText: '$type: ${CurrencyService.formatFull(amount)}',
       ),
     );
 
@@ -291,7 +292,7 @@ class NotificationHelper {
 
     final typeIcon = type == 'expense' ? '💸' : '💰';
     final title = '✅ Transaction Added';
-    final body = '$typeIcon ₹$amount - $category';
+    final body = '$typeIcon ${CurrencyService.formatFull(amount)} - $category';
 
     await _notifications.show(
       DateTime.now().millisecondsSinceEpoch % 100000,
@@ -300,7 +301,7 @@ class NotificationHelper {
       notificationDetails,
     );
 
-    debugPrint('🔔 Shown success notification for ₹$amount');
+    debugPrint('🔔 Shown success notification for ${CurrencyService.formatFull(amount)}');
   }
 
   /// Schedule repayment reminders: 2 days before due date AND on the due date
@@ -315,7 +316,7 @@ class NotificationHelper {
 
     final now = DateTime.now();
     final isLend = type.toLowerCase() == 'lend';
-    final formattedAmount = '₹${amount.toStringAsFixed(0)}';
+    final formattedAmount = CurrencyService.formatFull(amount);
 
     const channelId = 'debt_reminders';
     const channelName = 'Repayment Reminders';

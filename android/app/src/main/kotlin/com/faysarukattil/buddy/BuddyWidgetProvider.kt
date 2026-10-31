@@ -63,28 +63,33 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
          * Formats amounts cleanly with Lakh ('L'), Crore ('Cr') and 'k' notation
          * so amounts crossing 10 Lakh (e.g. 10L, 25.5L) never clip or go invisible.
          */
-        fun formatCompactCurrency(raw: Double, isCompact: Boolean = true): String {
+        /** Read the user's chosen currency symbol from SharedPreferences.
+         *  Falls back to "₹" so existing Indian users see no change. */
+        fun getCurrencySymbol(data: SharedPreferences): String =
+            data.getString("currency_symbol", "₹") ?: "₹"
+
+        fun formatCompactCurrency(raw: Double, isCompact: Boolean = true, symbol: String = "₹"): String {
             val abs = kotlin.math.abs(raw)
             val sign = if (raw < 0) "-" else ""
             return when {
                 abs >= 10000000.0 -> {
                     val cr = abs / 10000000.0
                     val str = if (cr % 1.0 == 0.0) String.format(Locale.US, "%.0f", cr) else String.format(Locale.US, "%.1f", cr)
-                    "$sign₹${str}Cr"
+                    "$sign$symbol${str}Cr"
                 }
                 abs >= 100000.0 -> {
                     val lk = abs / 100000.0
                     val str = if (lk % 1.0 == 0.0) String.format(Locale.US, "%.0f", lk) else String.format(Locale.US, "%.1f", lk)
-                    "$sign₹${str}L"
+                    "$sign$symbol${str}L"
                 }
                 abs >= 10000.0 && isCompact -> {
                     val k = abs / 1000.0
                     val str = if (k % 1.0 == 0.0) String.format(Locale.US, "%.0f", k) else String.format(Locale.US, "%.1f", k)
-                    "$sign₹${str}k"
+                    "$sign$symbol${str}k"
                 }
                 else -> {
                     val formatted = NumberFormat.getNumberInstance(Locale("en", "IN")).format(abs.toLong())
-                    "$sign₹$formatted"
+                    "$sign$symbol$formatted"
                 }
             }
         }
@@ -432,7 +437,8 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
     private fun bindRow(views: RemoteViews, index: Int, ids: RowIds, data: SharedPreferences) {
         val title = data.getString("txn_${index}_title", "Transaction") ?: "Transaction"
         val subtitle = data.getString("txn_${index}_subtitle", "") ?: ""
-        val amount = data.getString("txn_${index}_amount", "₹0") ?: "₹0"
+        val currSymbol = getCurrencySymbol(data)
+        val amount = data.getString("txn_${index}_amount", "${currSymbol}0") ?: "${currSymbol}0"
         val category = data.getString("txn_${index}_category", "Other") ?: "Other"
         val isIncome = data.getBoolean("txn_${index}_is_income", false)
         val isAuto = data.getBoolean("txn_${index}_is_auto", false)
@@ -705,10 +711,11 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             else -> null
         }
         if (num != null) {
-            val formatted = formatCompactCurrency(num, isCompact = isCompact || num >= 1000000.0)
+            val formatted = formatCompactCurrency(num, isCompact = isCompact || num >= 1000000.0, symbol = getCurrencySymbol(data))
             return if (isIncome && !formatted.startsWith("+")) "+$formatted" else formatted
         }
-        val str = data.getString(formattedKey, if (isIncome) "+₹0" else "₹0") ?: (if (isIncome) "+₹0" else "₹0")
+        val sym = getCurrencySymbol(data)
+        val str = data.getString(formattedKey, if (isIncome) "+${sym}0" else "${sym}0") ?: (if (isIncome) "+${sym}0" else "${sym}0")
         return str
     }
 
@@ -775,10 +782,11 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             }
 
             val editor = data.edit()
+            val currSym = getCurrencySymbol(data)
             editor.putFloat("today_spent_raw", todaySpent.toFloat())
             editor.putFloat("today_income_raw", todayEarned.toFloat())
-            editor.putString("today_spent", formatCompactCurrency(todaySpent, isCompact = todaySpent >= 1000000.0))
-            editor.putString("today_income_formatted", "+${formatCompactCurrency(todayEarned, isCompact = todayEarned >= 1000000.0)}")
+            editor.putString("today_spent", formatCompactCurrency(todaySpent, isCompact = todaySpent >= 1000000.0, symbol = currSym))
+            editor.putString("today_income_formatted", "+${formatCompactCurrency(todayEarned, isCompact = todayEarned >= 1000000.0, symbol = currSym)}")
             editor.putInt("today_count", todayCount)
             val dateFmt = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
             editor.putString("today_date_label", dateFmt.format(Date()))
@@ -789,7 +797,7 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
                     editor.putBoolean("txn_${i}_exists", true)
                     editor.putString("txn_${i}_title", obj.optString("title", "Transaction"))
                     editor.putString("txn_${i}_subtitle", obj.optString("subtitle", ""))
-                    editor.putString("txn_${i}_amount", obj.optString("amount_str", "₹0"))
+                    editor.putString("txn_${i}_amount", obj.optString("amount_str", "${getCurrencySymbol(data)}0"))
                     editor.putString("txn_${i}_category", obj.optString("category", "Other"))
                     editor.putString("txn_${i}_color", obj.optString("color", "#FB7185"))
                     editor.putBoolean("txn_${i}_is_income", obj.optBoolean("is_income", false))

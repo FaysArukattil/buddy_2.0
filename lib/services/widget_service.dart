@@ -11,6 +11,7 @@ import 'package:buddy/models/transaction.dart';
 import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/format_utils.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class WidgetService {
   static const String appWidgetProviderName = 'BuddyWidgetProvider';
@@ -194,6 +195,9 @@ class WidgetService {
         'include_debts_in_home': includeDebts,
         'recent_txns_json': jsonEncode(compactTxns),
         'category_colors_json': jsonEncode(categoryColors),
+        // Currency — read by BuddyWidgetProvider for dynamic symbol display
+        'currency_symbol': CurrencyService.currencySymbol,
+        'currency_code': CurrencyService.currencyCode,
       };
 
       // Populate up to 8 today's transactions for the responsive list

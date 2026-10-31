@@ -11,6 +11,7 @@ import 'package:buddy/services/pdf_service.dart';
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class TransactionDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -1321,7 +1322,7 @@ class _TransactionDetailScreenState extends State<TransactionDetailScreen> {
                         ),
                       ),
                       Text(
-                        '${_isIncome ? '+' : '-'} ₹${NumberFormat('#,##,##0.##').format(_parsedAmount)}',
+                        CurrencyService.formatSigned(_parsedAmount, isIncome: _isIncome),
                         style: TextStyle(
                           fontSize: 14.5,
                           fontWeight: FontWeight.w800,

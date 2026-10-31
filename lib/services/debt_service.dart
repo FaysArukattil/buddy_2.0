@@ -7,6 +7,7 @@ import '../models/debt.dart';
 import '../models/transaction.dart';
 import 'firestore_service.dart';
 import 'notification_helper.dart';
+import 'currency_service.dart';
 
 class DebtService {
   static final DebtService instance = DebtService._();
@@ -333,7 +334,7 @@ class DebtService {
     await _debtCol.doc(debt.id).update(updateData);
 
     debugPrint(
-      '✅ DEBT: Partial settle done. Settled ₹$settledAmount_, remaining ₹$remaining, fullySettled=$isFullySettled',
+      '✅ DEBT: Partial settle done. Settled ${CurrencyService.formatFull(settledAmount_)}, remaining ${CurrencyService.formatFull(remaining)}, fullySettled=$isFullySettled',
     );
   }
 

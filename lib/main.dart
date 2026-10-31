@@ -8,6 +8,7 @@ import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/preference_service.dart';
 import 'package:buddy/services/update_service.dart';
+import 'package:buddy/services/currency_service.dart';
 import 'package:buddy/views/screens/widget_add_modal_host.dart';
 import 'firebase_options.dart';
 
@@ -72,6 +73,9 @@ Future<void> _initCoreServices() async {
       }),
       PreferenceService.init().catchError((e) {
         debugPrint('⚠️ APP: PreferenceService init error: $e');
+      }),
+      CurrencyService.initialize().catchError((e) {
+        debugPrint('⚠️ APP: CurrencyService init error: $e');
       }),
       Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,

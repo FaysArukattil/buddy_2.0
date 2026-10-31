@@ -73,10 +73,14 @@ class DuplicateConfirmationActivity : Activity() {
         val typeIcon = if (type == "expense") "💸" else "💰"
         val typeText = if (type == "expense") "Expense" else "Income"
 
+        // Read currency symbol from SharedPreferences (set by Flutter/CurrencyService)
+        val prefs = getSharedPreferences(packageName + "_HomeWidgetPlugin", Context.MODE_PRIVATE)
+        val currSymbol = prefs.getString("currency_symbol", "₹") ?: "₹"
+
         val message = """
             |⚠️ Possible Duplicate Transaction
             |
-            |$typeIcon Amount: ₹$amount
+            |$typeIcon Amount: $currSymbol$amount
             |📁 Category: $category
             |📊 Type: $typeText
             |

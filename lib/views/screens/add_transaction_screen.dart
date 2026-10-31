@@ -10,6 +10,7 @@ import 'package:buddy/utils/icon_helper.dart';
 import 'package:buddy/services/Network_services.dart';
 import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? existingTransaction;
@@ -753,7 +754,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen>
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
-            '₹',
+            CurrencyService.symbol,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w900,

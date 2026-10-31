@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/views/screens/onboarding/auth_wrapper.dart';
+import 'package:buddy/services/currency_service.dart';
 
 /// Buddy Onboarding v6 — same visual language as the Home screen.
 ///
@@ -93,7 +94,7 @@ const List<_StepMeta> _steps = [
     cta: 'Continue',
   ),
   _StepMeta(
-    headline: 'Every pro tool.\n₹0 forever.',
+    headline: 'Every pro tool.\n{symbol}0 forever.',
     body:
         'Heatmaps, category insights and friend-debt tracking are unlocked from day one.',
     cta: 'Start tracking free',
@@ -630,7 +631,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               Semantics(
                 header: true,
                 child: Text(
-                  step.headline,
+                  step.headline.replaceAll('{symbol}', CurrencyService.symbol),
                   style: TextStyle(
                     fontSize: sw < 360 || shortScreen ? 27 : 32,
                     fontWeight: FontWeight.w900,
@@ -1052,8 +1053,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               ],
                             ),
                             const SizedBox(height: 4),
-                            const Text(
-                              'Paid ₹240.00 to Fresh Basket Supermarket via UPI',
+                            Text(
+                              'Paid ${CurrencyService.symbol}240.00 to Fresh Basket Supermarket via UPI',
                               style: TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
@@ -1124,7 +1125,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   icon: Icons.shopping_basket_rounded,
                   category: 'Groceries',
                   time: 'Just now',
-                  amount: '-₹240',
+                  amount: '-${CurrencyService.symbol}240',
                   auto: true,
                   borderColor: done
                       ? _kIncomeOnHero.withValues(alpha: 0.8)
@@ -1372,7 +1373,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             filterRow(
               i: 2,
               icon: Icons.payments_rounded,
-              title: 'Paid ₹240 to Swiggy via UPI',
+              title: 'Paid ${CurrencyService.symbol}240 to Swiggy via UPI',
               sub: 'Verified bank transaction alert',
               badge: 'LOGGED',
               allowed: true,
@@ -1641,9 +1642,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           const SizedBox(height: 10),
           Row(
             children: [
-              _miniStat('Daily avg', '₹448', AppColors.secondary),
+              _miniStat('Daily avg', '${CurrencyService.symbol}448', AppColors.secondary),
               const SizedBox(width: 8),
-              _miniStat('Peak ($short 5)', '₹4,337', AppColors.expense),
+              _miniStat('Peak ($short 5)', '${CurrencyService.symbol}4,337', AppColors.expense),
             ],
           ),
         ],
@@ -1730,8 +1731,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 children: [
                   const Icon(Icons.north_east_rounded, size: 12, color: AppColors.income),
                   const SizedBox(width: 2),
-                  const Text(
-                    '+₹1,450',
+                  Text(
+                    '+${CurrencyService.symbol}1,450',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
@@ -1834,8 +1835,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 ],
                               ),
                             ),
-                            const Text(
-                              '+₹1,450',
+                            Text(
+                              '+${CurrencyService.symbol}1,450',
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
@@ -1948,7 +1949,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         ),
                       ),
                       Text(
-                        '₹${amount.toInt()}',
+                        '${CurrencyService.symbol}${amount.toInt()}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
@@ -2020,7 +2021,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ],
               ),
               Text(
-                '₹12,554 total',
+                '${CurrencyService.symbol}12,554 total',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -2095,8 +2096,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ],
             ),
-            child: const Text(
-              '₹0 / forever',
+            child: Text(
+              '${CurrencyService.symbol}0 / forever',
               style: TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w900,

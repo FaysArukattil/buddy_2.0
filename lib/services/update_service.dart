@@ -354,3 +354,4 @@ class UpdateService {
     _remoteConfigInitialized = false;
   }
 }
+

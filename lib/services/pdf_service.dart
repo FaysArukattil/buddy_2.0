@@ -6,9 +6,12 @@ import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:open_file/open_file.dart';
 import 'package:intl/intl.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class PdfService {
   static pw.MemoryImage? _cachedLogo;
+  static pw.Font? _notoSansRegular;
+  static pw.Font? _notoSansBold;
 
   /// Signature Luxury Theme Colors
   static final bgCanvas = PdfColor.fromHex('#091E1C'); // Deep spruce / dark emerald canvas
@@ -35,6 +38,27 @@ class PdfService {
   static final savingsPurple = PdfColor.fromHex('#A78BFA'); // Lavender purple
   static final goldAccent = PdfColor.fromHex('#FBBF24'); // Amber gold
 
+  /// Loads the Noto Sans Unicode font for proper rendering of currency symbols
+  /// (₹ ₦ ৳ ₫ ₺ ₱ € $ £ ₸ etc.) that Helvetica cannot display.
+  static Future<pw.ThemeData> _getNotoSansTheme() async {
+    if (_notoSansRegular == null || _notoSansBold == null) {
+      try {
+        final regularData = await rootBundle.load('assets/fonts/NotoSans-Regular.ttf');
+        final boldData = await rootBundle.load('assets/fonts/NotoSans-Bold.ttf');
+        _notoSansRegular = pw.Font.ttf(regularData);
+        _notoSansBold = pw.Font.ttf(boldData);
+      } catch (e) {
+        // Fallback to Helvetica if fonts fail to load
+        _notoSansRegular = pw.Font.helvetica();
+        _notoSansBold = pw.Font.helveticaBold();
+      }
+    }
+    return pw.ThemeData.withFont(
+      base: _notoSansRegular!,
+      bold: _notoSansBold!,
+    );
+  }
+
   /// Loads the Buddy app logo from assets into memory for PDF embedding
   static Future<pw.MemoryImage?> _getAppLogo() async {
     if (_cachedLogo != null) return _cachedLogo;
@@ -56,25 +80,25 @@ class PdfService {
     return null;
   }
 
-  /// Strictly sanitizes strings to prevent any missing Unicode glyphs ("x-boxes")
-  /// in default PDF Helvetica fonts (e.g. ₹ rupee symbol, em-dashes, curly quotes, and emojis).
+  /// Sanitizes strings for PDF rendering with Noto Sans Unicode font.
+  /// Strips emojis (unsupported by Noto Sans) and normalizes typographical chars.
+  /// With Noto Sans loaded, currency symbols like ₹ ₦ ৳ ₫ ₺ ₱ € $ £ render correctly.
   static String _safeText(dynamic input) {
     if (input == null) return '';
     String text = input.toString();
     if (text.isEmpty) return '';
 
-    // Replace common currency symbols and typographical characters
+    // Normalize typographical characters
     text = text
-        .replaceAll('₹', 'Rs. ')
-        .replaceAll('’', "'")
-        .replaceAll('‘', "'")
-        .replaceAll('“', '"')
-        .replaceAll('”', '"')
-        .replaceAll('—', '-')
-        .replaceAll('–', '-')
-        .replaceAll('•', '-');
+        .replaceAll('\u2018', "'")
+        .replaceAll('\u2019', "'")
+        .replaceAll('\u201C', '"')
+        .replaceAll('\u201D', '"')
+        .replaceAll('\u2014', '-')
+        .replaceAll('\u2013', '-')
+        .replaceAll('\u2022', '-');
 
-    // Strip emoji ranges and Unicode symbols that default PDF fonts cannot render
+    // Strip emoji ranges that even Noto Sans (Latin) cannot render
     text = text.replaceAll(
       RegExp(
         r'[\u{1F600}-\u{1F64F}|\u{1F300}-\u{1F5FF}|\u{1F680}-\u{1F6FF}|\u{1F700}-\u{1F77F}|\u{1F780}-\u{1F7FF}|\u{1F800}-\u{1F8FF}|\u{1F900}-\u{1F9FF}|\u{1FA00}-\u{1FA6F}|\u{1FA70}-\u{1FAFF}|\u{2600}-\u{26FF}|\u{2700}-\u{27BF}]',
@@ -83,23 +107,14 @@ class PdfService {
       '',
     );
 
-    // Keep printable ASCII (32 to 126) plus newline and tab
-    final buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      final code = text.codeUnitAt(i);
-      if ((code >= 32 && code <= 126) || code == 10 || code == 13 || code == 9) {
-        buffer.writeCharCode(code);
-      }
-    }
-
-    final result = buffer.toString().trim();
+    final result = text.trim();
     return result.isEmpty ? '-' : result;
   }
 
-  /// Formats currency with safe 'Rs. ' prefix so no font glyph error occurs
+  /// Formats currency using CurrencyService (single source of truth).
+  /// With Noto Sans loaded, the real currency symbol renders correctly.
   static String _formatCurrency(num amount) {
-    final formatter = NumberFormat('#,##,##0.00', 'en_US');
-    return 'Rs. ${formatter.format(amount)}';
+    return CurrencyService.formatForPdf(amount.toDouble());
   }
 
   /// Helper: Parse date from dynamic value (DateTime, String, or Timestamp)
@@ -120,6 +135,7 @@ class PdfService {
   ) async {
     final pdf = pw.Document();
     final logoImage = await _getAppLogo();
+    final notoTheme = await _getNotoSansTheme();
 
     final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
     final typeStr = (transaction['type'] as String?)?.toLowerCase().trim() ?? 'expense';
@@ -158,10 +174,7 @@ class PdfService {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(32),
-        theme: pw.ThemeData.withFont(
-          base: pw.Font.helvetica(),
-          bold: pw.Font.helveticaBold(),
-        ),
+        theme: notoTheme,
         build: (context) {
           return pw.FullPage(
             ignoreMargins: true,
@@ -519,6 +532,7 @@ class PdfService {
   }) async {
     final pdf = pw.Document();
     final logoImage = await _getAppLogo();
+    final notoTheme = await _getNotoSansTheme();
 
     final dateFormat = DateFormat('dd MMM yyyy');
     final timeFormat = DateFormat('hh:mm a');
@@ -594,10 +608,7 @@ class PdfService {
         pageTheme: pw.PageTheme(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 26),
-          theme: pw.ThemeData.withFont(
-            base: pw.Font.helvetica(),
-            bold: pw.Font.helveticaBold(),
-          ),
+          theme: notoTheme,
           buildBackground: (context) {
             return pw.FullPage(
               ignoreMargins: true,

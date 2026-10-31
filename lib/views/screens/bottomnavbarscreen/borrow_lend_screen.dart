@@ -16,6 +16,7 @@ import '../../../models/debt.dart';
 import '../../../services/debt_service.dart';
 import '../../../utils/colors.dart';
 import '../../../utils/format_utils.dart';
+import '../../../services/currency_service.dart';
 import '../../../services/Network_services.dart';
 import '../../../utils/app_snackbar.dart';
 import '../../../services/preference_service.dart';
@@ -623,7 +624,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       return Center(
                         child: Text(
                           isAllSettled
-                              ? '₹0.00'
+                              ? CurrencyService.formatFull(0)
                               : '${netBalance >= 0 ? '+' : '-'}${_formatAmount(netBalance.abs())}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -641,7 +642,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       return Center(
                         child: Text(
                           totalLentPending < 0.01
-                              ? '₹0.00'
+                              ? CurrencyService.formatFull(0)
                               : '+${_formatAmount(totalLentPending)}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -659,7 +660,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
                       return Center(
                         child: Text(
                           totalBorrowedPending < 0.01
-                              ? '₹0.00'
+                              ? CurrencyService.formatFull(0)
                               : '-${_formatAmount(totalBorrowedPending)}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
@@ -2516,7 +2517,7 @@ Please let me know once convenient to transfer. Thank you!''';
                       child: Row(
                         children: [
                           Text(
-                            '₹',
+                            CurrencyService.symbol,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w800,
@@ -3177,7 +3178,7 @@ Please let me know once convenient to transfer. Thank you!''';
                             textBaseline: TextBaseline.alphabetic,
                             children: [
                               Text(
-                                debt.isRepaid ? '₹0' : _formatAmount(debt.amount),
+                                debt.isRepaid ? CurrencyService.formatFull(0) : _formatAmount(debt.amount),
                                 style: TextStyle(
                                   fontSize: 34,
                                   fontWeight: FontWeight.w900,
@@ -4874,7 +4875,7 @@ class _AddEditDebtSheetState extends State<_AddEditDebtSheet>
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Text(
-                            '₹',
+                            CurrencyService.symbol,
                             style: TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,

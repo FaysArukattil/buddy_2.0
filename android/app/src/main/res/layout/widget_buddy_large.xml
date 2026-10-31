@@ -96,7 +96,7 @@
                 android:autoSizeTextType="uniform"
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
-                android:text="₹0"
+                android:text="--"
                 android:textColor="@color/widget_text_primary"
                 android:textSize="30sp"
                 android:textStyle="bold" />
@@ -128,7 +128,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="3dp"
                 android:maxLines="1"
-                android:text="₹0"
+                android:text="--"
                 android:textColor="@color/widget_income"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -286,7 +286,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:maxLines="1"
-                    android:text="-₹0"
+                    android:text="--"
                     android:textColor="@color/widget_expense"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -371,7 +371,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:maxLines="1"
-                    android:text="-₹0"
+                    android:text="--"
                     android:textColor="@color/widget_expense"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -456,7 +456,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:maxLines="1"
-                    android:text="-₹0"
+                    android:text="--"
                     android:textColor="@color/widget_expense"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -541,7 +541,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:maxLines="1"
-                    android:text="+₹0"
+                    android:text="--"
                     android:textColor="@color/widget_income"
                     android:textSize="12sp"
                     android:textStyle="bold" />

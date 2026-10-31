@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'firestore_service.dart';
 import 'preference_service.dart';
+import 'currency_service.dart';
 
 /// Handles app initialization and transaction syncing.
 ///
@@ -44,6 +45,8 @@ class AppInitHelper {
       await PreferenceService.init();
       if (currentUser != null || uid != null) {
         await PreferenceService.syncFromFirestore();
+        // Sync currency settings from Firestore (after auth)
+        await CurrencyService.syncFromFirestore();
       }
 
       // 1. Enable Firestore offline persistence

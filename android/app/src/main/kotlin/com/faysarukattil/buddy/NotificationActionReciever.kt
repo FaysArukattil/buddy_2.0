@@ -112,12 +112,18 @@ class NotificationActionReceiver : BroadcastReceiver() {
             val category = json.getString("category")
             val typeIcon = if (type == "expense") "💸" else "💰"
 
+            // Read currency symbol from SharedPreferences (set by Flutter/CurrencyService)
+            val prefs = context.getSharedPreferences(
+                context.packageName + "_HomeWidgetPlugin", Context.MODE_PRIVATE
+            )
+            val currSymbol = prefs.getString("currency_symbol", "₹") ?: "₹"
+
             val channelId = "transaction_added"
             createNotificationChannelIfNeeded(context, channelId)
 
             val notification = NotificationCompat.Builder(context, channelId)
                 .setContentTitle("✅ Transaction Added")
-                .setContentText("$typeIcon ₹$amount - $category")
+                .setContentText("$typeIcon $currSymbol$amount - $category")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
