@@ -92,15 +92,23 @@ class ParserRegistry {
     String countryCode,
   ) {
     if (countryCode.toUpperCase() == 'IN') return null;
-    final parser = _parsers[countryCode.toUpperCase()];
+    final upper = countryCode.toUpperCase();
+    final parser = _parsers[upper] ?? _parsers['OTHER'];
     if (parser == null) return null;
-    return parser.parse(text, sourcePackage);
+    final result = parser.parse(text, sourcePackage);
+    if (result != null) return result;
+    if (upper != 'OTHER' && _parsers.containsKey('OTHER')) {
+      return _parsers['OTHER']!.parse(text, sourcePackage);
+    }
+    return null;
   }
 
   /// Whether a parser is registered for [countryCode].
-  bool supports(String countryCode) =>
-      countryCode.toUpperCase() != 'IN' &&
-      _parsers.containsKey(countryCode.toUpperCase());
+  bool supports(String countryCode) {
+    final upper = countryCode.toUpperCase();
+    return upper != 'IN' &&
+        (_parsers.containsKey(upper) || _parsers.containsKey('OTHER'));
+  }
 
   /// All supported country codes (excluding IN).
   Iterable<String> get supportedCountries => _parsers.keys;

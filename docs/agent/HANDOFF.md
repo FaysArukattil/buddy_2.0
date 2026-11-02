@@ -1,7 +1,7 @@
 # Buddy — Handoff State
 
-**Last updated:** 2026-11-02T12:05:00+05:30  
-**Status:** Task 6 (v17.3.0 Global Auto-Detection) & Task 7 (Parser Pattern Extraction) ✅ ALL COMPLETE  
+**Last updated:** 2026-11-02T12:50:00+05:30  
+**Status:** Task 6, Task 7 & Task 8 (Onboarding Country Selection, 195+ Countries Universal Fallback & Existing User Popup) ✅ ALL COMPLETE  
 **Version:** `17.3.0+20`  
 **Git Branch:** `main`  
 
@@ -24,6 +24,7 @@
 | **Task 6 Phase 4** — Global native parser implementation | ✅ DONE | `GlobalBankParser.kt`, `GlobalParsingService.dart`, `NotificationListener.kt` |
 | **Task 6 Testing & Release** — Parity test vectors, 100% test pass, version bump | ✅ DONE | 151 Dart tests, 45 Kotlin unit tests |
 | **Task 7 Parser Enhancement** — Learned patterns from PennyWise & Transaction-SMS-Parser | ✅ DONE | Credit limit masking, anti-noise, clean notes, category expansion, 158 Dart tests, 66/66 non-India Kotlin vectors |
+| **Task 8 Country Selection & Universal Fallback** — Onboarding Step 4, 195+ countries dataset, universal fallback parser, existing user prompt | ✅ DONE | Full Google Play Console country compatibility, accurate flags & symbols |
 
 ---
 
@@ -79,6 +80,16 @@
   - 76+ test vectors for both Dart and Kotlin unit tests.
 - `android/app/build.gradle.kts`:
   - Added explicit Firebase Analytics version (`22.5.0`) and unit test dependencies (`junit:4.13.2`, `org.json:20180813`).
+
+### 3. Implementation Details (Task 8 — Play Console & Onboarding Integration)
+- **195+ Countries Dataset (`lib/data/countries_data.dart`)**: Every single sovereign nation in Google Play Console is supported, with correct flags, standard currency symbols (fixed Pakistan `₨`, Sri Lanka `Rs.`, Nepal `Rs.`, UAE `AED`, Saudi `SAR`, Qatar `QAR`, Kuwait `KWD`, Oman `OMR`, Bahrain `BHD`, Egypt `E£`, etc.), and search capabilities.
+- **Onboarding Step 4**: Completely removed the modal bottom sheet popup on completion. Made country selection an integrated, high-converting stage on the onboarding hero, featuring:
+  - Live interactive sample transaction tile displaying the user's chosen currency and flag
+  - Popular quick-select chips (`🇮🇳 India`, `🇦🇪 UAE`, `🇺🇸 USA`, `🇬🇧 UK`, `🇸🇦 Saudi`, `🇨🇦 Canada`, `🇦🇺 Australia`, `🌐 Other`)
+  - Embedded instant country search bar and scrollable list
+  - "Start tracking free" CTA advances directly through the permission primer into Auth
+- **Existing User Welcome Sheet (`home_screen.dart`)**: When existing users launch the app, if `!CurrencyService.hasExplicitlySelectedCountry`, shows a welcome sheet allowing them to pick their country and currency. Historical transaction amounts are 100% preserved.
+- **Universal Multi-Currency Fallback (`assets/parsing/bank_rules.json`, `GlobalBankParser.kt`, `parser_registry.dart`)**: Added `"country": "OTHER"` rule. If a user is from any country without specific bank rules or receives international transaction SMS, the universal parser handles amount extraction and debit/credit detection. **No country needs to be removed from Google Play Console!**
 
 ---
 

@@ -235,3 +235,21 @@
 - [x] 7.6 Add test vectors to `bank_sms_test_vectors.json` (7 new vectors: credit limit masking, ASBA, auto-debit, Arabic decline, etc.)
 - [x] 7.7 Verify tests: `flutter analyze` (0 issues), `flutter test` (158/158 passed), `./gradlew :app:testDebugUnitTest` (66/66 non-India vectors passed, 100% India regression passed)
 - [x] 7.8 Create comprehensive report in `/docs/agent/PARSER_ENHANCEMENT_REPORT.md`
+
+---
+
+## Task 8: Mandatory Country Selection in Onboarding, Universal Multi-Currency Fallback for All World Countries (Play Console Availability), and Existing User Dialog ✅ DONE
+- [x] 8.1 Full 195+ world sovereign countries + territories + `OTHER` dataset created in `lib/data/countries_data.dart` with accurate flags, correct currency codes, and non-ambiguous symbols (fixed Pakistan `₨`, Sri Lanka `Rs.`, Nepal `Rs.`, UAE `AED`, Saudi `SAR`, Qatar `QAR`, Kuwait `KWD`, Oman `OMR`, Bahrain `BHD`, Egypt `E£`, etc.)
+- [x] 8.2 Added `hasExplicitlySelectedCountry` preference tracking in `CurrencyService.dart` (local SharedPreferences + Firestore sync)
+- [x] 8.3 Integrated high-converting Step 4 directly in `OnboardingScreen` (removed modal bottom sheet popup upon tapping start):
+  - Live preview card with selected flag, country name, and sample transaction updating live in their chosen currency
+  - Quick popular selection chips (`🇮🇳 India`, `🇦🇪 UAE`, `🇺🇸 USA`, `🇬🇧 UK`, `🇸🇦 Saudi`, `🇨🇦 Canada`, `🇦🇺 Australia`, `🌐 Other`)
+  - Embedded country search bar
+  - Scrollable list of 195+ countries with checkmark selection
+  - Primary CTA "Start tracking free" advances smoothly through notification primer to login
+- [x] 8.4 Added existing user prompt in `HomeScreen`: checks `!CurrencyService.hasExplicitlySelectedCountry` on app open and displays a welcome sheet explaining global support, allowing existing users to confirm their country without corrupting transaction history
+- [x] 8.5 Implemented Universal Multi-Currency Fallback Rule (`"country": "OTHER"`) in `bank_rules.json`, `GlobalBankParser.kt`, and `parser_registry.dart`:
+  - If a user selects any country in the world not individually listed in `bank_rules.json` (or chooses "Other"), universal fallback parses amounts, debit/credit keywords, and clean notes
+  - Confirmed 100% Play Console compatibility: NO country needs to be removed from Google Play Console availability
+- [x] 8.6 Refactored `CurrencyPickerSheet` to use `CountriesData.all` and support existing user prompts
+- [x] 8.7 Verification: `flutter analyze` (0 issues), `flutter test` (158/158 passed), `./gradlew :app:testDebugUnitTest` (100% passed)

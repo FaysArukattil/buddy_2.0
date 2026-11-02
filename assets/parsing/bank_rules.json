@@ -1196,6 +1196,56 @@
       "titlePatterns": ["DBS", "POSB", "OCBC", "UOB", "Transaction Alert", "Payment Notification"],
       "confidence": "medium",
       "notes": "Singapore banks primarily send SMS and in-app push. PayNow (instant transfer) uses SGD. Amount format: S$1,234.56."
+    },
+    {
+      "country": "OTHER",
+      "bankName": "_universal_global_fallback",
+      "description": "Universal fallback rule for all global countries and unlisted banks",
+      "currencyCode": "USD",
+      "currencySymbol": "$",
+      "currencyMarkers": [
+        "$", "€", "£", "¥", "₹", "₨", "Rs.", "Rs", "AED", "SAR", "AUD", "CAD", "CHF", "SGD", "NZD", "ZAR", "BRL", "MXN", "PHP", "IDR", "THB", "MYR", "NGN", "KES", "EGP", "QAR", "KWD", "BHD", "OMR", "KRW", "VND", "TRY", "PLN", "SEK", "NOK", "DKK", "ILS", "CLP", "COP", "PEN", "ARS", "BDT", "PKR", "LKR", "NPR", "USD", "EUR", "GBP", "JPY", "CNY"
+      ],
+      "amountPattern": "(?:[A-Z]{3}|[\\$€£¥₹₨]|Rs\\.?)[\\s:.-]*([0-9]+(?:[,.][0-9]+)*)|([0-9]+(?:[,.][0-9]+)*)[\\s:.-]*(?:[A-Z]{3}|[\\$€£¥₹₨]|Rs\\.?)|(?:debited|credited|paid|spent|sent|charged|withdrawn|transferred|received)\\s+(?:of\\s+)?(?:[A-Z]{3}|[\\$€£¥₹₨]|Rs\\.?)?\\s*([0-9]+(?:[,.][0-9]+)*)",
+      "decimalSeparator": ".",
+      "thousandsSeparator": ",",
+      "decimalDigits": 2,
+      "debitKeywords": [
+        "debited", "debited by", "debited for", "debited from",
+        "paid to", "paid at", "payment to", "payment of", "payment made",
+        "withdrawn", "withdrawal", "spent", "sent", "deducted", "charged",
+        "transferred to", "transfer to", "transferred", "purchase",
+        "point of sale", "pos transaction", "auto-debited", "autopay"
+      ],
+      "creditKeywords": [
+        "credited", "credited with", "credited by", "credited for",
+        "deposited", "received from", "received in", "you received",
+        "transferred from", "transfer received", "sent you", "paid you",
+        "refund", "reversal", "cashback credited", "salary credited"
+      ],
+      "bankIdentifiers": [
+        "a/c", "acct", "account", "card", "bank", "ref", "txn", "bal", "ending", "no.", "alert", "payment", "trans", "transfer", "spent", "paid", "received"
+      ],
+      "ignorePatterns": [
+        "otp", "pin", "verification", "promo", "offer", "congratulations",
+        "due date", "payment reminder", "failed", "declined", "unsuccessful"
+      ],
+      "notificationPackages": [
+        "com.google.android.apps.messaging",
+        "com.android.messaging",
+        "com.samsung.android.messaging",
+        "com.miui.mms",
+        "com.microsoft.msm",
+        "com.motorola.messaging",
+        "com.oneplus.mms",
+        "com.oppo.mms",
+        "com.vivo.mms",
+        "com.huawei.message"
+      ],
+      "senderPatterns": [],
+      "titlePatterns": ["Alert", "Notification", "Transaction", "Payment"],
+      "confidence": "medium",
+      "notes": "Used as the universal fallback for all ~195 countries when no country-specific rule exists or when unlisted SMS arrives."
     }
   ]
 }

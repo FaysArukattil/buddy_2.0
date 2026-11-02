@@ -22,6 +22,7 @@ import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/services/widget_service.dart';
 import 'package:buddy/services/currency_service.dart';
+import 'package:buddy/views/widgets/currency_picker_sheet.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -85,6 +86,7 @@ class HomeScreenState extends State<HomeScreen>
     // Listen to Firestore transactions in real-time and check auto-tracking prompt
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startListening();
+      _checkAndPromptCountrySelection();
       _checkAndPromptAutoTracking();
       _startAutoCycleTimer();
     });
@@ -380,6 +382,27 @@ class HomeScreenState extends State<HomeScreen>
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _checkAndPromptCountrySelection() async {
+    try {
+      if (CurrencyService.hasExplicitlySelectedCountry) return;
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyPrompted =
+          prefs.getBool('prompted_country_selection_popup') ?? false;
+      if (alreadyPrompted) return;
+
+      if (!mounted) return;
+      // Gentle delay so home screen mounts and finishes rendering
+      await Future.delayed(const Duration(milliseconds: 650));
+      if (!mounted) return;
+
+      await prefs.setBool('prompted_country_selection_popup', true);
+      if (!mounted) return;
+      await CurrencyPickerSheet.show(context, isExistingUserPrompt: true);
+    } catch (e) {
+      debugPrint('⚠️ Error prompting country selection for existing user: $e');
+    }
+  }
 
   Future<void> _checkAndPromptAutoTracking() async {
     if (!NotificationService.isSupportedPlatform) return;

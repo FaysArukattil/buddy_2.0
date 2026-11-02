@@ -22,6 +22,8 @@ class CurrencyService {
   static const String _keyCurrencyCode = 'user_currency_code';
   static const String _keyLocaleCode = 'user_locale_code';
   static const String _keyCurrencySymbol = 'user_currency_symbol';
+  static const String _keyHasExplicitlySelectedCountry =
+      'has_explicitly_selected_country';
 
   // ── Defaults (India / INR for existing users) ──
   static const String defaultCountryCode = 'IN';
@@ -34,6 +36,7 @@ class CurrencyService {
   static String _currencyCode = defaultCurrencyCode;
   static String _localeCode = defaultLocaleCode;
   static String _currencySymbol = defaultCurrencySymbol;
+  static bool _hasExplicitlySelectedCountry = false;
 
   // ── Reactive notifier for UI updates ──
   static final ValueNotifier<int> currencyNotifier = ValueNotifier<int>(0);
@@ -45,6 +48,7 @@ class CurrencyService {
   static String get currencyCode => _currencyCode;
   static String get localeCode => _localeCode;
   static String get currencySymbol => _currencySymbol;
+  static bool get hasExplicitlySelectedCountry => _hasExplicitlySelectedCountry;
   static bool get isInitialized => _initialized;
 
   /// Whether the current currency uses the Indian numbering system (Lakh/Crore).
@@ -73,6 +77,8 @@ class CurrencyService {
       _localeCode = prefs.getString(_keyLocaleCode) ?? defaultLocaleCode;
       _currencySymbol =
           prefs.getString(_keyCurrencySymbol) ?? defaultCurrencySymbol;
+      _hasExplicitlySelectedCountry =
+          prefs.getBool(_keyHasExplicitlySelectedCountry) ?? false;
 
       _initialized = true;
       debugPrint(
@@ -140,6 +146,20 @@ class CurrencyService {
         }
       }
 
+      if (data.containsKey('hasExplicitlySelectedCountry') &&
+          data['hasExplicitlySelectedCountry'] is bool) {
+        final remoteHas = data['hasExplicitlySelectedCountry'] as bool;
+        if (_hasExplicitlySelectedCountry != remoteHas) {
+          _hasExplicitlySelectedCountry = remoteHas;
+          changed = true;
+        }
+      } else if (data.containsKey('countryCode') &&
+          data['countryCode'] is String &&
+          (data['countryCode'] as String).isNotEmpty) {
+        _hasExplicitlySelectedCountry = true;
+        changed = true;
+      }
+
       if (changed) {
         await _saveToLocalCache();
         _notifyListeners();
@@ -165,13 +185,14 @@ class CurrencyService {
     _currencyCode = currencyCode;
     _currencySymbol = currencySymbol;
     _localeCode = localeCode;
+    _hasExplicitlySelectedCountry = true;
 
     await _saveToLocalCache();
     await _syncToFirestore();
     _notifyListeners();
 
     debugPrint(
-      '💱 CURRENCY: Updated — $countryCode / $currencyCode / $localeCode / $currencySymbol',
+      '💱 CURRENCY: Updated — $countryCode / $currencyCode / $localeCode / $currencySymbol (explicitly selected)',
     );
   }
 
@@ -359,6 +380,8 @@ class CurrencyService {
         prefs.setString(_keyCurrencyCode, _currencyCode),
         prefs.setString(_keyLocaleCode, _localeCode),
         prefs.setString(_keyCurrencySymbol, _currencySymbol),
+        prefs.setBool(
+            _keyHasExplicitlySelectedCountry, _hasExplicitlySelectedCountry),
       ]);
     } catch (e) {
       debugPrint('⚠️ CURRENCY: Failed to save to local cache: $e');
@@ -375,6 +398,7 @@ class CurrencyService {
         'currencyCode': _currencyCode,
         'localeCode': _localeCode,
         'currencySymbol': _currencySymbol,
+        'hasExplicitlySelectedCountry': _hasExplicitlySelectedCountry,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {

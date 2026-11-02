@@ -9,90 +9,30 @@
 import 'package:flutter/material.dart';
 import 'package:buddy/services/currency_service.dart';
 import 'package:buddy/utils/colors.dart';
-
-// ---------------------------------------------------------------------------
-// Static dataset: country → currency mapping
-// Only one entry per country; the list is sorted A-Z by name at build time.
-// Fields: countryCode, name, flag emoji, currencyCode, currencySymbol, localeCode
-// ---------------------------------------------------------------------------
-class _CountryEntry {
-  final String countryCode;
-  final String name;
-  final String flag;
-  final String currencyCode;
-  final String currencySymbol;
-  final String localeCode;
-
-  const _CountryEntry({
-    required this.countryCode,
-    required this.name,
-    required this.flag,
-    required this.currencyCode,
-    required this.currencySymbol,
-    required this.localeCode,
-  });
-}
-
-const List<_CountryEntry> _kCountries = [
-  _CountryEntry(countryCode: 'AE', name: 'UAE', flag: '🇦🇪', currencyCode: 'AED', currencySymbol: 'د.إ', localeCode: 'ar_AE'),
-  _CountryEntry(countryCode: 'AR', name: 'Argentina', flag: '🇦🇷', currencyCode: 'ARS', currencySymbol: '\$', localeCode: 'es_AR'),
-  _CountryEntry(countryCode: 'AU', name: 'Australia', flag: '🇦🇺', currencyCode: 'AUD', currencySymbol: 'A\$', localeCode: 'en_AU'),
-  _CountryEntry(countryCode: 'BD', name: 'Bangladesh', flag: '🇧🇩', currencyCode: 'BDT', currencySymbol: '৳', localeCode: 'bn_BD'),
-  _CountryEntry(countryCode: 'BH', name: 'Bahrain', flag: '🇧🇭', currencyCode: 'BHD', currencySymbol: 'BD', localeCode: 'ar_BH'),
-  _CountryEntry(countryCode: 'BR', name: 'Brazil', flag: '🇧🇷', currencyCode: 'BRL', currencySymbol: 'R\$', localeCode: 'pt_BR'),
-  _CountryEntry(countryCode: 'CA', name: 'Canada', flag: '🇨🇦', currencyCode: 'CAD', currencySymbol: 'CA\$', localeCode: 'en_CA'),
-  _CountryEntry(countryCode: 'CH', name: 'Switzerland', flag: '🇨🇭', currencyCode: 'CHF', currencySymbol: 'Fr.', localeCode: 'de_CH'),
-  _CountryEntry(countryCode: 'CL', name: 'Chile', flag: '🇨🇱', currencyCode: 'CLP', currencySymbol: '\$', localeCode: 'es_CL'),
-  _CountryEntry(countryCode: 'CN', name: 'China', flag: '🇨🇳', currencyCode: 'CNY', currencySymbol: '¥', localeCode: 'zh_CN'),
-  _CountryEntry(countryCode: 'CO', name: 'Colombia', flag: '🇨🇴', currencyCode: 'COP', currencySymbol: '\$', localeCode: 'es_CO'),
-  _CountryEntry(countryCode: 'DE', name: 'Germany', flag: '🇩🇪', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'de_DE'),
-  _CountryEntry(countryCode: 'EG', name: 'Egypt', flag: '🇪🇬', currencyCode: 'EGP', currencySymbol: 'E£', localeCode: 'ar_EG'),
-  _CountryEntry(countryCode: 'ES', name: 'Spain', flag: '🇪🇸', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'es_ES'),
-  _CountryEntry(countryCode: 'FR', name: 'France', flag: '🇫🇷', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'fr_FR'),
-  _CountryEntry(countryCode: 'GB', name: 'United Kingdom', flag: '🇬🇧', currencyCode: 'GBP', currencySymbol: '£', localeCode: 'en_GB'),
-  _CountryEntry(countryCode: 'GH', name: 'Ghana', flag: '🇬🇭', currencyCode: 'GHS', currencySymbol: 'GH₵', localeCode: 'en_GH'),
-  _CountryEntry(countryCode: 'ID', name: 'Indonesia', flag: '🇮🇩', currencyCode: 'IDR', currencySymbol: 'Rp', localeCode: 'id_ID'),
-  _CountryEntry(countryCode: 'IN', name: 'India', flag: '🇮🇳', currencyCode: 'INR', currencySymbol: '₹', localeCode: 'en_IN'),
-  _CountryEntry(countryCode: 'IT', name: 'Italy', flag: '🇮🇹', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'it_IT'),
-  _CountryEntry(countryCode: 'JP', name: 'Japan', flag: '🇯🇵', currencyCode: 'JPY', currencySymbol: '¥', localeCode: 'ja_JP'),
-  _CountryEntry(countryCode: 'KE', name: 'Kenya', flag: '🇰🇪', currencyCode: 'KES', currencySymbol: 'KSh', localeCode: 'sw_KE'),
-  _CountryEntry(countryCode: 'KR', name: 'South Korea', flag: '🇰🇷', currencyCode: 'KRW', currencySymbol: '₩', localeCode: 'ko_KR'),
-  _CountryEntry(countryCode: 'KW', name: 'Kuwait', flag: '🇰🇼', currencyCode: 'KWD', currencySymbol: 'KD', localeCode: 'ar_KW'),
-  _CountryEntry(countryCode: 'LK', name: 'Sri Lanka', flag: '🇱🇰', currencyCode: 'LKR', currencySymbol: 'Rs', localeCode: 'si_LK'),
-  _CountryEntry(countryCode: 'MX', name: 'Mexico', flag: '🇲🇽', currencyCode: 'MXN', currencySymbol: '\$', localeCode: 'es_MX'),
-  _CountryEntry(countryCode: 'MY', name: 'Malaysia', flag: '🇲🇾', currencyCode: 'MYR', currencySymbol: 'RM', localeCode: 'ms_MY'),
-  _CountryEntry(countryCode: 'NG', name: 'Nigeria', flag: '🇳🇬', currencyCode: 'NGN', currencySymbol: '₦', localeCode: 'en_NG'),
-  _CountryEntry(countryCode: 'NL', name: 'Netherlands', flag: '🇳🇱', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'nl_NL'),
-  _CountryEntry(countryCode: 'NP', name: 'Nepal', flag: '🇳🇵', currencyCode: 'NPR', currencySymbol: 'Rs', localeCode: 'ne_NP'),
-  _CountryEntry(countryCode: 'NZ', name: 'New Zealand', flag: '🇳🇿', currencyCode: 'NZD', currencySymbol: 'NZ\$', localeCode: 'en_NZ'),
-  _CountryEntry(countryCode: 'OM', name: 'Oman', flag: '🇴🇲', currencyCode: 'OMR', currencySymbol: 'OMR', localeCode: 'ar_OM'),
-  _CountryEntry(countryCode: 'PH', name: 'Philippines', flag: '🇵🇭', currencyCode: 'PHP', currencySymbol: '₱', localeCode: 'en_PH'),
-  _CountryEntry(countryCode: 'PK', name: 'Pakistan', flag: '🇵🇰', currencyCode: 'PKR', currencySymbol: 'Rs', localeCode: 'ur_PK'),
-  _CountryEntry(countryCode: 'PT', name: 'Portugal', flag: '🇵🇹', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'pt_PT'),
-  _CountryEntry(countryCode: 'QA', name: 'Qatar', flag: '🇶🇦', currencyCode: 'QAR', currencySymbol: 'QR', localeCode: 'ar_QA'),
-  _CountryEntry(countryCode: 'SA', name: 'Saudi Arabia', flag: '🇸🇦', currencyCode: 'SAR', currencySymbol: 'SR', localeCode: 'ar_SA'),
-  _CountryEntry(countryCode: 'SE', name: 'Sweden', flag: '🇸🇪', currencyCode: 'SEK', currencySymbol: 'kr', localeCode: 'sv_SE'),
-  _CountryEntry(countryCode: 'SG', name: 'Singapore', flag: '🇸🇬', currencyCode: 'SGD', currencySymbol: 'S\$', localeCode: 'en_SG'),
-  _CountryEntry(countryCode: 'TH', name: 'Thailand', flag: '🇹🇭', currencyCode: 'THB', currencySymbol: '฿', localeCode: 'th_TH'),
-  _CountryEntry(countryCode: 'TR', name: 'Turkey', flag: '🇹🇷', currencyCode: 'TRY', currencySymbol: '₺', localeCode: 'tr_TR'),
-  _CountryEntry(countryCode: 'TZ', name: 'Tanzania', flag: '🇹🇿', currencyCode: 'TZS', currencySymbol: 'TSh', localeCode: 'sw_TZ'),
-  _CountryEntry(countryCode: 'US', name: 'United States', flag: '🇺🇸', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'en_US'),
-  _CountryEntry(countryCode: 'VN', name: 'Vietnam', flag: '🇻🇳', currencyCode: 'VND', currencySymbol: '₫', localeCode: 'vi_VN'),
-  _CountryEntry(countryCode: 'ZA', name: 'South Africa', flag: '🇿🇦', currencyCode: 'ZAR', currencySymbol: 'R', localeCode: 'en_ZA'),
-];
+import 'package:buddy/data/countries_data.dart';
 
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
 class CurrencyPickerSheet extends StatefulWidget {
-  const CurrencyPickerSheet({super.key});
+  final bool isExistingUserPrompt;
 
-  static Future<void> show(BuildContext context) {
+  const CurrencyPickerSheet({
+    super.key,
+    this.isExistingUserPrompt = false,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    bool isExistingUserPrompt = false,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const CurrencyPickerSheet(),
+      builder: (_) => CurrencyPickerSheet(
+        isExistingUserPrompt: isExistingUserPrompt,
+      ),
     );
   }
 
@@ -102,22 +42,18 @@ class CurrencyPickerSheet extends StatefulWidget {
 
 class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
   final TextEditingController _search = TextEditingController();
-  List<_CountryEntry> _filtered = List.of(_kCountries);
+  List<CountryEntry> _filtered = List.of(CountriesData.all);
   bool _isSaving = false;
 
   // Track pending selection before saving
-  _CountryEntry? _selected;
+  CountryEntry? _selected;
 
   @override
   void initState() {
     super.initState();
     // Pre-select current country
     final current = CurrencyService.countryCode;
-    try {
-      _selected = _kCountries.firstWhere((c) => c.countryCode == current);
-    } catch (_) {
-      _selected = null;
-    }
+    _selected = CountriesData.findByCountryCode(current);
     _search.addListener(_onSearch);
   }
 
@@ -129,14 +65,8 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
   }
 
   void _onSearch() {
-    final q = _search.text.toLowerCase();
     setState(() {
-      _filtered = _kCountries.where((c) {
-        return c.name.toLowerCase().contains(q) ||
-            c.currencyCode.toLowerCase().contains(q) ||
-            c.currencySymbol.toLowerCase().contains(q) ||
-            c.countryCode.toLowerCase().contains(q);
-      }).toList();
+      _filtered = CountriesData.search(_search.text);
     });
   }
 
@@ -196,14 +126,24 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
                   children: [
-                    Icon(Icons.language_rounded, color: accent, size: 20),
+                    Icon(
+                      widget.isExistingUserPrompt
+                          ? Icons.public_rounded
+                          : Icons.language_rounded,
+                      color: accent,
+                      size: 22,
+                    ),
                     const SizedBox(width: 10),
-                    Text(
-                      'Country & Currency',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
+                    Expanded(
+                      child: Text(
+                        widget.isExistingUserPrompt
+                            ? 'Select Your Country & Currency'
+                            : 'Country & Currency',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: textPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -224,13 +164,18 @@ class _CurrencyPickerSheetState extends State<CurrencyPickerSheet> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.info_outline_rounded, size: 15, color: accent),
+                      Icon(Icons.info_outline_rounded, size: 16, color: accent),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Changing currency only updates the display symbol. '
-                          'Your existing transaction amounts are not converted.',
-                          style: TextStyle(fontSize: 12, color: textSecondary),
+                          widget.isExistingUserPrompt
+                              ? 'Buddy now supports all 195+ countries! Please select your country so money logos and auto-tracking match your local currency. Existing transaction amounts remain unchanged.'
+                              : 'Changing currency only updates the display symbol and auto-tracking rules. Your existing transaction amounts are not converted.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: textSecondary,
+                            height: 1.35,
+                          ),
                         ),
                       ),
                     ],

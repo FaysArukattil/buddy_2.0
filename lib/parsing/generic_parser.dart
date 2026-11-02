@@ -239,6 +239,7 @@ class GenericParser implements BankParser {
   // ── Helpers ─────────────────────────────────────────────────────────────
 
   bool _isFromKnownSource(String pkg, String text) {
+    if (_notificationPackages.isEmpty) return true;
     if (_notificationPackages.contains(pkg)) return true;
     // Fallback: check if package name contains bank-related terms
     final lowerPkg = pkg.toLowerCase();

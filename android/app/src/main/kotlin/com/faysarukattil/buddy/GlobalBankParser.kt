@@ -437,13 +437,21 @@ class GlobalParserRegistry private constructor() {
         sourcePackage: String,
         countryCode: String,
     ): GlobalBankParser.ParsedResult? {
-        val parser = parsers[countryCode.uppercase()] ?: return null
-        return parser.parse(text, sourcePackage)
+        val upper = countryCode.uppercase()
+        val parser = parsers[upper] ?: parsers["OTHER"] ?: return null
+        val result = parser.parse(text, sourcePackage)
+        if (result != null) return result
+        if (upper != "OTHER") {
+            return parsers["OTHER"]?.parse(text, sourcePackage)
+        }
+        return null
     }
 
     /** Whether a parser is registered for [countryCode]. */
-    fun supports(countryCode: String): Boolean =
-        countryCode.uppercase() != "IN" && parsers.containsKey(countryCode.uppercase())
+    fun supports(countryCode: String): Boolean {
+        val upper = countryCode.uppercase()
+        return upper != "IN" && (parsers.containsKey(upper) || parsers.containsKey("OTHER"))
+    }
 
     val ruleCount: Int get() = parsers.size
 }
