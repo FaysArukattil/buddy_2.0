@@ -13,7 +13,6 @@
 //  parse_ignored   — The notification was intentionally skipped (OTP, promo, etc.).
 //  parse_failed    — Parsing was attempted but no transaction could be extracted.
 
-import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 
 /// Reason codes for [ParseAnalyticsService.logParseIgnored] and
@@ -65,8 +64,6 @@ class ParseFailedReason {
 class ParseAnalyticsService {
   ParseAnalyticsService._();
 
-  static FirebaseAnalytics get _analytics => FirebaseAnalytics.instance;
-
   // ── Public API ────────────────────────────────────────────────────────────
 
   /// Log a successfully parsed bank transaction.
@@ -82,14 +79,13 @@ class ParseAnalyticsService {
     required String parserUsed,
   }) async {
     try {
-      await _analytics.logEvent(
-        name: 'parse_success',
-        parameters: {
-          'country_code': _sanitize(countryCode, 5),
-          'source_pkg': _truncatePackage(sourcePackage),
-          'parser_used': _sanitize(parserUsed, 20),
-        },
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '📊 [parse_success]: country=${_sanitize(countryCode, 5)} '
+          'pkg=${_truncatePackage(sourcePackage)} '
+          'parser=${_sanitize(parserUsed, 20)}',
+        );
+      }
     } catch (e) {
       debugPrint('⚠️ ANALYTICS: logParseSuccess error: $e');
     }
@@ -104,14 +100,13 @@ class ParseAnalyticsService {
     required String reasonCode,
   }) async {
     try {
-      await _analytics.logEvent(
-        name: 'parse_ignored',
-        parameters: {
-          'country_code': _sanitize(countryCode, 5),
-          'source_pkg': _truncatePackage(sourcePackage),
-          'reason_code': _sanitize(reasonCode, 20),
-        },
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '📊 [parse_ignored]: country=${_sanitize(countryCode, 5)} '
+          'pkg=${_truncatePackage(sourcePackage)} '
+          'reason=${_sanitize(reasonCode, 20)}',
+        );
+      }
     } catch (e) {
       debugPrint('⚠️ ANALYTICS: logParseIgnored error: $e');
     }
@@ -128,15 +123,14 @@ class ParseAnalyticsService {
     required String reasonCode,
   }) async {
     try {
-      await _analytics.logEvent(
-        name: 'parse_failed',
-        parameters: {
-          'country_code': _sanitize(countryCode, 5),
-          'source_pkg': _truncatePackage(sourcePackage),
-          'parser_used': _sanitize(parserUsed, 20),
-          'reason_code': _sanitize(reasonCode, 20),
-        },
-      );
+      if (kDebugMode) {
+        debugPrint(
+          '📊 [parse_failed]: country=${_sanitize(countryCode, 5)} '
+          'pkg=${_truncatePackage(sourcePackage)} '
+          'parser=${_sanitize(parserUsed, 20)} '
+          'reason=${_sanitize(reasonCode, 20)}',
+        );
+      }
     } catch (e) {
       debugPrint('⚠️ ANALYTICS: logParseFailed error: $e');
     }
