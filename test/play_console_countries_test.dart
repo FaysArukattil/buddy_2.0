@@ -236,5 +236,38 @@ void main() {
       expect(ParserRegistry.instance.supports('OTHER'), isTrue);
       expect(ParserRegistry.instance.supports('ARUBA_UNLISTED'), isTrue);
     });
+
+    test('CountriesData.search aliases return expected country and rank it first', () {
+      // Searching "usa" must return United States as #1
+      final usaResults = CountriesData.search('usa');
+      expect(usaResults, isNotEmpty);
+      expect(usaResults.first.countryCode, 'US');
+      expect(usaResults.first.name, 'United States');
+
+      // Searching "uae" must return United Arab Emirates as #1
+      final uaeResults = CountriesData.search('uae');
+      expect(uaeResults, isNotEmpty);
+      expect(uaeResults.first.countryCode, 'AE');
+
+      // Searching "uk" must return United Kingdom as #1
+      final ukResults = CountriesData.search('uk');
+      expect(ukResults, isNotEmpty);
+      expect(ukResults.first.countryCode, 'GB');
+
+      // Searching "ksa" must return Saudi Arabia as #1
+      final ksaResults = CountriesData.search('ksa');
+      expect(ksaResults, isNotEmpty);
+      expect(ksaResults.first.countryCode, 'SA');
+
+      // Searching "america" must return United States as #1
+      final americaResults = CountriesData.search('america');
+      expect(americaResults, isNotEmpty);
+      expect(americaResults.first.countryCode, 'US');
+
+      // Searching "us" exact code ranks United States before Cyprus or Belarus
+      final usResults = CountriesData.search('us');
+      expect(usResults, isNotEmpty);
+      expect(usResults.first.countryCode, 'US');
+    });
   });
 }

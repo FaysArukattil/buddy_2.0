@@ -203,5 +203,90 @@ void main() {
       // Reset insets
       tester.view.resetViewInsets();
     });
+
+    testWidgets('Search query "usa" displays United States in filtered country list',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final searchField = find.byType(TextField);
+      expect(searchField, findsOneWidget);
+
+      // Search "usa"
+      await tester.enterText(searchField, 'usa');
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // United States should appear in the filtered list
+      expect(find.text('United States'), findsOneWidget);
+
+      // Tap United States
+      await tester.tap(find.text('United States'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(CurrencyService.countryCode, 'US');
+      expect(CurrencyService.currencyCode, 'USD');
+      expect(CurrencyService.symbol, '\$');
+    });
+
+    testWidgets('Horizontal landscape mode renders Step 0 without overflow',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(800, 390);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // In landscape, check title and search bar render cleanly
+      expect(find.textContaining('Where are you based?'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('Horizontal landscape mode renders Steps 1, 2, and 3 without overflow',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(780, 360);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // Advance to Step 1
+      await tester.tap(find.text('Continue').first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.textContaining('Your spending'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 2
+      await tester.tap(find.text('Continue').first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.textContaining('We never read'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Advance to Step 3
+      await tester.tap(find.text('Continue').first, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.textContaining('Every pro tool.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

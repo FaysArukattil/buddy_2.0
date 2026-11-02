@@ -156,19 +156,65 @@ When a user selects their country on Step 0, all subsequent screens immediately 
      - Bottom continue action is cleanly hidden when keyboard is open (`if (!keyboardOpen)` at index 6 after the list, ensuring indices 0..5 never shift).
      - **Resulting Expanded List Viewport:** **280–300px** of unconstrained vertical scroll space, fitting **6 to 7 full country rows** simultaneously while typing.
 
+### E. Horizontal (Landscape) Mode Architecture (`OrientationBuilder`)
+
+1. **Orientation Detection & Dynamic Split Layout**:
+   - `OrientationBuilder` detects landscape vs portrait orientation dynamically.
+   - **Step 0 in Landscape**:
+     - **Left Column (`flex: 5`)**: Hosts `_buildTopBar(isLandscape: true)`, compact header title (`_buildCountryHeaderTitle(isLandscape: true)`), National Pride Card (`_buildNationalPrideCard`), and Continue CTA (`_buildCountryBottomAction(isLandscape: true)`) with trust reassurance badges. Wrapped in `LayoutBuilder` + `SingleChildScrollView` + `ConstrainedBox` + `IntrinsicHeight` to ensure zero vertical overflow regardless of screen height.
+     - **Right Column (`flex: 6`)**: Hosts the fixed Search Bar (`_buildCountrySearchBar()`), horizontal popular quick chips (`_buildCountryChips()`), and a full-height `Expanded` scrollable list (`_buildCountryListView()`). This grants the country list the entire height of the right screen pane (260px+), rendering 5 to 6 full country rows simultaneously while keeping search immediately accessible.
+   - **Steps 1, 2, and 3 in Landscape**:
+     - **Left Column (`flex: 5`)**: The Hero panel (`_buildHero(isDark, isLandscape: true)`) featuring right-rounded border (`BorderRadius.horizontal(right: Radius.circular(32))`), top bar, and the interactive preview stage automatically scaled down via `FittedBox(fit: BoxFit.scaleDown)` with design width $380\text{px}$.
+     - **Right Column (`flex: 5`)**: The localized headline copy (`_buildCopy(isLandscape: true)`) with compact font sizes ($22\text{px}$ headline, $13\text{px}$ body) and the CTA dock (`_buildBottomDock(isLandscape: true)`) with 48px height gradient button. Wrapped in `SingleChildScrollView` so it can never overflow even on small landscape viewports.
+   - **Permission Primer Sheet**:
+     - `_showPermissionPrimer()` content is wrapped in `SingleChildScrollView(physics: const BouncingScrollPhysics())` to eliminate modal sheet bottom overflow on landscape phones.
+
+---
+
+### F. Country Alias Search & Relevance Ranking
+
+1. **Common Country Aliases & Abbreviations Map**:
+   - Enhanced `CountriesData.countryAliases` to map all frequent search queries, abbreviations, and informal names to their canonical countries:
+     - `'US'` $\rightarrow$ `['usa', 'america', 'united states of america', 'u.s.a.', 'u.s.']`
+     - `'AE'` $\rightarrow$ `['uae', 'emirates', 'united arab emirates', 'dubai', 'abu dhabi', 'u.a.e.']`
+     - `'GB'` $\rightarrow$ `['uk', 'britain', 'great britain', 'england', 'scotland', 'wales', 'u.k.']`
+     - `'SA'` $\rightarrow$ `['ksa', 'saudi', 'k.s.a.']`
+     - `'KR'` $\rightarrow$ `['korea', 'south korea', 'rok']`
+     - `'KP'` $\rightarrow$ `['north korea', 'dprk']`
+     - `'RU'` $\rightarrow$ `['russia', 'russian federation']`
+     - `'NL'` $\rightarrow$ `['holland', 'the netherlands', 'nederland']`
+     - `'DE'` $\rightarrow$ `['deutschland', 'germany']`
+     - `'PH'` $\rightarrow$ `['philippines', 'filipino', 'pinoy']`
+     - `'NZ'` $\rightarrow$ `['new zealand', 'aotearoa', 'kiwi']`
+     - `'AU'` $\rightarrow$ `['australia', 'aussie', 'oz']`
+     - `'ZA'` $\rightarrow$ `['south africa', 'rsa']`
+     - `'VN'` $\rightarrow$ `['vietnam', 'viet nam']`
+     - `'OTHER'` $\rightarrow$ `['other', 'rest of world', 'world', 'global', 'international', 'any', 'none']`
+2. **Relevance-Based Match Ranking**:
+   - `CountriesData.search(String query)` sorts results so that:
+     1. Exact ISO code matches (e.g. typing `us` or `in`) bubble immediately to index 0.
+     2. Exact name matches bubble to top.
+     3. Exact alias matches (e.g. typing `usa`, `uae`, `uk`, `ksa`) bubble immediately to index 0.
+     4. Name prefix matches bubble next.
+     5. Substring and currency matches follow alphabetically.
+   - Typing "usa" now directly displays United States at the very top of the search list.
+
 ---
 
 ## 3. Verification & Test Coverage
 
 ### A. Flutter Unit & Widget Tests
 Command: `flutter test`
-- **Result:** **284 / 284 tests passed** (including 6 tests in `test/onboarding_country_flow_test.dart`):
+- **Result:** **288 / 288 tests passed** (including 9 onboarding and country tests in `test/onboarding_country_flow_test.dart`):
   1. `Step 0 displays Country Selection first with search & popular chips` (Verified)
   2. `Selecting a country via chip updates CurrencyService immediately` (Verified)
   3. `Search input filters country list without crashing` (Verified)
   4. `Step 1 auto-log preview adapts to selected country` (Verified)
   5. `Step 3 Pro Hub displays selected country currency symbol and CTA` (Verified)
   6. `Tapping search field maintains focus without unmounting or closing keyboard` (Verified)
+  7. `Search query "usa" displays United States in filtered country list` (Verified)
+  8. `Horizontal landscape mode renders Step 0 without overflow` (Verified)
+  9. `Horizontal landscape mode renders Steps 1, 2, and 3 without overflow` (Verified)
 
 ### B. Static Code Analysis
 Command: `flutter analyze`

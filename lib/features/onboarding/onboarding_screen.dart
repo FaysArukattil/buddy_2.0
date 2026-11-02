@@ -266,6 +266,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       isScrollControlled: true,
       builder: (ctx) {
         final isDark = AppColors.isDark(ctx);
+        final isLandscape =
+            MediaQuery.orientationOf(ctx) == Orientation.landscape;
         return Container(
           decoration: BoxDecoration(
             color: AppColors.cardOf(ctx),
@@ -284,84 +286,88 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             22,
             MediaQuery.of(ctx).padding.bottom + 16,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4.5,
-                decoration: BoxDecoration(
-                  color: AppColors.borderOf(ctx),
-                  borderRadius: BorderRadius.circular(10),
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderOf(ctx),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: AppColors.primaryGradient,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
+                SizedBox(height: isLandscape ? 10 : 20),
+                Container(
+                  width: isLandscape ? 48 : 64,
+                  height: isLandscape ? 48 : 64,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.notifications_active_rounded,
+                    color: Colors.white,
+                    size: isLandscape ? 24 : 30,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.notifications_active_rounded,
-                  color: Colors.white,
-                  size: 30,
+                SizedBox(height: isLandscape ? 10 : 16),
+                Text(
+                  'Allow notification access',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: isLandscape ? 18 : 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: AppColors.textPrimaryOf(ctx),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Allow notification access',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 21,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  color: AppColors.textPrimaryOf(ctx),
+                const SizedBox(height: 8),
+                Text(
+                  'Buddy reads bank and UPI payment alerts on your phone to log '
+                  'expenses for you. OTPs and personal chats are ignored, and '
+                  'you can turn it off anytime in Settings.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: isLandscape ? 12.5 : 13.5,
+                    height: 1.45,
+                    color: AppColors.textSecondaryOf(ctx),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Buddy reads bank and UPI payment alerts on your phone to log '
-                'expenses for you. OTPs and personal chats are ignored, and '
-                'you can turn it off anytime in Settings.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.45,
-                  color: AppColors.textSecondaryOf(ctx),
+                SizedBox(height: isLandscape ? 14 : 22),
+                _GradientButton(
+                  label: 'Allow & continue',
+                  icon: Icons.bolt_rounded,
+                  height: isLandscape ? 48 : 56,
+                  onTap: () => Navigator.of(ctx).pop(true),
                 ),
-              ),
-              const SizedBox(height: 22),
-              _GradientButton(
-                label: 'Allow & continue',
-                icon: Icons.bolt_rounded,
-                onTap: () => Navigator.of(ctx).pop(true),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(
-                width: double.infinity,
-                height: 44,
-                child: TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(
-                    'Not now',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondaryOf(ctx),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  height: isLandscape ? 38 : 44,
+                  child: TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: Text(
+                      'Not now',
+                      style: TextStyle(
+                        fontSize: isLandscape ? 13 : 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondaryOf(ctx),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -461,34 +467,93 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       _prev();
                     }
                   },
-            child: _page == 0
-                ? _buildCountrySelectionScreen(isDark)
-                : Column(
-                    children: [
-                      Expanded(child: _buildHero(isDark)),
-                      SafeArea(
-                        top: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildCopy(step, isDark),
-                            _buildBottomDock(step, isDark),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+            child: OrientationBuilder(
+              builder: (context, orientation) {
+                final isLandscape = orientation == Orientation.landscape;
+                if (_page == 0) {
+                  return _buildCountrySelectionScreen(isDark,
+                      isLandscape: isLandscape);
+                }
+                return isLandscape
+                    ? _buildLandscapeContent(step, isDark)
+                    : _buildPortraitContent(step, isDark);
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _buildPortraitContent(_StepMeta step, bool isDark) {
+    return Column(
+      children: [
+        Expanded(child: _buildHero(isDark)),
+        SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildCopy(step, isDark),
+              _buildBottomDock(step, isDark),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeContent(_StepMeta step, bool isDark) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: _buildHero(isDark, isLandscape: true),
+        ),
+        Expanded(
+          flex: 5,
+          child: SafeArea(
+            left: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Spacer(),
+                            _buildCopy(step, isDark, isLandscape: true),
+                            const SizedBox(height: 8),
+                            _buildBottomDock(step, isDark, isLandscape: true),
+                            const Spacer(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // ── Hero panel (same gradient + radius language as Home) ─────
-  Widget _buildHero(bool isDark) {
+  Widget _buildHero(bool isDark, {bool isLandscape = false}) {
     final colors = isDark ? _kHeroDark : _kHeroLight;
     return Container(
       width: double.infinity,
+      height: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -496,12 +561,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(36)),
+        borderRadius: isLandscape
+            ? const BorderRadius.horizontal(right: Radius.circular(32))
+            : const BorderRadius.vertical(bottom: Radius.circular(36)),
         boxShadow: [
           BoxShadow(
             color: _kInk.withValues(alpha: 0.28),
             blurRadius: 24,
-            offset: const Offset(0, 8),
+            offset: isLandscape ? const Offset(4, 0) : const Offset(0, 8),
           ),
         ],
       ),
@@ -532,15 +599,24 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           SafeArea(
             bottom: false,
+            right: !isLandscape,
             child: Column(
               children: [
-                _buildTopBar(),
+                _buildTopBar(isLandscape: isLandscape),
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, box) {
-                      final w = math.min(box.maxWidth - 40, 460.0);
+                      final w = isLandscape
+                          ? 380.0
+                          : math.min(
+                              math.max(box.maxWidth - 40, 360.0), 460.0);
                       return Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 2, 20, 22),
+                        padding: EdgeInsets.fromLTRB(
+                          isLandscape ? 12 : 20,
+                          2,
+                          isLandscape ? 12 : 20,
+                          isLandscape ? 10 : 22,
+                        ),
                         child: Center(
                           // Scales the preview down on short phones instead of
                           // overflowing or scrolling.
@@ -565,10 +641,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ── Top bar: back, progress, skip (sits on the hero) ─────────
-  Widget _buildTopBar() {
+  Widget _buildTopBar({bool isLandscape = false}) {
     final isLast = _page == _pageCount - 1;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      padding: EdgeInsets.fromLTRB(8, isLandscape ? 2 : 6, 8, 0),
       child: Row(
         children: [
           SizedBox(
@@ -601,7 +677,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       behavior: HitTestBehavior.opaque,
                       onTap: () => _goTo(i),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        padding: EdgeInsets.symmetric(
+                            vertical: isLandscape ? 8 : 14),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 350),
                           curve: Curves.easeOutCubic,
@@ -634,7 +711,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                   onPressed: () => _goTo(_pageCount - 1),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
-                    minimumSize: const Size(48, 44),
+                    minimumSize: Size(48, isLandscape ? 36 : 44),
                   ),
                   child: Text(
                     'Skip',
@@ -654,11 +731,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ── Copy (headline + body) ───────────────────────────────────
-  Widget _buildCopy(_StepMeta step, bool isDark) {
+  Widget _buildCopy(_StepMeta step, bool isDark, {bool isLandscape = false}) {
     final sw = MediaQuery.sizeOf(context).width;
     final shortScreen = MediaQuery.sizeOf(context).height < 700;
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, shortScreen ? 16 : 24, 24, 0),
+      padding: EdgeInsets.fromLTRB(
+        isLandscape ? 16 : 24,
+        isLandscape ? 8 : (shortScreen ? 16 : 24),
+        isLandscape ? 16 : 24,
+        0,
+      ),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 380),
         switchInCurve: Curves.easeOutCubic,
@@ -698,21 +780,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 child: Text(
                   step.headline.replaceAll('{symbol}', CurrencyService.symbol),
                   style: TextStyle(
-                    fontSize: sw < 360 || shortScreen ? 27 : 32,
+                    fontSize: isLandscape
+                        ? 22
+                        : (sw < 360 || shortScreen ? 27 : 32),
                     fontWeight: FontWeight.w900,
                     height: 1.1,
-                    letterSpacing: -1.0,
+                    letterSpacing: -0.8,
                     color: AppColors.textPrimaryOf(context),
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: isLandscape ? 6 : 10),
               Text(
                 step.body,
                 style: TextStyle(
-                  fontSize: shortScreen ? 13.5 : 15,
+                  fontSize: isLandscape ? 13 : (shortScreen ? 13.5 : 15),
                   fontWeight: FontWeight.w500,
-                  height: 1.42,
+                  height: isLandscape ? 1.35 : 1.42,
                   color: AppColors.textSecondaryOf(context),
                 ),
               ),
@@ -760,13 +844,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ── Bottom dock: CTA + secondary line ────────────────────────
-  Widget _buildBottomDock(_StepMeta step, bool isDark) {
+  Widget _buildBottomDock(_StepMeta step, bool isDark,
+      {bool isLandscape = false}) {
     final isLast = _page == _pageCount - 1;
     final muted = AppColors.textSecondaryOf(context);
     final accent = isDark ? AppColors.primary : const Color(0xFF1E5D57);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 6),
+      padding: EdgeInsets.fromLTRB(
+        isLandscape ? 16 : 24,
+        isLandscape ? 10 : 18,
+        isLandscape ? 16 : 24,
+        isLandscape ? 4 : 6,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -781,14 +871,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 icon: isLast ? Icons.bolt_rounded : Icons.arrow_forward_rounded,
                 loading: _finishing,
                 glow: glow,
+                height: isLandscape ? 48 : 56,
                 labelKey: ValueKey('cta_$_page'),
                 onTap: _finishing ? null : _next,
               );
             },
           ),
-          const SizedBox(height: 4),
+          SizedBox(height: isLandscape ? 2 : 4),
           SizedBox(
-            height: 40,
+            height: isLandscape ? 32 : 40,
             child: isLast
                 ? TextButton(
                     onPressed: _finishing ? null : _finish,
@@ -796,7 +887,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       TextSpan(
                         text: 'Already have an account?  ',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: isLandscape ? 12 : 13,
                           fontWeight: FontWeight.w600,
                           color: muted,
                         ),
@@ -817,16 +908,20 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     children: [
                       Icon(
                         Icons.verified_user_rounded,
-                        size: 14,
+                        size: isLandscape ? 12 : 14,
                         color: accent,
                       ),
                       const SizedBox(width: 6),
-                      Text(
-                        'Free forever. No ads. Private by design.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: muted,
+                      Flexible(
+                        child: Text(
+                          'Free forever. No ads. Private by design.',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: isLandscape ? 11 : 12,
+                            fontWeight: FontWeight.w600,
+                            color: muted,
+                          ),
                         ),
                       ),
                     ],
@@ -958,21 +1053,25 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 7,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: catColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                category,
-                                style: TextStyle(
-                                  color: catColor,
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: catColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  category,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: catColor,
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                             ),
@@ -2354,9 +2453,498 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STEP 0 — Dedicated Country & Currency Screen (Keyboard Safe)
+  // STEP 0 — Dedicated Country & Currency Screen (Keyboard & Landscape Safe)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildCountrySelectionScreen(bool isDark) {
+
+  Widget _buildCountryHeaderTitle({bool isLandscape = false}) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4, 2, 4, isLandscape ? 2 : 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              'Where are you based?\nChoose your currency.',
+              style: TextStyle(
+                fontSize: isLandscape ? 14 : 18,
+                fontWeight: FontWeight.w900,
+                height: 1.15,
+                letterSpacing: -0.5,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: isLandscape ? 7 : 8,
+              vertical: isLandscape ? 3 : 3.5,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _kIncomeOnHero.withValues(alpha: 0.5),
+                width: 1.0,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _selectedCountry.flag,
+                  style: TextStyle(fontSize: isLandscape ? 12 : 13),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
+                  style: TextStyle(
+                    fontSize: isLandscape ? 11 : 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: _kIncomeOnHero,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNationalPrideCard(String prideTitle, String prideSub,
+      {bool isLandscape = false}) {
+    return _glass(
+      padding: EdgeInsets.symmetric(
+        horizontal: isLandscape ? 10 : 12,
+        vertical: isLandscape ? 6 : 7,
+      ),
+      radius: isLandscape ? 12 : 13,
+      fill: 0.14,
+      borderColor: _kIncomeOnHero.withValues(alpha: 0.35),
+      child: Row(
+        children: [
+          Container(
+            width: isLandscape ? 30 : 34,
+            height: isLandscape ? 30 : 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.12),
+              border: Border.all(
+                color: _kIncomeOnHero.withValues(alpha: 0.6),
+                width: 1.2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              _selectedCountry.flag,
+              style: TextStyle(fontSize: isLandscape ? 16 : 19),
+            ),
+          ),
+          SizedBox(width: isLandscape ? 8 : 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  prideTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isLandscape ? 12 : 13,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  prideSub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isLandscape ? 10 : 10.5,
+                    fontWeight: FontWeight.w600,
+                    color: _kIncomeOnHero.withValues(alpha: 0.95),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 3.5,
+            ),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: _kIncomeOnHero.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              _selectedCountry.currencySymbol,
+              style: TextStyle(
+                fontSize: isLandscape ? 11 : 12,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F3632),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountrySearchBar() {
+    return GestureDetector(
+      onTap: () => _countrySearchFocus.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.22),
+            width: 1.0,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        child: Row(
+          children: [
+            Icon(
+              Icons.search_rounded,
+              size: 18,
+              color: Colors.white.withValues(alpha: 0.75),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _countrySearchController,
+                focusNode: _countrySearchFocus,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+                cursorColor: _kIncomeOnHero,
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search 195+ countries or currencies...',
+                  hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.50),
+                  ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+            if (_countrySearchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () => _countrySearchController.clear(),
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 12,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCountryChips() {
+    return SizedBox(
+      height: 30,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        itemCount: CountriesData.popular.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, idx) {
+          final item = CountriesData.popular[idx];
+          final isSel = item.countryCode == _selectedCountry.countryCode;
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () {
+                _selectCountry(item);
+                _countrySearchFocus.unfocus();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: isSel
+                      ? Colors.white.withValues(alpha: 0.28)
+                      : Colors.white.withValues(alpha: 0.09),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isSel
+                        ? _kIncomeOnHero
+                        : Colors.white.withValues(alpha: 0.16),
+                    width: isSel ? 1.4 : 1.0,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      item.flag,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      switch (item.countryCode) {
+                        'OTHER' => 'Other',
+                        'AE' => 'UAE',
+                        'US' => 'USA',
+                        'GB' => 'UK',
+                        'SA' => 'Saudi',
+                        _ => item.name.split(' ').first,
+                      },
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight:
+                            isSel ? FontWeight.w800 : FontWeight.w600,
+                        color: isSel
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCountryListView({bool keyboardOpen = false}) {
+    return Container(
+      margin: EdgeInsets.only(bottom: keyboardOpen ? 4 : 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.20),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+          width: 1.0,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: _filteredCountries.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.search_off_rounded,
+                    size: 28,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    'No matching country found',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap "Other" in chips above or check spelling',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              physics: const BouncingScrollPhysics(),
+              itemCount: _filteredCountries.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 0.5,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+              itemBuilder: (context, i) {
+                final c = _filteredCountries[i];
+                final isSelected =
+                    c.countryCode == _selectedCountry.countryCode;
+                return Material(
+                  color: isSelected
+                      ? Colors.white.withValues(alpha: 0.16)
+                      : Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      _selectCountry(c);
+                      _countrySearchFocus.unfocus();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            c.flag,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                                  CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  c.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: isSelected
+                                        ? FontWeight.w800
+                                        : FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                Text(
+                                  '${c.currencyCode} (${c.currencySymbol})',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: isSelected
+                                        ? _kIncomeOnHero
+                                        : Colors.white
+                                            .withValues(alpha: 0.65),
+                                    fontWeight: isSelected
+                                        ? FontWeight.w700
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? _kIncomeOnHero
+                                  : Colors.white
+                                      .withValues(alpha: 0.12),
+                              borderRadius:
+                                  BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              c.currencySymbol,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                color: isSelected
+                                    ? const Color(0xFF0F3632)
+                                    : Colors.white,
+                              ),
+                            ),
+                          ),
+                          if (isSelected) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.check_circle_rounded,
+                              size: 17,
+                              color: _kIncomeOnHero,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildCountryBottomAction({bool isLandscape = false}) {
+    return Padding(
+      padding: EdgeInsets.only(top: 2, bottom: isLandscape ? 4 : 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _GradientButton(
+            label: 'Continue',
+            icon: Icons.arrow_forward_rounded,
+            height: isLandscape ? 46 : 56,
+            onTap: () {
+              _countrySearchFocus.unfocus();
+              _next();
+            },
+          ),
+          SizedBox(height: isLandscape ? 3 : 5),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: isLandscape ? 11 : 12,
+                color: _kIncomeOnHero.withValues(alpha: 0.9),
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  '100% Private • No Bank Login • ${_selectedCountry.currencySymbol}0 Forever',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: isLandscape ? 10.5 : 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.1,
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCountrySelectionScreen(bool isDark, {bool isLandscape = false}) {
     final colors = isDark ? _kHeroDark : _kHeroLight;
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final prideTitle = _nationalPrideTitle(_selectedCountry);
@@ -2374,493 +2962,93 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       ),
       child: SafeArea(
         bottom: true,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildTopBar(),
-              const SizedBox(height: 2),
-
-              // ── Header Title (Compact & clean) ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Where are you based?\nChoose your currency.',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        height: 1.15,
-                        letterSpacing: -0.5,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.14),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _kIncomeOnHero.withValues(alpha: 0.5),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            _selectedCountry.flag,
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                              color: _kIncomeOnHero,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // ── National Pride Card (Celebrating user's nation & bank auto-tracking!) ──
-              _glass(
+        child: isLandscape
+            ? Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                radius: 13,
-                fill: 0.14,
-                borderColor: _kIncomeOnHero.withValues(alpha: 0.35),
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.12),
-                        border: Border.all(
-                          color: _kIncomeOnHero.withValues(alpha: 0.6),
-                          width: 1.2,
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _selectedCountry.flag,
-                        style: const TextStyle(fontSize: 19),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
+                    // ── Left Column: Controls, Title, Pride Card & Continue Action ──
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            prideTitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              letterSpacing: -0.2,
+                      flex: 5,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                  minHeight: constraints.maxHeight),
+                              child: IntrinsicHeight(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _buildTopBar(isLandscape: true),
+                                    const SizedBox(height: 2),
+                                    _buildCountryHeaderTitle(isLandscape: true),
+                                    const SizedBox(height: 4),
+                                    _buildNationalPrideCard(
+                                        prideTitle, prideSub,
+                                        isLandscape: true),
+                                    const Spacer(),
+                                    if (!keyboardOpen)
+                                      _buildCountryBottomAction(
+                                          isLandscape: true),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 1),
-                          Text(
-                            prideSub,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: _kIncomeOnHero.withValues(alpha: 0.95),
-                            ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3.5,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
-                        ),
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _kIncomeOnHero.withValues(alpha: 0.35),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                    const SizedBox(width: 14),
+                    // ── Right Column: Search Bar, Chips & Scrollable List ──
+                    Expanded(
+                      flex: 6,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 2),
+                          _buildCountrySearchBar(),
+                          const SizedBox(height: 4),
+                          _buildCountryChips(),
+                          const SizedBox(height: 4),
+                          Expanded(
+                            child: _buildCountryListView(
+                                keyboardOpen: keyboardOpen),
                           ),
                         ],
-                      ),
-                      child: Text(
-                        _selectedCountry.currencySymbol,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F3632),
-                        ),
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // ── Search Bar (Always fixed at index 3, tap anywhere to focus) ──
-              GestureDetector(
-                onTap: () => _countrySearchFocus.requestFocus(),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22),
-                      width: 1.0,
+              )
+            : Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildTopBar(),
+                    const SizedBox(height: 2),
+                    _buildCountryHeaderTitle(),
+                    _buildNationalPrideCard(prideTitle, prideSub),
+                    const SizedBox(height: 5),
+                    _buildCountrySearchBar(),
+                    const SizedBox(height: 4),
+                    _buildCountryChips(),
+                    const SizedBox(height: 6),
+                    Expanded(
+                      child:
+                          _buildCountryListView(keyboardOpen: keyboardOpen),
                     ),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        size: 18,
-                        color: Colors.white.withValues(alpha: 0.75),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _countrySearchController,
-                          focusNode: _countrySearchFocus,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          cursorColor: _kIncomeOnHero,
-                          textInputAction: TextInputAction.search,
-                          decoration: InputDecoration(
-                            hintText: 'Search 195+ countries or currencies...',
-                            hintStyle: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white.withValues(alpha: 0.50),
-                            ),
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ),
-                      ),
-                      if (_countrySearchController.text.isNotEmpty)
-                        GestureDetector(
-                          onTap: () => _countrySearchController.clear(),
-                          child: Container(
-                            padding: const EdgeInsets.all(3),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close_rounded,
-                              size: 12,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
+                    if (!keyboardOpen) ...[
+                      _buildCountryBottomAction(),
                     ],
-                  ),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 6),
-
-              // ── Popular Quick Select Chips (always pinned right below search) ──
-              SizedBox(
-                height: 30,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: CountriesData.popular.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
-                  itemBuilder: (context, idx) {
-                    final item = CountriesData.popular[idx];
-                    final isSel =
-                        item.countryCode == _selectedCountry.countryCode;
-                    return Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {
-                          _selectCountry(item);
-                          _countrySearchFocus.unfocus();
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSel
-                                ? Colors.white.withValues(alpha: 0.28)
-                                : Colors.white.withValues(alpha: 0.09),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isSel
-                                  ? _kIncomeOnHero
-                                  : Colors.white.withValues(alpha: 0.16),
-                              width: isSel ? 1.4 : 1.0,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                item.flag,
-                                style: const TextStyle(fontSize: 13),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                switch (item.countryCode) {
-                                  'OTHER' => 'Other',
-                                  'AE' => 'UAE',
-                                  'US' => 'USA',
-                                  'GB' => 'UK',
-                                  'SA' => 'Saudi',
-                                  _ => item.name.split(' ').first,
-                                },
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight:
-                                      isSel ? FontWeight.w800 : FontWeight.w600,
-                                  color: isSel
-                                      ? Colors.white
-                                      : Colors.white.withValues(alpha: 0.85),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // ── Full-Size Scrollable Countries List (Spacious & Always Visible!) ──
-              Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(bottom: keyboardOpen ? 4 : 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(15),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      width: 1.0,
-                    ),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _filteredCountries.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.search_off_rounded,
-                                size: 28,
-                                color: Colors.white.withValues(alpha: 0.5),
-                              ),
-                              const SizedBox(height: 5),
-                              Text(
-                                'No matching country found',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Tap "Other" in chips above or check spelling',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.white.withValues(alpha: 0.55),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.separated(
-                          keyboardDismissBehavior:
-                              ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          physics: const BouncingScrollPhysics(),
-                          itemCount: _filteredCountries.length,
-                          separatorBuilder: (_, __) => Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            color: Colors.white.withValues(alpha: 0.08),
-                          ),
-                          itemBuilder: (context, i) {
-                            final c = _filteredCountries[i];
-                            final isSelected =
-                                c.countryCode == _selectedCountry.countryCode;
-                            return Material(
-                              color: isSelected
-                                  ? Colors.white.withValues(alpha: 0.16)
-                                  : Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  _selectCountry(c);
-                                  _countrySearchFocus.unfocus();
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        c.flag,
-                                        style: const TextStyle(fontSize: 20),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              c.name,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 13.5,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w800
-                                                    : FontWeight.w600,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                            Text(
-                                              '${c.currencyCode} (${c.currencySymbol})',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.white
-                                                    .withValues(alpha: 0.65),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 3.5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? _kIncomeOnHero
-                                              : Colors.white
-                                                  .withValues(alpha: 0.12),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: Text(
-                                          c.currencySymbol,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w900,
-                                            color: isSelected
-                                                ? const Color(0xFF0F3632)
-                                                : Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                      if (isSelected) ...[
-                                        const SizedBox(width: 8),
-                                        const Icon(
-                                          Icons.check_circle_rounded,
-                                          size: 17,
-                                          color: _kIncomeOnHero,
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ),
-
-              // ── High-Converting Bottom Action & Trust Reassurance ──
-              if (!keyboardOpen) ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, bottom: 6),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _GradientButton(
-                        label: 'Continue',
-                        icon: Icons.arrow_forward_rounded,
-                        onTap: () {
-                          _countrySearchFocus.unfocus();
-                          _next();
-                        },
-                      ),
-                      const SizedBox(height: 5),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.lock_outline_rounded,
-                            size: 12,
-                            color: _kIncomeOnHero.withValues(alpha: 0.9),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '100% Private • No Bank Login • ${_selectedCountry.currencySymbol}0 Forever',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.1,
-                              color: Colors.white.withValues(alpha: 0.8),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -2875,6 +3063,7 @@ class _GradientButton extends StatelessWidget {
   final VoidCallback? onTap;
   final bool loading;
   final double glow;
+  final double height;
   final Key? labelKey;
 
   const _GradientButton({
@@ -2883,13 +3072,14 @@ class _GradientButton extends StatelessWidget {
     required this.onTap,
     this.loading = false,
     this.glow = 0.30,
+    this.height = 56,
     this.labelKey,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 56,
+      height: height,
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
@@ -2935,15 +3125,15 @@ class _GradientButton extends StatelessWidget {
                       children: [
                         Text(
                           label,
-                          style: const TextStyle(
-                            fontSize: 16.5,
+                          style: TextStyle(
+                            fontSize: height < 50 ? 15 : 16.5,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
                             letterSpacing: -0.2,
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Icon(icon, size: 20, color: Colors.white),
+                        Icon(icon, size: height < 50 ? 18 : 20, color: Colors.white),
                       ],
                     ),
                   ),

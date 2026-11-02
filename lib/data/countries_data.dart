@@ -73,27 +73,121 @@ class CountriesData {
     );
   }
 
-  /// Search countries by name, code, currency code, or symbol.
-  /// Handles both punctuation variations (& vs and, St. vs Saint, Czechia vs Czech Republic, etc.)
+  /// Known aliases, common abbreviations, and alternative spellings for countries.
+  static const Map<String, List<String>> countryAliases = {
+    'US': ['usa', 'america', 'united states of america', 'u.s.a.', 'u.s.'],
+    'GB': ['uk', 'britain', 'great britain', 'england', 'scotland', 'wales', 'u.k.'],
+    'AE': ['uae', 'emirates', 'united arab emirates', 'dubai', 'abu dhabi', 'u.a.e.'],
+    'SA': ['ksa', 'saudi', 'k.s.a.'],
+    'KR': ['korea', 'south korea', 'rok'],
+    'KP': ['north korea', 'dprk'],
+    'RU': ['russia', 'russian federation'],
+    'NL': ['holland', 'the netherlands', 'nederland'],
+    'DE': ['deutschland', 'germany'],
+    'PH': ['philippines', 'filipino', 'pinoy'],
+    'NZ': ['new zealand', 'aotearoa', 'kiwi'],
+    'AU': ['australia', 'aussie', 'oz'],
+    'ZA': ['south africa', 'rsa'],
+    'VN': ['vietnam', 'viet nam'],
+    'IR': ['iran', 'persia'],
+    'SY': ['syria'],
+    'TR': ['turkey', 'turkiye', 'türkiye'],
+    'CZ': ['czechia', 'czech republic'],
+    'CD': ['drc', 'dr congo', 'congo kinshasa', 'democratic republic of congo'],
+    'CG': ['congo brazzaville', 'republic of congo'],
+    'CI': ['ivory coast', 'cote divoire', 'côte d’ivoire'],
+    'SZ': ['swaziland', 'eswatini'],
+    'MK': ['macedonia', 'north macedonia'],
+    'MM': ['burma', 'myanmar'],
+    'LK': ['ceylon', 'sri lanka'],
+    'TW': ['taiwan', 'roc'],
+    'CN': ['china', 'prc'],
+    'HK': ['hong kong', 'hongkong'],
+    'MO': ['macau', 'macao'],
+    'BA': ['bosnia', 'herzegovina', 'bih'],
+    'TT': ['trinidad', 'tobago'],
+    'KN': ['st kitts', 'saint kitts', 'st. kitts'],
+    'LC': ['st lucia', 'saint lucia', 'st. lucia'],
+    'VC': ['st vincent', 'saint vincent', 'st. vincent'],
+    'OTHER': ['other', 'rest of world', 'world', 'global', 'international', 'any', 'none'],
+  };
+
+  /// Search countries by name, code, currency code, symbol, or common aliases.
+  /// Handles punctuation variations (& vs and, St. vs Saint, Czechia vs Czech Republic, etc.)
+  /// and ranks high-relevance matches (exact code/alias/name) to the top.
   static List<CountryEntry> search(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return all;
+
+    final qClean = q.replaceAll('.', '').replaceAll('-', ' ').trim();
     final qNorm = q
         .replaceAll('&', 'and')
         .replaceAll('st.', 'saint')
         .replaceAll('turkey', 'türkiye');
-    return all.where((c) {
+
+    final matches = all.where((c) {
+      final codeLower = c.countryCode.toLowerCase();
       final nameLower = c.name.toLowerCase();
       final nameNorm = nameLower
           .replaceAll('&', 'and')
           .replaceAll('st.', 'saint')
           .replaceAll('turkey', 'türkiye');
-      return nameLower.contains(q) ||
+      final currLower = c.currencyCode.toLowerCase();
+      final symLower = c.currencySymbol.toLowerCase();
+
+      // 1. Direct match on code, name, currency code, or currency symbol
+      if (codeLower == q ||
+          codeLower.contains(q) ||
+          nameLower.contains(q) ||
           nameNorm.contains(qNorm) ||
-          c.countryCode.toLowerCase().contains(q) ||
-          c.currencyCode.toLowerCase().contains(q) ||
-          c.currencySymbol.toLowerCase().contains(q);
+          currLower.contains(q) ||
+          symLower.contains(q)) {
+        return true;
+      }
+
+      // 2. Alias match (e.g. "usa" -> US, "uae" -> AE, "uk" -> GB, "ksa" -> SA)
+      final aliases = countryAliases[c.countryCode];
+      if (aliases != null) {
+        for (final alias in aliases) {
+          final aliasClean = alias.replaceAll('.', '').replaceAll('-', ' ');
+          if (aliasClean == qClean ||
+              aliasClean.contains(qClean) ||
+              qClean.contains(aliasClean) ||
+              alias.contains(q)) {
+            return true;
+          }
+        }
+      }
+
+      return false;
     }).toList();
+
+    // Rank results so exact codes/aliases and prefix matches bubble to the top
+    matches.sort((a, b) {
+      final aExactCode = a.countryCode.toLowerCase() == q || a.countryCode.toLowerCase() == qClean;
+      final bExactCode = b.countryCode.toLowerCase() == q || b.countryCode.toLowerCase() == qClean;
+      if (aExactCode && !bExactCode) return -1;
+      if (!aExactCode && bExactCode) return 1;
+
+      final aExactName = a.name.toLowerCase() == q;
+      final bExactName = b.name.toLowerCase() == q;
+      if (aExactName && !bExactName) return -1;
+      if (!aExactName && bExactName) return 1;
+
+      final aAliasExact = countryAliases[a.countryCode]?.any((al) => al.replaceAll('.', '') == qClean) ?? false;
+      final bAliasExact = countryAliases[b.countryCode]?.any((al) => al.replaceAll('.', '') == qClean) ?? false;
+      if (aAliasExact && !bAliasExact) return -1;
+      if (!aAliasExact && bAliasExact) return 1;
+
+      final aNameStarts = a.name.toLowerCase().startsWith(q);
+      final bNameStarts = b.name.toLowerCase().startsWith(q);
+      if (aNameStarts && !bNameStarts) return -1;
+      if (!aNameStarts && bNameStarts) return 1;
+
+      return a.name.compareTo(b.name);
+    });
+
+    return matches;
   }
 
   /// All countries matching Google Play Console's 178 targeted locations
