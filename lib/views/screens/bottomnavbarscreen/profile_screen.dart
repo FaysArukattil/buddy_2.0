@@ -17,6 +17,7 @@ import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/views/screens/filtered_transactions_screen.dart';
 import 'package:buddy/views/widgets/save_guest_account_modal.dart';
+import 'package:buddy/services/legal_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -280,6 +281,16 @@ class ProfileScreenState extends State<ProfileScreen>
                         icon: Icons.local_cafe_outlined,
                         title: 'Buy me a chai',
                         onTap: () => SupportService.openBuyMeChai(context),
+                      ),
+                      _tile(
+                        icon: Icons.privacy_tip_outlined,
+                        title: 'Privacy policy',
+                        onTap: () => LegalService.openPrivacyPolicy(context),
+                      ),
+                      _tile(
+                        icon: Icons.description_outlined,
+                        title: 'Terms of service',
+                        onTap: () => LegalService.openTerms(context),
                       ),
                     ]),
                     const SizedBox(height: 28),

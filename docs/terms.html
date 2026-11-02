@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terms of Service - Buddy Expense Tracker</title>
+  <meta name="description" content="Terms of Service for Buddy - Expense Tracker. Conditions governing the use of the Buddy application and its open-source codebase.">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --primary-light: #34D399;
+      --bg: #090D10;
+      --surface: #10171D;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: var(--primary-light); text-decoration: none; }
+    a:hover { color: var(--primary); text-decoration: underline; }
+
+    header {
+      background: rgba(16, 23, 29, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .nav-links a { color: var(--text-muted); }
+    .nav-links a:hover, .nav-links a.active { color: var(--primary-light); }
+
+    .content-wrapper {
+      max-width: 860px;
+      margin: 40px auto 80px;
+      padding: 0 24px;
+      flex: 1;
+    }
+    .page-header {
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: 38px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+    }
+    .meta-tag {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .policy-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+    }
+    h2 {
+      font-size: 21px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-top: 36px;
+      margin-bottom: 16px;
+      border-left: 3px solid var(--primary);
+      padding-left: 12px;
+    }
+    p { color: #CBD5E1; margin-bottom: 16px; font-size: 15px; }
+    ul { margin-left: 24px; margin-bottom: 20px; color: #CBD5E1; font-size: 15px; }
+    li { margin-bottom: 8px; }
+
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 36px 24px;
+      margin-top: auto;
+    }
+    .footer-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-links { display: flex; gap: 20px; font-size: 13.5px; }
+    .footer-links a { color: var(--text-muted); }
+    .footer-links a:hover { color: var(--primary-light); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <img src="assets/icon.png" alt="Buddy Logo">
+        <span>Buddy</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html" class="active">Terms</a></li>
+        <li><a href="delete-account.html">Account Deletion</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main class="content-wrapper">
+    <div class="page-header">
+      <h1>Terms of Service</h1>
+      <div class="meta-tag">Last updated: November 2, 2026</div>
+    </div>
+
+    <div class="policy-box">
+      <p>
+        These Terms of Service ("Terms") govern your use of the <strong>Buddy</strong> mobile application ("the App"), developed by <strong>Faysal Arukattil</strong>. By downloading, accessing, or using Buddy, you agree to these Terms.
+      </p>
+
+      <h2>1. Description of the Application</h2>
+      <p>
+        Buddy is a personal budgeting and expense tracking utility. The application parses bank notification alerts locally on your device to create organized financial logs, debt ledgers, and visual category summaries. For signed-in users, structured records are synced to Google Firebase for backup.
+      </p>
+
+      <h2>2. Open-Source Project & Future Evolution</h2>
+      <p>
+        Buddy is currently an open-source project with its source code publicly available on GitHub (<a href="https://github.com/FaysArukattil/buddy_2.0" target="_blank" rel="noopener">https://github.com/FaysArukattil/buddy_2.0</a>). The open-source repository is provided for transparency and community inspection.
+      </p>
+      <p>
+        <strong>Notice of Future Changes:</strong> Project architecture, features, backend services, hosting, distribution, or licensing terms may change, evolve, or be updated in future releases. Continued use of the application following any updates constitutes acceptance of the amended terms.
+      </p>
+
+      <h2>3. Disclaimer of Financial Advice</h2>
+      <p>
+        Buddy is strictly an informational tool for personal record-keeping. The App does <strong>not</strong> offer investment, legal, tax, or financial advice. Parsing algorithms are automated and may occasionally miscategorize or miss transaction details. You remain solely responsible for verifying your finances against official bank statements.
+      </p>
+
+      <h2>4. User Responsibilities & Account Security</h2>
+      <ul>
+        <li>You are responsible for securing your physical device and your linked Google/Firebase credentials.</li>
+        <li>You agree not to use the application for any unauthorized, fraudulent, or illegal activity.</li>
+        <li>You acknowledge that automated detection relies on Android OS notification delivery and OEM background battery settings.</li>
+      </ul>
+
+      <h2>5. Service Availability & Backend Storage</h2>
+      <p>
+        Cloud features depend on Google Firebase infrastructure. While we strive for continuous availability, Buddy is provided on an "AS IS" and "AS AVAILABLE" basis without warranties of uninterrupted service or data preservation. Users are encouraged to periodically export backups.
+      </p>
+
+      <h2>6. Account and Data Termination</h2>
+      <p>
+        You may cease using Buddy and terminate your relationship at any time by uninstalling the app and/or using the in-app "Delete account" feature to erase all records from Firebase and local storage.
+      </p>
+
+      <h2>7. Limitation of Liability</h2>
+      <p>
+        To the fullest extent permitted by applicable law, the developer of Buddy shall not be liable for any direct, indirect, incidental, or consequential damages resulting from the use or inability to use the application or any inaccuracies in parsed data.
+      </p>
+
+      <h2>8. Contact Information</h2>
+      <p>
+        If you have questions regarding these Terms, contact:
+        <br><br>
+        <strong>Faysal Arukattil</strong><br>
+        Developer of Buddy<br>
+        Email: <a href="mailto:faysarukattil@gmail.com">faysarukattil@gmail.com</a><br>
+        GitHub: <a href="https://github.com/FaysArukattil/buddy_2.0" target="_blank" rel="noopener">https://github.com/FaysArukattil/buddy_2.0</a>
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-container">
+      <div style="font-size: 13.5px; color: var(--text-muted);">
+        © 2026 Buddy. Developed by Faysal Arukattil.
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms of Service</a>
+        <a href="delete-account.html">Account Deletion</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

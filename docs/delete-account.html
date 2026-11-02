@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account & Data Deletion - Buddy Expense Tracker</title>
+  <meta name="description" content="Official Account and Data Deletion policy for Buddy - Expense Tracker. Complete instructions for permanently purging account records from Firebase and device storage.">
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --primary-light: #34D399;
+      --danger: #EF4444;
+      --danger-light: #F87171;
+      --bg: #090D10;
+      --surface: #10171D;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    a { color: var(--primary-light); text-decoration: none; }
+    a:hover { color: var(--primary); text-decoration: underline; }
+
+    header {
+      background: rgba(16, 23, 29, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      list-style: none;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .nav-links a { color: var(--text-muted); }
+    .nav-links a:hover, .nav-links a.active { color: var(--primary-light); }
+
+    .content-wrapper {
+      max-width: 860px;
+      margin: 40px auto 80px;
+      padding: 0 24px;
+      flex: 1;
+    }
+    .page-header {
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 24px;
+    }
+    .page-header h1 {
+      font-size: 38px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+    }
+    .meta-tag {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .policy-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+    }
+    .alert-card {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 16px;
+      padding: 24px;
+      margin: 24px 0;
+    }
+    .alert-card h4 {
+      color: var(--danger-light);
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+    .step-box {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    .step-box strong {
+      color: #fff;
+      display: block;
+      margin-bottom: 6px;
+    }
+    h2 {
+      font-size: 21px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-top: 36px;
+      margin-bottom: 16px;
+      border-left: 3px solid var(--primary);
+      padding-left: 12px;
+    }
+    p { color: #CBD5E1; margin-bottom: 16px; font-size: 15px; }
+    ul, ol { margin-left: 24px; margin-bottom: 20px; color: #CBD5E1; font-size: 15px; }
+    li { margin-bottom: 8px; }
+    code {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      color: var(--primary-light);
+    }
+
+    footer {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 36px 24px;
+      margin-top: auto;
+    }
+    .footer-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-links { display: flex; gap: 20px; font-size: 13.5px; }
+    .footer-links a { color: var(--text-muted); }
+    .footer-links a:hover { color: var(--primary-light); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <img src="assets/icon.png" alt="Buddy Logo">
+        <span>Buddy</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="privacy.html">Privacy Policy</a></li>
+        <li><a href="terms.html">Terms</a></li>
+        <li><a href="delete-account.html" class="active">Account Deletion</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main class="content-wrapper">
+    <div class="page-header">
+      <h1>Account & Data Deletion</h1>
+      <div class="meta-tag">Google Play Data Safety Compliance • Published: November 2, 2026</div>
+    </div>
+
+    <div class="policy-box">
+      <p>
+        In accordance with Google Play's User Data & Data Safety requirements, this page describes how users can delete their <strong>Buddy</strong> account and all associated data stored in <strong>Google Firebase</strong> and on their local device.
+      </p>
+
+      <div class="alert-card">
+        <h4>Permanent and Irreversible</h4>
+        <p style="margin: 0; color: #FCA5A5;">
+          Deleting your account permanently wipes your user profile, all parsed transactions, custom categories, and debt tracking records from Google Cloud Firestore and Firebase Authentication. This operation cannot be reversed.
+        </p>
+      </div>
+
+      <h2>Method 1: Direct In-App Deletion (Immediate)</h2>
+      <p>You can execute complete account deletion at any time directly within the Buddy application:</p>
+
+      <div class="step-box">
+        <strong>Step 1: Open Settings</strong>
+        Navigate to the <strong>Profile</strong> tab (or tap the <strong>Settings</strong> icon on the Home screen).
+      </div>
+
+      <div class="step-box">
+        <strong>Step 2: Tap "Delete account"</strong>
+        Under the <strong>Account</strong> section, select <strong>Delete account</strong>.
+      </div>
+
+      <div class="step-box">
+        <strong>Step 3: Confirm Deletion</strong>
+        Review the initial confirmation dialog and select <strong>Delete</strong>. In the final confirmation prompt, type the word <code>DELETE</code> and tap <strong>Delete Permanently</strong>.
+      </div>
+
+      <p>
+        <strong>Backend Actions Executed:</strong>
+      </p>
+      <ul>
+        <li>All transaction documents in Firestore (<code>/users/{uid}/transactions</code>) are deleted in batches.</li>
+        <li>All category documents in Firestore (<code>/users/{uid}/categories</code>) are deleted.</li>
+        <li>All debt and ledger documents in Firestore (<code>/users/{uid}/debts</code>) are deleted.</li>
+        <li>Your primary user profile document in Firestore (<code>/users/{uid}</code>) is deleted.</li>
+        <li>Your user record in <strong>Firebase Authentication</strong> is permanently deleted.</li>
+        <li>Google Sign-In session is disconnected.</li>
+        <li>All local cache, settings, and SharedPreferences on your device are wiped.</li>
+        <li>The app routes immediately to the Login screen with an "Account deleted successfully" confirmation.</li>
+      </ul>
+
+      <h2>Method 2: Email Deletion Request (If App Is Uninstalled)</h2>
+      <p>
+        If you have uninstalled the application or cannot access your device, you can submit a deletion request directly to the developer:
+      </p>
+
+      <ul>
+        <li>Send an email to: <a href="mailto:faysarukattil@gmail.com?subject=Buddy%20Account%20Deletion%20Request">faysarukattil@gmail.com</a></li>
+        <li>Subject: <code>Buddy Account Deletion Request</code></li>
+        <li>Specify the <strong>Google Account email address</strong> linked to your Buddy account.</li>
+      </ul>
+
+      <p>
+        <strong>Turnaround:</strong> Your request will be verified and processed within <strong>48 hours</strong>. An email confirmation will be sent once your records have been completely purged from Firebase.
+      </p>
+
+      <h2>Data Retention Policy</h2>
+      <p>
+        Buddy <strong>does not retain any archival copies</strong> of your transactions or account credentials following deletion. All records are permanently purged from Google Cloud Firestore and Firebase Authentication.
+      </p>
+
+      <h2>Questions or Support</h2>
+      <p>
+        For inquiries regarding account management or data privacy:
+        <br><br>
+        <strong>Faysal Arukattil</strong><br>
+        Developer of Buddy<br>
+        Email: <a href="mailto:faysarukattil@gmail.com">faysarukattil@gmail.com</a><br>
+        GitHub: <a href="https://github.com/FaysArukattil/buddy_2.0" target="_blank" rel="noopener">https://github.com/FaysArukattil/buddy_2.0</a>
+      </p>
+    </div>
+  </main>
+
+  <footer>
+    <div class="footer-container">
+      <div style="font-size: 13.5px; color: var(--text-muted);">
+        © 2026 Buddy. Developed by Faysal Arukattil.
+      </div>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="terms.html">Terms of Service</a>
+        <a href="delete-account.html">Account Deletion</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

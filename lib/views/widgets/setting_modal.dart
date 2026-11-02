@@ -22,6 +22,7 @@ import 'package:buddy/views/widgets/save_guest_account_modal.dart';
 import 'package:buddy/views/widgets/currency_picker_sheet.dart';
 import 'package:buddy/services/currency_service.dart';
 import 'package:buddy/services/global_parsing_service.dart';
+import 'package:buddy/services/legal_service.dart';
 
 class SettingsModal extends StatefulWidget {
   final VoidCallback onDataCleared;
@@ -760,6 +761,22 @@ class _SettingsModalState extends State<SettingsModal> {
                             color: const Color(0xFFFF9800),
                             tintOnly: true,
                             onTap: () => SupportService.openBuyMeChai(context),
+                          ),
+                          _divider(),
+                          _tile(
+                            icon: Icons.privacy_tip_outlined,
+                            title: 'Privacy policy',
+                            subtitle: 'How Buddy protects your data & notifications',
+                            trailingIcon: Icons.open_in_new_rounded,
+                            onTap: () => LegalService.openPrivacyPolicy(context),
+                          ),
+                          _divider(),
+                          _tile(
+                            icon: Icons.description_outlined,
+                            title: 'Terms of service',
+                            subtitle: 'Application terms and conditions',
+                            trailingIcon: Icons.open_in_new_rounded,
+                            onTap: () => LegalService.openTerms(context),
                           ),
                         ],
                       ),
