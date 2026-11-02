@@ -318,7 +318,7 @@ class _SettingsModalState extends State<SettingsModal> {
       title: 'Delete Account?',
       message:
           'This will permanently delete your account and ALL your data '
-          '(transactions, categories, settings). This action CANNOT be undone.',
+          '(transactions, categories, debts, settings). This action CANNOT be undone.',
       isDangerous: true,
       icon: Icons.person_remove_rounded,
     );
@@ -342,11 +342,13 @@ class _SettingsModalState extends State<SettingsModal> {
 
       // Navigate to login and clear all routes
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(
+          builder: (_) => const LoginScreen(
+            infoMessage: 'Account deleted successfully',
+          ),
+        ),
         (route) => false,
       );
-
-      AppSnackbar.showSuccess(context, 'Account deleted successfully');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);
@@ -367,24 +369,61 @@ class _SettingsModalState extends State<SettingsModal> {
     final providers = user.providerData.map((p) => p.providerId).toList();
 
     if (providers.contains('google.com')) {
-      // Google re-auth: just trigger Google sign-in again
-      if (!mounted) return;
-      AppSnackbar.showWarning(
-        context,
-        'Please sign in with Google again to confirm deletion',
+      final proceed = await _showConfirmDialog(
+        title: 'Verification Required',
+        message:
+            'Google requires identity verification to delete your account. Would you like to verify with Google now?',
+        confirmLabel: 'Verify & Delete',
+        isDangerous: true,
+        icon: Icons.security_rounded,
       );
+      if (!proceed) {
+        if (mounted) {
+          AppSnackbar.showWarning(context, 'Account deletion cancelled.');
+        }
+        return;
+      }
+      if (!mounted) return;
 
-      final success = await _authService.reauthenticate();
-      if (success && mounted) {
+      setState(() {
+        _isAccountActionLoading = true;
+        _accountActionMessage = 'Verifying identity...';
+      });
+
+      bool success = false;
+      try {
+        success = await _authService.reauthenticate(allowInteractive: true);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showError(context, '$e');
+        return;
+      }
+
+      if (!success) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showWarning(
+          context,
+          'Google verification cancelled. Account was not deleted.',
+        );
+        return;
+      }
+
+      if (mounted) {
         setState(() {
           _isAccountActionLoading = true;
           _accountActionMessage = 'Deleting account...';
         });
         try {
-          await _authService.deleteAccount();
+          await _authService.deleteAccount(skipReauth: true);
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(
+                infoMessage: 'Account deleted successfully',
+              ),
+            ),
             (route) => false,
           );
         } catch (e) {
@@ -395,25 +434,58 @@ class _SettingsModalState extends State<SettingsModal> {
         }
       }
     } else if (providers.contains('password')) {
-      // Email/password re-auth: show password dialog
-      if (!mounted) return;
       final password = await _showPasswordDialog();
-      if (password == null || !mounted) return;
+      if (password == null) {
+        if (mounted) {
+          AppSnackbar.showWarning(context, 'Account deletion cancelled.');
+        }
+        return;
+      }
+      if (!mounted) return;
 
-      final success = await _authService.reauthenticate(
-        email: user.email,
-        password: password,
-      );
-      if (success && mounted) {
+      setState(() {
+        _isAccountActionLoading = true;
+        _accountActionMessage = 'Verifying password...';
+      });
+
+      bool success = false;
+      try {
+        success = await _authService.reauthenticate(
+          email: user.email,
+          password: password,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showError(context, '$e');
+        return;
+      }
+
+      if (!success) {
+        if (mounted) {
+          setState(() => _isAccountActionLoading = false);
+          AppSnackbar.showError(
+            context,
+            'Incorrect password. Account not deleted.',
+          );
+        }
+        return;
+      }
+
+      if (mounted) {
         setState(() {
           _isAccountActionLoading = true;
           _accountActionMessage = 'Deleting account...';
         });
         try {
-          await _authService.deleteAccount();
+          await _authService.deleteAccount(skipReauth: true);
           if (!mounted) return;
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
+            MaterialPageRoute(
+              builder: (_) => const LoginScreen(
+                infoMessage: 'Account deleted successfully',
+              ),
+            ),
             (route) => false,
           );
         } catch (e) {
@@ -422,19 +494,17 @@ class _SettingsModalState extends State<SettingsModal> {
             AppSnackbar.showError(context, 'Error: $e');
           }
         }
-      } else if (mounted) {
-        AppSnackbar.showError(
-          context,
-          'Incorrect password. Account not deleted.',
-        );
       }
     } else if (user.isAnonymous) {
-      // Guest accounts can be deleted directly
       try {
-        await _authService.deleteAccount();
+        await _authService.deleteAccount(skipReauth: true);
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          MaterialPageRoute(
+            builder: (_) => const LoginScreen(
+              infoMessage: 'Account deleted successfully',
+            ),
+          ),
           (route) => false,
         );
       } catch (e) {
@@ -450,6 +520,7 @@ class _SettingsModalState extends State<SettingsModal> {
   Future<bool> _showConfirmDialog({
     required String title,
     required String message,
+    String? confirmLabel,
     bool isDangerous = false,
     IconData? icon,
   }) async {
@@ -458,7 +529,7 @@ class _SettingsModalState extends State<SettingsModal> {
       builder: (context) => _ConfirmDialog(
         title: title,
         message: message,
-        confirmLabel: isDangerous ? 'Delete' : 'Confirm',
+        confirmLabel: confirmLabel ?? (isDangerous ? 'Delete' : 'Confirm'),
         isDangerous: isDangerous,
         icon:
             icon ??

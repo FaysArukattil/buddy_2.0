@@ -9,7 +9,8 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? infoMessage;
+  const LoginScreen({super.key, this.infoMessage});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -23,6 +24,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.infoMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          AppSnackbar.showSuccess(context, widget.infoMessage!);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {

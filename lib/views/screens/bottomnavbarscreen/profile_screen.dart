@@ -185,9 +185,11 @@ class ProfileScreenState extends State<ProfileScreen>
     return gradients[_name.codeUnitAt(0) % gradients.length];
   }
 
-  void _goToLogin() {
+  void _goToLogin({String? message}) {
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(infoMessage: message),
+      ),
       (route) => false,
     );
   }
@@ -1294,7 +1296,7 @@ class ProfileScreenState extends State<ProfileScreen>
     try {
       await _authService.deleteAccount();
       if (!mounted) return;
-      _goToLogin();
+      _goToLogin(message: 'Account deleted successfully');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);
@@ -1314,19 +1316,74 @@ class ProfileScreenState extends State<ProfileScreen>
     var reauthed = false;
 
     if (providers.contains('google.com')) {
-      AppSnackbar.showWarning(
-        context,
-        'Sign in with Google again to confirm deletion',
+      final proceed = await _showConfirmDialog(
+        title: 'Verification Required',
+        message:
+            'Google requires identity verification to delete your account. Would you like to verify with Google now?',
+        confirmLabel: 'Verify & Delete',
+        isDangerous: true,
       );
-      reauthed = await _authService.reauthenticate();
+      if (!proceed) {
+        if (mounted) {
+          AppSnackbar.showWarning(context, 'Account deletion cancelled.');
+        }
+        return;
+      }
+      if (!mounted) return;
+
+      setState(() {
+        _isAccountActionLoading = true;
+        _accountActionMessage = 'Verifying identity...';
+      });
+
+      try {
+        reauthed = await _authService.reauthenticate(allowInteractive: true);
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showError(context, '$e');
+        return;
+      }
+
+      if (!reauthed) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showWarning(
+          context,
+          'Google verification cancelled. Account was not deleted.',
+        );
+        return;
+      }
     } else if (providers.contains('password')) {
       final password = await _showPasswordDialog();
-      if (password == null || !mounted) return;
-      reauthed = await _authService.reauthenticate(
-        email: user.email,
-        password: password,
-      );
-      if (!reauthed && mounted) {
+      if (password == null) {
+        if (mounted) {
+          AppSnackbar.showWarning(context, 'Account deletion cancelled.');
+        }
+        return;
+      }
+      if (!mounted) return;
+
+      setState(() {
+        _isAccountActionLoading = true;
+        _accountActionMessage = 'Verifying password...';
+      });
+
+      try {
+        reauthed = await _authService.reauthenticate(
+          email: user.email,
+          password: password,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
+        AppSnackbar.showError(context, '$e');
+        return;
+      }
+
+      if (!reauthed) {
+        if (!mounted) return;
+        setState(() => _isAccountActionLoading = false);
         AppSnackbar.showError(
           context,
           'Incorrect password. Account not deleted.',
@@ -1344,9 +1401,9 @@ class ProfileScreenState extends State<ProfileScreen>
       _accountActionMessage = 'Deleting account...';
     });
     try {
-      await _authService.deleteAccount();
+      await _authService.deleteAccount(skipReauth: true);
       if (!mounted) return;
-      _goToLogin();
+      _goToLogin(message: 'Account deleted successfully');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isAccountActionLoading = false);

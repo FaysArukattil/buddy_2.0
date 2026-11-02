@@ -340,67 +340,118 @@ class AuthService {
     }
   }
 
-  // Delete account and ALL associated data
-  Future<void> deleteAccount() async {
+  // Helper to safely delete all documents in a subcollection in batches
+  Future<void> _deleteSubcollection(CollectionReference collectionRef) async {
     try {
-      final user = _auth.currentUser;
-      if (user == null) throw 'No user is currently signed in.';
+      final snapshot = await collectionRef.get();
+      if (snapshot.docs.isEmpty) return;
 
-      final uid = user.uid;
-
-      // 1. Delete all transactions (subcollection)
-      debugPrint('🗑️ DELETE: Deleting all transactions...');
-      final txnSnapshot = await _firestore
-          .collection('users')
-          .doc(uid)
-          .collection('transactions')
-          .get();
-      if (txnSnapshot.docs.isNotEmpty) {
+      const chunkSize = 400;
+      final docs = snapshot.docs;
+      for (var i = 0; i < docs.length; i += chunkSize) {
+        final end = (i + chunkSize < docs.length) ? i + chunkSize : docs.length;
+        final chunk = docs.sublist(i, end);
         final batch = _firestore.batch();
-        for (final doc in txnSnapshot.docs) {
+        for (final doc in chunk) {
           batch.delete(doc.reference);
         }
         await batch.commit();
-        debugPrint('✅ DELETE: ${txnSnapshot.docs.length} transactions deleted');
       }
+    } catch (e) {
+      debugPrint('⚠️ Error deleting subcollection: $e');
+    }
+  }
+
+  // Delete account and ALL associated data
+  Future<void> deleteAccount({bool skipReauth = false}) async {
+    final user = _auth.currentUser;
+    if (user == null) throw 'No user is currently signed in.';
+
+    final uid = user.uid;
+    final providers = user.providerData.map((p) => p.providerId).toList();
+
+    // 0. Ensure fresh authentication credentials BEFORE touching ANY data.
+    if (!skipReauth) {
+      if (providers.contains('google.com')) {
+        // Attempt silent Google re-authentication first.
+        final silentSuccess = await reauthenticate(allowInteractive: false);
+        if (!silentSuccess) {
+          final lastSignIn = user.metadata.lastSignInTime;
+          final isRecent = lastSignIn != null &&
+              DateTime.now().difference(lastSignIn).inMinutes < 5;
+          if (!isRecent) {
+            // Throw before deleting any Firestore or local data!
+            throw 'requires-recent-login';
+          }
+        }
+      } else if (providers.contains('password')) {
+        final lastSignIn = user.metadata.lastSignInTime;
+        final isRecent = lastSignIn != null &&
+            DateTime.now().difference(lastSignIn).inMinutes < 5;
+        if (!isRecent) {
+          throw 'requires-recent-login';
+        }
+      }
+    }
+
+    try {
+      // 1. Delete all transactions (subcollection)
+      debugPrint('🗑️ DELETE: Deleting all transactions...');
+      await _deleteSubcollection(
+        _firestore.collection('users').doc(uid).collection('transactions'),
+      );
+      debugPrint('✅ DELETE: Transactions deleted');
 
       // 2. Delete all categories (subcollection)
       debugPrint('🗑️ DELETE: Deleting all categories...');
-      final catSnapshot = await _firestore
-          .collection('users')
-          .doc(uid)
-          .collection('categories')
-          .get();
-      if (catSnapshot.docs.isNotEmpty) {
-        final batch = _firestore.batch();
-        for (final doc in catSnapshot.docs) {
-          batch.delete(doc.reference);
-        }
-        await batch.commit();
-        debugPrint('✅ DELETE: ${catSnapshot.docs.length} categories deleted');
-      }
+      await _deleteSubcollection(
+        _firestore.collection('users').doc(uid).collection('categories'),
+      );
+      debugPrint('✅ DELETE: Categories deleted');
 
-      // 3. Delete user document
+      // 3. Delete all debts (subcollection)
+      debugPrint('🗑️ DELETE: Deleting all debts...');
+      await _deleteSubcollection(
+        _firestore.collection('users').doc(uid).collection('debts'),
+      );
+      debugPrint('✅ DELETE: Debts deleted');
+
+      // 4. Delete user document
       debugPrint('🗑️ DELETE: Deleting user document...');
       await _firestore.collection('users').doc(uid).delete();
       debugPrint('✅ DELETE: User document deleted');
 
-      // 4. Clear SharedPreferences
+      // 5. Delete Firebase Auth account (MUST be done while user is signed in)
+      try {
+        await user.delete();
+        debugPrint('✅ DELETE: Firebase Auth account deleted');
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'user-not-found') {
+          debugPrint('ℹ️ User was already removed from Firebase Auth');
+        } else if (e.code == 'requires-recent-login') {
+          throw 'requires-recent-login';
+        } else {
+          throw _handleAuthException(e);
+        }
+      }
+
+      // 6. Sign out from Google if applicable (AFTER user.delete)
+      try {
+        if (await _googleSignIn.isSignedIn()) {
+          await _googleSignIn.signOut();
+        }
+      } catch (e) {
+        debugPrint('⚠️ Google sign out error during account deletion: $e');
+      }
+
+      // 7. Clear SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       debugPrint('✅ DELETE: SharedPreferences cleared');
 
-      // 5. Reset app state
+      // 8. Reset app state
       await AppInitHelper.dispose();
-
-      // 6. Sign out from Google if applicable
-      if (await _googleSignIn.isSignedIn()) {
-        await _googleSignIn.signOut();
-      }
-
-      // 7. Delete Firebase Auth account (must be last)
-      await user.delete();
-      debugPrint('✅ DELETE: Firebase Auth account deleted');
+      debugPrint('✅ DELETE: App state disposed');
     } on FirebaseAuthException catch (e) {
       if (e.code == 'requires-recent-login') {
         throw 'requires-recent-login';
@@ -415,7 +466,12 @@ class AuthService {
 
   /// Re-authenticate user before sensitive operations like account deletion.
   /// Returns true if re-authentication succeeded.
-  Future<bool> reauthenticate({String? email, String? password}) async {
+  /// When [allowInteractive] is false, only silent re-authentication is performed.
+  Future<bool> reauthenticate({
+    String? email,
+    String? password,
+    bool allowInteractive = true,
+  }) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
@@ -424,16 +480,46 @@ class AuthService {
       final providers = user.providerData.map((p) => p.providerId).toList();
 
       if (providers.contains('google.com')) {
-        // Re-auth with Google
+        // 1. Silent re-auth attempt (no UI shown)
+        try {
+          final googleUser = await _googleSignIn.signInSilently();
+          if (googleUser != null) {
+            final googleAuth = await googleUser.authentication;
+            if (googleAuth.idToken != null || googleAuth.accessToken != null) {
+              final credential = GoogleAuthProvider.credential(
+                accessToken: googleAuth.accessToken,
+                idToken: googleAuth.idToken,
+              );
+              await user.reauthenticateWithCredential(credential);
+              debugPrint('✅ Silent Google re-authentication succeeded');
+              return true;
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ Silent Google re-auth failed: $e');
+        }
+
+        // If interactive prompt is not allowed, stop here
+        if (!allowInteractive) return false;
+
+        // 2. Interactive Google sign-in
         final googleUser = await _googleSignIn.signIn();
-        if (googleUser == null) return false;
+        if (googleUser == null) {
+          debugPrint('ℹ️ User cancelled Google sign-in picker');
+          return false;
+        }
 
         final googleAuth = await googleUser.authentication;
+        if (googleAuth.idToken == null && googleAuth.accessToken == null) {
+          throw 'Failed to obtain Google authentication tokens.';
+        }
+
         final credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
         await user.reauthenticateWithCredential(credential);
+        debugPrint('✅ Interactive Google re-authentication succeeded');
         return true;
       } else if (providers.contains('password') && email != null && password != null) {
         // Re-auth with email/password
@@ -449,8 +535,14 @@ class AuthService {
       }
 
       return false;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-mismatch') {
+        throw 'The selected Google account does not match your current Buddy account (${_auth.currentUser?.email}).';
+      }
+      throw _handleAuthException(e);
     } catch (e) {
       debugPrint('❌ Re-auth Error: $e');
+      if (e is String) rethrow;
       return false;
     }
   }
