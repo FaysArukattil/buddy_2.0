@@ -139,3 +139,4 @@ The engineering work for Buddy v17.3.0 is **100% complete**. The remaining opera
 3. **Monitor Telemetry**:
    - Observe Firebase Analytics events (`parse_success`, `parse_ignored`, `parse_failed`) in Firebase Console.
    - Gradually add more countries (`GB, US, SG, NG, KE, BR`) to `global_parsing_countries`.
+
