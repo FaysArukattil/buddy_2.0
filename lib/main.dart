@@ -51,14 +51,19 @@ class WidgetAddApp extends StatelessWidget {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, child) {
-        return MaterialApp(
-          title: 'Buddy Quick Add',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: currentMode,
-          themeAnimationDuration: Duration.zero,
-          home: WidgetAddModalHost(initFuture: initFuture),
+        return ValueListenableBuilder<int>(
+          valueListenable: CurrencyService.currencyNotifier,
+          builder: (context, _, __) {
+            return MaterialApp(
+              title: 'Buddy Quick Add',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: currentMode,
+              themeAnimationDuration: Duration.zero,
+              home: WidgetAddModalHost(initFuture: initFuture),
+            );
+          },
         );
       },
     );
@@ -156,38 +161,43 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: ThemeService.themeModeNotifier,
       builder: (context, currentMode, child) {
-        return MaterialApp(
-          navigatorKey: navigatorKey,
-          title: 'Buddy',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: currentMode,
-          themeAnimationDuration: Duration.zero,
-          onGenerateInitialRoutes: (initialRoute) {
-            if (initialRoute == '/widget-add') {
-              return [
-                MaterialPageRoute(
-                  builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
-                  settings: const RouteSettings(name: '/widget-add'),
-                ),
-              ];
-            }
-            return [
-              MaterialPageRoute(
-                builder: (_) => SplashScreen(initFuture: widget.initFuture),
-                settings: const RouteSettings(name: '/'),
-              ),
-            ];
-          },
-          onGenerateRoute: (settings) {
-            if (settings.name == '/widget-add') {
-              return MaterialPageRoute(
-                builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
-                settings: settings,
-              );
-            }
-            return null;
+        return ValueListenableBuilder<int>(
+          valueListenable: CurrencyService.currencyNotifier,
+          builder: (context, _, __) {
+            return MaterialApp(
+              navigatorKey: navigatorKey,
+              title: 'Buddy',
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: currentMode,
+              themeAnimationDuration: Duration.zero,
+              onGenerateInitialRoutes: (initialRoute) {
+                if (initialRoute == '/widget-add') {
+                  return [
+                    MaterialPageRoute(
+                      builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
+                      settings: const RouteSettings(name: '/widget-add'),
+                    ),
+                  ];
+                }
+                return [
+                  MaterialPageRoute(
+                    builder: (_) => SplashScreen(initFuture: widget.initFuture),
+                    settings: const RouteSettings(name: '/'),
+                  ),
+                ];
+              },
+              onGenerateRoute: (settings) {
+                if (settings.name == '/widget-add') {
+                  return MaterialPageRoute(
+                    builder: (_) => WidgetAddModalHost(initFuture: widget.initFuture),
+                    settings: settings,
+                  );
+                }
+                return null;
+              },
+            );
           },
         );
       },

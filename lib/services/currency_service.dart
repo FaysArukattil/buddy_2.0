@@ -247,9 +247,11 @@ class CurrencyService {
       return '$_currencySymbol${_formatIndianNumber(rounded.toDouble())}';
     }
 
+    // Show amount in standard numbers regardless of country/locale;
+    // only the symbol reflects the selected country's currency.
     if (isZeroDecimalCurrency) {
       final formatter = NumberFormat.currency(
-        locale: _localeCode,
+        locale: 'en_US',
         symbol: _currencySymbol,
         decimalDigits: 0,
       );
@@ -260,7 +262,7 @@ class CurrencyService {
     // For whole numbers, show no decimals; for fractional, show up to 2
     if (absValue == absValue.roundToDouble() && absValue == absValue.round()) {
       final formatter = NumberFormat.currency(
-        locale: _localeCode,
+        locale: 'en_US',
         symbol: _currencySymbol,
         decimalDigits: 0,
       );
@@ -268,7 +270,7 @@ class CurrencyService {
     }
 
     final formatter = NumberFormat.currency(
-      locale: _localeCode,
+      locale: 'en_US',
       symbol: _currencySymbol,
       decimalDigits: 2,
     );

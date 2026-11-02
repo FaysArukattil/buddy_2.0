@@ -23,6 +23,7 @@ import 'package:buddy/utils/app_snackbar.dart';
 import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/services/pdf_service.dart';
 import 'package:buddy/services/preference_service.dart';
+import 'package:buddy/services/currency_service.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
 import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
@@ -101,6 +102,7 @@ class StatisticsScreenState extends State<StatisticsScreen>
     PreferenceService.includeDebtsInHomeNotifier.addListener(
       _onDebtPrefChanged,
     );
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
 
     if (FirestoreService.cachedTransactions.isNotEmpty) {
       _rows = _toRows(FirestoreService.cachedTransactions);
@@ -112,8 +114,14 @@ class StatisticsScreenState extends State<StatisticsScreen>
     }
   }
 
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _heroAutoCycleTimer?.cancel();
     _heroVisualPageController.dispose();
     _scrollController.dispose();

@@ -11,6 +11,7 @@ import 'package:buddy/views/screens/bottomnavbarscreen/profile_screen.dart';
 import 'package:buddy/views/screens/add_transaction_screen.dart';
 import 'package:buddy/services/app_init_helper.dart';
 import 'package:buddy/services/support_service.dart';
+import 'package:buddy/services/currency_service.dart';
 import 'package:buddy/views/widgets/offline_banner.dart';
 
 class BottomNavbarScreen extends StatefulWidget {
@@ -109,10 +110,23 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
         SupportService.checkAndShowMonthlySupportPrompt(context);
       }
     });
+
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
+  }
+
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    setState(() {
+      _homePage = null;
+      _statsPage = null;
+      _debtsPage = null;
+      _profilePage = null;
+    });
   }
 
   @override
   void dispose() {
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _pageController.dispose();
     _fabController.dispose();
     super.dispose();

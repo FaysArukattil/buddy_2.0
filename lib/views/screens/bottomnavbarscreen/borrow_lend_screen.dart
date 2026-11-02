@@ -78,6 +78,12 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
     _debtsStream = _debtService.getDebtsStream();
     _includeDebtsInHome = PreferenceService.includeDebtsInHome;
     PreferenceService.includeDebtsInHomeNotifier.addListener(_onPreferenceChanged);
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
+  }
+
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   void _onPreferenceChanged() {
@@ -149,6 +155,7 @@ class BorrowLendScreenState extends State<BorrowLendScreen>
 
   @override
   void dispose() {
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _typeFilterPageController.dispose();
     _statusFilterAnimController.dispose();
     PreferenceService.includeDebtsInHomeNotifier.removeListener(_onPreferenceChanged);

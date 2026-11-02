@@ -18,6 +18,7 @@ import 'package:buddy/views/widgets/buddy_refresh_control.dart';
 import 'package:buddy/views/screens/filtered_transactions_screen.dart';
 import 'package:buddy/views/widgets/save_guest_account_modal.dart';
 import 'package:buddy/services/legal_service.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -55,11 +56,18 @@ class ProfileScreenState extends State<ProfileScreen>
   @override
   void initState() {
     super.initState();
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
     _loadProfile();
+  }
+
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _scrollController.dispose();
     super.dispose();
   }

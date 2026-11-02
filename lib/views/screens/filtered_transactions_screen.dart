@@ -8,6 +8,7 @@ import 'package:buddy/services/firestore_service.dart';
 import 'package:buddy/views/screens/transaction_detail_screen.dart';
 import 'package:buddy/models/transaction.dart';
 import 'package:buddy/views/widgets/buddy_loading_indicator.dart';
+import 'package:buddy/services/currency_service.dart';
 
 class FilteredTransactionsScreen extends StatefulWidget {
   final String type; // 'Income', 'Expense', or 'All'
@@ -55,11 +56,18 @@ class _FilteredTransactionsScreenState extends State<FilteredTransactionsScreen>
     _dayController = PageController(initialPage: _baseIndex);
     _monthController = PageController(initialPage: _baseIndex);
 
+    CurrencyService.currencyNotifier.addListener(_onCurrencyChanged);
     _load();
+  }
+
+  void _onCurrencyChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
   void dispose() {
+    CurrencyService.currencyNotifier.removeListener(_onCurrencyChanged);
     _dayController.dispose();
     _monthController.dispose();
     super.dispose();
