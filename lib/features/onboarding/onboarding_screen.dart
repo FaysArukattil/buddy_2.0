@@ -83,6 +83,12 @@ class _StepMeta {
 // Short CTAs on steps 1-3 keep momentum; the last CTA is the conversion moment.
 const List<_StepMeta> _steps = [
   _StepMeta(
+    headline: 'Where are you based?\nChoose your currency.',
+    body:
+        'Auto-tracking and money symbols will be tuned specifically for your country.',
+    cta: 'Continue',
+  ),
+  _StepMeta(
     headline: 'Your spending\nlogs itself.',
     body:
         'Pay with any bank or wallet as usual. Buddy spots the payment alert and logs it for you.',
@@ -98,12 +104,6 @@ const List<_StepMeta> _steps = [
     headline: 'Every pro tool.\n{symbol}0 forever.',
     body:
         'Heatmaps, category insights and friend-debt tracking are unlocked from day one.',
-    cta: 'Continue',
-  ),
-  _StepMeta(
-    headline: 'Where are you based?\nChoose your currency.',
-    body:
-        'Auto-tracking and money symbols will be tuned specifically for your country.',
     cta: 'Start tracking free',
   ),
 ];
@@ -124,6 +124,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   late CountryEntry _selectedCountry;
   final TextEditingController _countrySearchController =
       TextEditingController();
+  late final FocusNode _countrySearchFocus;
   List<CountryEntry> _filteredCountries = List.of(CountriesData.all);
 
   /// One-shot timeline for stages 1 & 2 (plays once, then holds final state).
@@ -138,6 +139,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _selectedCountry =
         CountriesData.findByCountryCode(CurrencyService.countryCode);
     _filteredCountries = List.of(CountriesData.all);
+    _countrySearchFocus = FocusNode()..addListener(() {
+      if (mounted) setState(() {});
+    });
     _countrySearchController.addListener(_onCountrySearchChanged);
 
     _stage = AnimationController(
@@ -150,7 +154,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       duration: const Duration(seconds: 3),
     )..repeat();
 
-    if (_page == 2) {
+    if (_page == 3) {
       _startHubTimer();
     }
   }
@@ -195,18 +199,19 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void dispose() {
     _countrySearchController.removeListener(_onCountrySearchChanged);
     _countrySearchController.dispose();
+    _countrySearchFocus.dispose();
     _hubTimer?.cancel();
     _stage.dispose();
     _ambient.dispose();
     super.dispose();
   }
 
-  // ── Page 3 auto-cycle (stops as soon as the user touches a tab) ──
+  // ── Page 4 (index 3) auto-cycle (stops as soon as the user touches a tab) ──
   void _startHubTimer() {
     _hubTimer?.cancel();
     if (_reduceMotion) return;
     _hubTimer = Timer.periodic(const Duration(milliseconds: 2800), (_) {
-      if (!mounted || _page != 2) return;
+      if (!mounted || _page != 3) return;
       setState(() => _hubTab = (_hubTab + 1) % 3);
     });
   }
@@ -215,17 +220,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   void _goTo(int target) {
     if (target < 0 || target >= _pageCount || target == _page) return;
     HapticFeedback.selectionClick();
+    _countrySearchFocus.unfocus();
     setState(() {
       _direction = target > _page ? 1 : -1;
       _page = target;
-      if (target == 2) _hubTab = 0;
+      if (target == 3) _hubTab = 0;
     });
 
     _hubTimer?.cancel();
-    if (target == 2) _startHubTimer();
+    if (target == 3) _startHubTimer();
 
-    // Stages 2 & 3 have interactive/carousel stages, so don't replay the one-shot timeline.
-    if (_reduceMotion || target >= 2) {
+    // Stages 1 & 2 use the one-shot timeline; stages 0 & 3 have interactive content
+    if (_reduceMotion || target == 0 || target == 3) {
       _stage.value = 1;
     } else {
       _stage
@@ -236,6 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   void _next() {
     if (_finishing) return;
+    _countrySearchFocus.unfocus();
     HapticFeedback.lightImpact();
     if (_page < _pageCount - 1) {
       _goTo(_page + 1);
@@ -246,6 +253,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
 
   void _prev() {
     if (_page > 0 && !_finishing) {
+      _countrySearchFocus.unfocus();
       HapticFeedback.lightImpact();
       _goTo(_page - 1);
     }
@@ -423,7 +431,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ── Build ────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    if (_page == 2 && (_hubTimer == null || !_hubTimer!.isActive)) {
+    if (_page == 3 && (_hubTimer == null || !_hubTimer!.isActive)) {
       _startHubTimer();
     }
     final isDark = AppColors.isDark(context);
@@ -433,7 +441,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       minScaleFactor: 1.0,
       maxScaleFactor: 1.15,
       child: Scaffold(
-        backgroundColor: AppColors.backgroundOf(context),
+        resizeToAvoidBottomInset: true,
+        backgroundColor: _page == 0
+            ? (isDark ? _kHeroDark.first : _kHeroLight.first)
+            : AppColors.backgroundOf(context),
         body: AnnotatedRegion<SystemUiOverlayStyle>(
           // The hero is dark in both themes, so status icons are always light.
           value: SystemUiOverlayStyle.light.copyWith(
@@ -450,21 +461,23 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 _prev();
               }
             },
-            child: Column(
-              children: [
-                Expanded(child: _buildHero(isDark)),
-                SafeArea(
-                  top: false,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+            child: _page == 0
+                ? _buildCountrySelectionScreen(isDark)
+                : Column(
                     children: [
-                      _buildCopy(step, isDark),
-                      _buildBottomDock(step, isDark),
+                      Expanded(child: _buildHero(isDark)),
+                      SafeArea(
+                        top: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildCopy(step, isDark),
+                            _buildBottomDock(step, isDark),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ),
@@ -738,11 +751,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         },
         child: KeyedSubtree(
           key: ValueKey('stg_$_page'),
-          child: _page == 0
+          child: _page == 1
               ? _stageAutoLog()
-              : (_page == 1
-                  ? _stagePrivacy()
-                  : (_page == 2 ? _stageProHub() : _stageCountrySelect())),
+              : (_page == 2 ? _stagePrivacy() : _stageProHub()),
         ),
       ),
     );
@@ -1047,6 +1058,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // STAGE 1 — UPI alert -> auto-logged transaction (plays once)
   // ─────────────────────────────────────────────────────────────
   Widget _stageAutoLog() {
+    final sampleMerchant =
+        _sampleMerchantForCountry(_selectedCountry.countryCode);
+    final sampleChannel =
+        _sampleChannelForCountry(_selectedCountry.countryCode);
+    final sampleAmount =
+        _sampleAmountForCountry(_selectedCountry.currencyCode);
+    final sampleTileAmount =
+        _sampleShortAmountForCountry(_selectedCountry.currencyCode);
+
     return AnimatedBuilder(
       animation: _stage,
       builder: (context, _) {
@@ -1108,8 +1128,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Paid ${CurrencyService.symbol}240.00 to Fresh Basket Supermarket via UPI',
-                              style: TextStyle(
+                              'Paid ${_selectedCountry.currencySymbol}$sampleAmount to $sampleMerchant via $sampleChannel',
+                              style: const TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.w700,
                                 height: 1.32,
@@ -1174,12 +1194,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               child: Opacity(
                 opacity: 0.25 + 0.75 * logged,
                 child: _appTile(
-                  title: 'Fresh Basket Supermarket',
-                  catColor: AppColors.getCategoryColor('Groceries'),
-                  icon: Icons.shopping_basket_rounded,
-                  category: 'Groceries',
+                  title: sampleMerchant,
+                  catColor: AppColors.getCategoryColor('Food & Dining'),
+                  icon: Icons.restaurant_rounded,
+                  category: 'Food & Dining',
                   time: 'Just now',
-                  amount: '-${CurrencyService.symbol}240',
+                  amount:
+                      '-${_selectedCountry.currencySymbol}$sampleTileAmount',
                   auto: true,
                   borderColor: done
                       ? _kIncomeOnHero.withValues(alpha: 0.8)
@@ -1197,6 +1218,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // STAGE 2 — On-device privacy proof (rows reveal once, then hold)
   // ─────────────────────────────────────────────────────────────
   Widget _stagePrivacy() {
+    final sampleMerchant =
+        _sampleMerchantForCountry(_selectedCountry.countryCode);
+    final sampleChannel =
+        _sampleChannelForCountry(_selectedCountry.countryCode);
+    final sampleTileAmount =
+        _sampleShortAmountForCountry(_selectedCountry.currencyCode);
+    final isIndia = _selectedCountry.countryCode == 'IN';
+    final paymentTitle = isIndia
+        ? 'Paid ₹240 to Swiggy via UPI'
+        : 'Paid ${_selectedCountry.currencySymbol}$sampleTileAmount to $sampleMerchant via $sampleChannel';
     return AnimatedBuilder(
       animation: Listenable.merge([_stage, _ambient]),
       builder: (context, _) {
@@ -1427,11 +1458,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             filterRow(
               i: 2,
               icon: Icons.payments_rounded,
-              title: 'Paid ${CurrencyService.symbol}240 to Swiggy via UPI',
+              title: paymentTitle,
               sub: 'Verified bank transaction alert',
               badge: 'LOGGED',
               allowed: true,
-              isSwiggy: true,
+              isSwiggy: isIndia,
             ),
           ],
         );
@@ -2202,324 +2233,423 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // STAGE 4 — Integrated Country & Currency Selection
+  // Dynamic Country / Currency Mock Samples
   // ─────────────────────────────────────────────────────────────
-  Widget _stageCountrySelect() {
-    final symbol = _selectedCountry.currencySymbol;
-    final code = _selectedCountry.currencyCode;
-    final flag = _selectedCountry.flag;
-    final name = _selectedCountry.name;
-
-    // Sample amount formatted specifically for country type
-    final sampleAmount = _selectedCountry.currencyCode == 'INR'
-        ? '240'
-        : (_selectedCountry.currencyCode == 'JPY' ||
-                _selectedCountry.currencyCode == 'KRW'
-            ? '3,500'
-            : '42.50');
-
-    final sampleMerchant = switch (_selectedCountry.countryCode) {
+  String _sampleMerchantForCountry(String countryCode) {
+    return switch (countryCode) {
+      'IN' => 'Fresh Basket Supermarket',
       'AE' => 'Carrefour Supermarket',
       'SA' => 'Panda Hypermarket',
-      'US' => 'Starbucks Coffee',
-      'GB' => 'Pret A Manger',
-      'CA' => 'Tim Hortons',
+      'US' => 'Trader Joe\'s',
+      'GB' => 'Sainsbury\'s Local',
+      'CA' => 'Loblaws Supermarket',
       'AU' => 'Woolworths Metro',
-      'SG' => 'GrabPay Merchant',
+      'SG' => 'FairPrice Supermarket',
       'PK' => 'Imtiaz Super Market',
-      'IN' => 'Swiggy Food Delivery',
-      _ => 'Local Store & Cafe',
+      'BD' => 'Shwapno Superstore',
+      'NG' => 'Shoprite Supermarket',
+      'KE' => 'Naivas Supermarket',
+      'ID' => 'Indomaret Fresh',
+      'MY' => 'Jaya Grocer',
+      'PH' => 'SM Supermarket',
+      'JP' => '7-Eleven Ginza',
+      'KR' => 'CU Mart Seoul',
+      'DE' || 'FR' || 'ES' || 'IT' || 'NL' || 'IE' || 'BE' || 'AT' || 'PT' => 'Carrefour Express',
+      'BR' => 'Pão de Açúcar',
+      'MX' => 'OXXO Super',
+      'ZA' => 'Pick n Pay',
+      'NZ' => 'Countdown Metro',
+      _ => 'Local Grocery Market',
     };
+  }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // ── 1. Live Interactive Preview Card ──
-        _glass(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          radius: 18,
-          fill: 0.12,
+  String _sampleChannelForCountry(String countryCode) {
+    return switch (countryCode) {
+      'IN' => 'UPI',
+      'AE' => 'Debit Card',
+      'SA' => 'mada',
+      'US' => 'Apple Pay',
+      'GB' => 'Contactless',
+      'CA' => 'Interac',
+      'AU' => 'Tap & Pay',
+      'SG' => 'PayNow',
+      'PK' => 'Raast',
+      'BD' => 'bKash',
+      'NG' => 'Transfer',
+      'KE' => 'M-PESA',
+      'ID' => 'QRIS',
+      'MY' => 'DuitNow',
+      'PH' => 'GCash',
+      'JP' => 'iD / Card',
+      'KR' => 'Samsung Pay',
+      'BR' => 'Pix',
+      _ => 'Card / Wallet',
+    };
+  }
+
+  String _sampleAmountForCountry(String currencyCode) {
+    return switch (currencyCode) {
+      'INR' => '240.00',
+      'JPY' || 'KRW' => '3,500',
+      'VND' || 'IDR' => '65,000',
+      'PKR' || 'BDT' => '1,250.00',
+      'NGN' || 'KES' => '2,400.00',
+      'AED' || 'SAR' || 'QAR' => '85.50',
+      'USD' || 'EUR' || 'GBP' || 'CAD' || 'AUD' || 'SGD' || 'NZD' || 'CHF' => '42.50',
+      _ => '42.50',
+    };
+  }
+
+  String _sampleShortAmountForCountry(String currencyCode) {
+    return switch (currencyCode) {
+      'INR' => '240',
+      'JPY' || 'KRW' => '3,500',
+      'VND' || 'IDR' => '65K',
+      'PKR' || 'BDT' => '1,250',
+      'NGN' || 'KES' => '2,400',
+      'AED' || 'SAR' || 'QAR' => '85.50',
+      'USD' || 'EUR' || 'GBP' || 'CAD' || 'AUD' || 'SGD' || 'NZD' || 'CHF' => '42.50',
+      _ => '42.50',
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // STEP 0 — Dedicated Country & Currency Screen (Keyboard Safe)
+  // ─────────────────────────────────────────────────────────────
+  Widget _buildCountrySelectionScreen(bool isDark) {
+    final colors = isDark ? _kHeroDark : _kHeroLight;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final screenH = MediaQuery.sizeOf(context).height;
+
+    final sampleMerchant =
+        _sampleMerchantForCountry(_selectedCountry.countryCode);
+    final sampleTileAmount =
+        _sampleShortAmountForCountry(_selectedCountry.currencyCode);
+
+    return Container(
+      width: double.infinity,
+      height: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        bottom: true,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Row(
-                children: [
-                  Text(flag, style: const TextStyle(fontSize: 22)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: -0.2,
-                          ),
-                        ),
-                        Text(
-                          'Currency: $code ($symbol)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.75),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _kIncomeOnHero.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      symbol,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F3632),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Live transaction tile styled with _appTile
-              _appTile(
-                title: sampleMerchant,
-                catColor: AppColors.getCategoryColor('Food & Dining'),
-                icon: Icons.restaurant_rounded,
-                category: 'Food & Dining',
-                time: 'Just now',
-                amount: '-$symbol$sampleAmount',
-                auto: true,
-              ),
-            ],
-          ),
-        ),
+              _buildTopBar(),
+              const SizedBox(height: 4),
 
-        const SizedBox(height: 10),
-
-        // ── 2. Popular Quick Select Chips ──
-        SizedBox(
-          height: 34,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: CountriesData.popular.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 6),
-            itemBuilder: (context, idx) {
-              final item = CountriesData.popular[idx];
-              final isSel = item.countryCode == _selectedCountry.countryCode;
-              return Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _selectCountry(item),
-                  borderRadius: BorderRadius.circular(10),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: isSel
-                          ? Colors.white.withValues(alpha: 0.28)
-                          : Colors.white.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: isSel
-                            ? _kIncomeOnHero
-                            : Colors.white.withValues(alpha: 0.16),
-                        width: isSel ? 1.4 : 1.0,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(item.flag, style: const TextStyle(fontSize: 13)),
-                        const SizedBox(width: 5),
-                        Text(
-                          item.countryCode == 'OTHER'
-                              ? 'Other'
-                              : item.name.split(' ').first,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight:
-                                isSel ? FontWeight.w800 : FontWeight.w600,
-                            color: isSel
-                                ? Colors.white
-                                : Colors.white.withValues(alpha: 0.8),
-                          ),
+              // ── Header Title & Subtitle ──
+              if (!keyboardOpen) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Where are you based?\nChoose your currency.',
+                        style: TextStyle(
+                          fontSize: screenH < 720 ? 23 : 27,
+                          fontWeight: FontWeight.w900,
+                          height: 1.15,
+                          letterSpacing: -0.8,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Auto-tracking and money symbols will be tuned specifically for your country.',
+                        style: TextStyle(
+                          fontSize: screenH < 720 ? 12.5 : 13.5,
+                          fontWeight: FontWeight.w500,
+                          height: 1.35,
+                          color: Colors.white.withValues(alpha: 0.78),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              );
-            },
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // ── 3. Embedded Search Bar ──
-        Container(
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.18),
-              width: 1.0,
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          child: Row(
-            children: [
-              Icon(
-                Icons.search_rounded,
-                size: 17,
-                color: Colors.white.withValues(alpha: 0.65),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _countrySearchController,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search 195+ countries or currencies...',
-                    hintStyle: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.45),
-                    ),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                ),
-              ),
-              if (_countrySearchController.text.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    _countrySearchController.clear();
-                  },
-                  child: Icon(
-                    Icons.close_rounded,
-                    size: 16,
-                    color: Colors.white.withValues(alpha: 0.7),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Select Country & Currency',
+                        style: TextStyle(
+                          fontSize: 16.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.16),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: _kIncomeOnHero.withValues(alpha: 0.6),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _selectedCountry.flag,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: _kIncomeOnHero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-            ],
-          ),
-        ),
+              ],
 
-        const SizedBox(height: 8),
-
-        // ── 4. Scrollable Countries List ──
-        Container(
-          height: 140,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 1.0,
-            ),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: _filteredCountries.isEmpty
-              ? Center(
-                  child: Text(
-                    'No country found. Try selecting "Other".',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _filteredCountries.length,
-                  itemBuilder: (context, i) {
-                    final c = _filteredCountries[i];
-                    final isSelected =
-                        c.countryCode == _selectedCountry.countryCode;
-                    return Material(
-                      color: isSelected
-                          ? Colors.white.withValues(alpha: 0.16)
-                          : Colors.transparent,
-                      child: InkWell(
-                        onTap: () => _selectCountry(c),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 7),
-                          child: Row(
-                            children: [
-                              Text(c.flag,
-                                  style: const TextStyle(fontSize: 18)),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  c.name,
+              // ── Live Interactive Preview Card (collapsed when keyboard open) ──
+              if (!keyboardOpen) ...[
+                _glass(
+                  padding: const EdgeInsets.all(12),
+                  radius: 18,
+                  fill: 0.12,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            _selectedCountry.flag,
+                            style: const TextStyle(fontSize: 24),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _selectedCountry.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w800
-                                        : FontWeight.w600,
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
                                     color: Colors.white,
+                                    letterSpacing: -0.2,
                                   ),
                                 ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '${c.currencySymbol}  ${c.currencyCode}',
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Currency: ${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol}) • ${_selectedCountry.localeCode}',
                                   style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: isSelected
-                                        ? _kIncomeOnHero
-                                        : Colors.white
-                                            .withValues(alpha: 0.85),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white.withValues(alpha: 0.75),
                                   ),
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 8),
-                                const Icon(
-                                  Icons.check_circle_rounded,
-                                  size: 16,
-                                  color: _kIncomeOnHero,
                                 ),
                               ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _kIncomeOnHero.withValues(alpha: 0.35),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              _selectedCountry.currencySymbol,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F3632),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _appTile(
+                        title: sampleMerchant,
+                        catColor: AppColors.getCategoryColor('Food & Dining'),
+                        icon: Icons.restaurant_rounded,
+                        category: 'Food & Dining',
+                        time: 'Just now',
+                        amount:
+                            '-${_selectedCountry.currencySymbol}$sampleTileAmount',
+                        auto: true,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // ── Embedded Search Bar ──
+              Container(
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _countrySearchFocus.hasFocus
+                        ? _kIncomeOnHero
+                        : Colors.white.withValues(alpha: 0.22),
+                    width: _countrySearchFocus.hasFocus ? 1.5 : 1.0,
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search_rounded,
+                      size: 19,
+                      color: _countrySearchFocus.hasFocus
+                          ? _kIncomeOnHero
+                          : Colors.white.withValues(alpha: 0.75),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _countrySearchController,
+                        focusNode: _countrySearchFocus,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        cursorColor: _kIncomeOnHero,
+                        textInputAction: TextInputAction.search,
+                        decoration: InputDecoration(
+                          hintText: 'Search 195+ countries or currencies...',
+                          hintStyle: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.white.withValues(alpha: 0.50),
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    if (_countrySearchController.text.isNotEmpty)
+                      GestureDetector(
+                        onTap: () => _countrySearchController.clear(),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 13,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // ── Popular Quick Select Chips (always pinned right below search) ──
+              SizedBox(
+                height: 34,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: CountriesData.popular.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  itemBuilder: (context, idx) {
+                    final item = CountriesData.popular[idx];
+                    final isSel =
+                        item.countryCode == _selectedCountry.countryCode;
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          _selectCountry(item);
+                          _countrySearchFocus.unfocus();
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSel
+                                ? Colors.white.withValues(alpha: 0.28)
+                                : Colors.white.withValues(alpha: 0.09),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSel
+                                  ? _kIncomeOnHero
+                                  : Colors.white.withValues(alpha: 0.16),
+                              width: isSel ? 1.4 : 1.0,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.flag,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                switch (item.countryCode) {
+                                  'OTHER' => 'Other',
+                                  'AE' => 'UAE',
+                                  'US' => 'USA',
+                                  'GB' => 'UK',
+                                  'SA' => 'Saudi',
+                                  _ => item.name.split(' ').first,
+                                },
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight:
+                                      isSel ? FontWeight.w800 : FontWeight.w600,
+                                  color: isSel
+                                      ? Colors.white
+                                      : Colors.white.withValues(alpha: 0.85),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -2527,8 +2657,213 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                     );
                   },
                 ),
+              ),
+
+              // ── Full-Size Scrollable Countries List (Expanded, NO FittedBox!) ──
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.20),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      width: 1.0,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: _filteredCountries.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.search_off_rounded,
+                                size: 32,
+                                color: Colors.white.withValues(alpha: 0.5),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'No matching country found',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Tap "Other" in chips above or check spelling',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _filteredCountries.length,
+                          separatorBuilder: (_, __) => Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                          itemBuilder: (context, i) {
+                            final c = _filteredCountries[i];
+                            final isSelected =
+                                c.countryCode == _selectedCountry.countryCode;
+                            return Material(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.16)
+                                  : Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  _selectCountry(c);
+                                  _countrySearchFocus.unfocus();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 9,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        c.flag,
+                                        style: const TextStyle(fontSize: 20),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              c.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 13.5,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w800
+                                                    : FontWeight.w600,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                            Text(
+                                              '${c.currencyCode} (${c.currencySymbol})',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: Colors.white
+                                                    .withValues(alpha: 0.65),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3.5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isSelected
+                                              ? _kIncomeOnHero
+                                              : Colors.white
+                                                  .withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          c.currencySymbol,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: isSelected
+                                                ? const Color(0xFF0F3632)
+                                                : Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected) ...[
+                                        const SizedBox(width: 8),
+                                        const Icon(
+                                          Icons.check_circle_rounded,
+                                          size: 17,
+                                          color: _kIncomeOnHero,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+
+              // ── Bottom Dock / Continue Action ──
+              if (!keyboardOpen) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _GradientButton(
+                        label: 'Continue',
+                        icon: Icons.arrow_forward_rounded,
+                        onTap: () {
+                          _countrySearchFocus.unfocus();
+                          _next();
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.verified_user_rounded,
+                            size: 13,
+                            color: _kIncomeOnHero,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            'Tuned for ${_selectedCountry.name} (${_selectedCountry.currencyCode})',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 6),
+                  child: SizedBox(
+                    height: 44,
+                    child: _GradientButton(
+                      label: 'Continue with ${_selectedCountry.currencySymbol}',
+                      icon: Icons.arrow_forward_rounded,
+                      onTap: () {
+                        _countrySearchFocus.unfocus();
+                        _next();
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
