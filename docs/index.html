@@ -56,6 +56,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
     }
     .brand {
       display: flex;
@@ -75,10 +77,11 @@
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 24px;
+      gap: 20px;
       list-style: none;
       font-size: 14.5px;
       font-weight: 600;
+      flex-wrap: wrap;
     }
     .nav-links a { color: var(--text-muted); }
     .nav-links a:hover, .nav-links a.active { color: var(--primary-light); }
@@ -573,6 +576,58 @@
     </div>
   </section>
 
+  <!-- Legal Policies & Play Store Compliance Section -->
+  <section class="compliance-section" style="max-width: 1200px; margin: 0 auto 90px; padding: 0 24px;">
+    <div class="section-header">
+      <h2>Legal Policies & Play Store Compliance</h2>
+      <p>Direct access to our official privacy terms, service conditions, and Google Play Data Safety account deletion guide.</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+      <!-- Privacy Policy Card -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.3s ease;">
+        <div>
+          <div style="font-size: 28px; margin-bottom: 12px;">🛡️</div>
+          <h3 style="font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 10px;">Privacy Policy</h3>
+          <p style="color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin-bottom: 24px;">
+            Complete breakdown of on-device bank notification parsing, Google Cloud Firestore synchronization, user authentication, and our strict policy of never selling personal data.
+          </p>
+        </div>
+        <a href="privacy.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+          Read Privacy Policy &rarr;
+        </a>
+      </div>
+
+      <!-- Terms of Service Card -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.3s ease;">
+        <div>
+          <div style="font-size: 28px; margin-bottom: 12px;">⚖️</div>
+          <h3 style="font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 10px;">Terms of Service</h3>
+          <p style="color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin-bottom: 24px;">
+            Terms governing personal budgeting usage, financial disclaimers, open-source codebase inspection, and future service modifications.
+          </p>
+        </div>
+        <a href="terms.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+          Read Terms of Service &rarr;
+        </a>
+      </div>
+
+      <!-- Data & Account Deletion Card -->
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 32px; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.3s ease;">
+        <div>
+          <div style="font-size: 28px; margin-bottom: 12px;">🗑️</div>
+          <h3 style="font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 10px;">Account & Data Deletion</h3>
+          <p style="color: var(--text-muted); font-size: 14.5px; line-height: 1.6; margin-bottom: 24px;">
+            Google Play Data Safety compliant guide detailing 1-tap in-app self-service deletion and 48-hour email request processing for permanently purging all records.
+          </p>
+        </div>
+        <a href="delete-account.html" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+          Account Deletion Guide &rarr;
+        </a>
+      </div>
+    </div>
+  </section>
+
   <!-- Open Source Transparency Section -->
   <div class="transparency-banner">
     <div class="transparency-card">
@@ -590,7 +645,7 @@
   <footer>
     <div class="footer-container">
       <div class="copyright">
-        © 2026 Buddy. Developed by Faysal Arukattil. Open source on GitHub.
+        © 2026 Buddy. Developed by Fays Arukattil. Open source on GitHub.
       </div>
       <div class="footer-links">
         <a href="index.html">Home</a>

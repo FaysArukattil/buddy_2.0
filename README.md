@@ -302,7 +302,7 @@ Contributions, bug reports, and feature requests are welcome!
 
 ## 👨‍💻 Author
 
-**Faysal Arukattil**  
+**Fays Arukattil**  
 - GitHub: [@FaysArukattil](https://github.com/FaysArukattil)  
 - Email: [faysarukattil@gmail.com](mailto:faysarukattil@gmail.com)  
 - Support the Project: [Buy Me a Chai ☕](https://buymeachai.in/faysarukattil)
