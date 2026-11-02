@@ -27,8 +27,9 @@ class GenericParser implements BankParser {
   final List<String> _currencyMarkers;
   final RegExp _amountRegex;
   final String _decimalSeparator;
+  // ignore: unused_field — kept for Remote Config schema parity with Kotlin
   final String _thousandsSeparator;
-  // ignore: unused_field  — kept for future zero-decimal enforcement
+  // ignore: unused_field — kept for future zero-decimal enforcement
   final int _decimalDigits;
   final List<String> _debitKeywords;
   final List<String> _creditKeywords;
@@ -275,11 +276,13 @@ class GenericParser implements BankParser {
   bool _resolveIsDebit(String lower, bool hasDebit, bool hasCredit) {
     if (hasCredit && !hasDebit) return false;
     if (hasDebit && !hasCredit) return true;
-    // Both: credit wins if refund/reversal/received
+    // Both: credit wins if refund/reversal/received/credited/deposited
     if (lower.contains('refund') ||
         lower.contains('reversal') ||
         lower.contains('received') ||
-        lower.contains('credited')) { return false; }
+        lower.contains('credited') ||
+        lower.contains('deposited') ||
+        lower.contains('deposit')) { return false; }
     return true;
   }
 
@@ -328,20 +331,42 @@ class GenericParser implements BankParser {
     // Remove any whitespace
     var cleaned = raw.replaceAll(' ', '').replaceAll('\u00a0', '');
 
-    if (_decimalSeparator == ',' && _thousandsSeparator == '.') {
-      // European / Brazilian / Indonesian format: 1.234,56
-      // Special case for Indonesian IDR: dots are thousands, no decimal
-      // e.g. "100.000" → 100000, "1.234,56" → 1234.56
+    if (_decimalDigits == 0) {
+      // Currencies without sub-units (JPY, KRW, IDR, CLP): dots and commas are thousands
+      cleaned = cleaned.replaceAll('.', '').replaceAll(',', '');
+      return double.tryParse(cleaned);
+    }
+
+    if (_decimalSeparator == ',') {
+      // European / South American / Turkish format: comma is decimal
       if (cleaned.contains(',')) {
-        // Has decimal comma
+        // e.g. "1.234,56" or "1 234,56" or "35,50"
         cleaned = cleaned.replaceAll('.', '').replaceAll(',', '.');
       } else {
-        // No comma — dots are thousands separators
-        cleaned = cleaned.replaceAll('.', '');
+        // No comma present — check if dot was used as decimal separator (e.g. "35.50 EUR")
+        final dotParts = cleaned.split('.');
+        if (dotParts.length == 2 && dotParts[1].length != 3) {
+          // Single dot with non-3 decimal digits -> decimal point
+          // Leave cleaned as is (e.g. "35.50")
+        } else {
+          // Dots are thousands separators (e.g. "1.000" or "1.234.567")
+          cleaned = cleaned.replaceAll('.', '');
+        }
       }
     } else {
-      // Standard format: 1,234.56 — commas are thousands, period is decimal
-      cleaned = cleaned.replaceAll(',', '');
+      // Standard format: period is decimal, commas are thousands
+      // Check if a European-style comma decimal was received in fallback rule (e.g. "349,00" or "54,99")
+      if (cleaned.contains(',') && !cleaned.contains('.')) {
+        final commaParts = cleaned.split(',');
+        if (commaParts.length == 2 && commaParts[1].length != 3) {
+          // Exactly 1 comma with 1 or 2 fractional digits -> decimal comma
+          cleaned = cleaned.replaceAll(',', '.');
+        } else {
+          cleaned = cleaned.replaceAll(',', '');
+        }
+      } else {
+        cleaned = cleaned.replaceAll(',', '');
+      }
     }
 
     return double.tryParse(cleaned);

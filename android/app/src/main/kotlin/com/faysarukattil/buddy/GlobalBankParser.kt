@@ -128,7 +128,7 @@ class GlobalBankParser private constructor(
             hasDebit && !hasCredit -> "expense"
             // Ambiguous — bias toward expense (safer to ask user)
             else -> {
-                val refundWords = listOf("refund", "reversal", "cashback", "received", "credited")
+                val refundWords = listOf("refund", "reversal", "cashback", "received", "credited", "deposited", "deposit")
                 if (refundWords.any { lower.contains(it) }) "income" else "expense"
             }
         }
@@ -155,18 +155,34 @@ class GlobalBankParser private constructor(
     private fun parseAmount(raw: String): Double? {
         var cleaned = raw.replace(" ", "").replace("\u00a0", "")
 
-        cleaned = if (decimalSeparator == "," && thousandsSeparator == ".") {
-            // European / Brazilian / Indonesian format: 1.234,56
+        if (decimalDigits == 0) {
+            cleaned = cleaned.replace(".", "").replace(",", "")
+            return cleaned.toDoubleOrNull()
+        }
+
+        cleaned = if (decimalSeparator == ",") {
             if (cleaned.contains(",")) {
-                // Has decimal comma: strip dots, replace comma with period
                 cleaned.replace(".", "").replace(",", ".")
             } else {
-                // No decimal comma — dots are thousands separators
-                cleaned.replace(".", "")
+                val dotParts = cleaned.split(".")
+                if (dotParts.size == 2 && dotParts[1].length != 3) {
+                    cleaned
+                } else {
+                    cleaned.replace(".", "")
+                }
             }
         } else {
-            // Standard format: 1,234.56 — commas are thousands
-            cleaned.replace(",", "")
+            // Standard format: period is decimal, commas are thousands
+            if (cleaned.contains(",") && !cleaned.contains(".")) {
+                val commaParts = cleaned.split(",")
+                if (commaParts.size == 2 && commaParts[1].length != 3) {
+                    cleaned.replace(",", ".")
+                } else {
+                    cleaned.replace(",", "")
+                }
+            } else {
+                cleaned.replace(",", "")
+            }
         }
 
         return cleaned.toDoubleOrNull()

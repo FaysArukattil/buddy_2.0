@@ -79,7 +79,7 @@ class GlobalBankParserTest {
         val failures = StringBuilder()
 
         for (v in nonIndiaVectors) {
-            val parser = registry[v.country]
+            val parser = registry[v.country] ?: registry["OTHER"]
             if (parser == null) {
                 // No parser for this country — treat as ignored (acceptable)
                 if (!v.shouldIgnore) {

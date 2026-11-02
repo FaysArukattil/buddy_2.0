@@ -26,11 +26,13 @@ void main() {
 
   // ── Helper: build a GenericParser for a country from the loaded rules ──
   GenericParser? buildParser(String countryCode) {
+    if (countryCode == 'IN') return null;
     final rules = (bankRules['rules'] as List).cast<Map<String, dynamic>>();
-    final rule =
-        rules.where((r) => r['country'] == countryCode).firstOrNull;
-    if (rule == null || countryCode == 'IN') return null;
-    return GenericParser.fromRule(rule);
+    final rule = rules.where((r) => r['country'] == countryCode).firstOrNull;
+    if (rule != null) return GenericParser.fromRule(rule);
+    final otherRule = rules.where((r) => r['country'] == 'OTHER').firstOrNull;
+    if (otherRule != null) return GenericParser.fromRule(otherRule);
+    return null;
   }
 
   // ── bank_rules.json schema tests ──────────────────────────────────────
@@ -313,6 +315,18 @@ void main() {
     for (final v in vectors.where((v) => v['country'] == 'SA')) {
       test('[${v['id']}] ${v['description']}', () {
         runVectorTest(parser, v);
+      });
+    }
+  });
+
+  // ── Comprehensive Global Simulation Vectors (All Continents) ─────────
+  group('Comprehensive Global Simulation Vectors (All Continents)', () {
+    for (final v in vectors.where((v) => v['country'] != 'IN')) {
+      test('[${v['id']}] (${v['country']}) ${v['description']}', () {
+        final parser = buildParser(v['country'] as String);
+        expect(parser, isNotNull,
+            reason: 'No parser available for country: ${v['country']}');
+        runVectorTest(parser!, v);
       });
     }
   });

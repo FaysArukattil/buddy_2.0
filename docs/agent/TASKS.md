@@ -253,3 +253,24 @@
   - Confirmed 100% Play Console compatibility: NO country needs to be removed from Google Play Console availability
 - [x] 8.6 Refactored `CurrencyPickerSheet` to use `CountriesData.all` and support existing user prompts
 - [x] 8.7 Verification: `flutter analyze` (0 issues), `flutter test` (158/158 passed), `./gradlew :app:testDebugUnitTest` (100% passed)
+
+---
+
+## Task 9: Worldwide Simulation Testing, Pattern Hardening & Full 125 Vector Suite ✅ DONE
+- [x] 9.1 Cloned and inspected `sarim2000/pennywiseai-tracker` and `transaction-sms-parser` test fixtures across 26 countries and 172 banks
+- [x] 9.2 Built comprehensive simulation harness testing live bank notifications across all continents (North America, Europe, GCC/Middle East, South Asia, Southeast Asia, East Asia, Latin America, Africa, Island/Overseas Territories, and Universal Fallback)
+- [x] 9.3 Hardened regex patterns and parsers based on simulation findings:
+  - Added strict word boundaries `(?:\b[A-Z]{3}\b|...)` on all ISO currency codes to prevent false extractions from words like `ending 1234`
+  - Flexible dual-decimal parser for European & Latin neobanks (Revolut, N26, Wise) handling dot decimals in comma-decimal regions
+  - Japanese verb conjugation stem matching (`引き落と` vs `引き落とし`)
+  - Multi-language banking identifiers (`kort`, `karte`, `carte`, `tarjeta`, `cartao`, `carta`, `cuenta`, `compte`, `konto`, `solde`, `saldo`) in universal `OTHER` rule
+  - Regional markers (`CA$`, `A$`, `NZ$`, `E£`, `LE`, `Tk`, `S/`, `TZS`, `ETB`)
+  - Added `deposited` and `deposit` to credit tiebreaker for Interac e-Transfers
+  - Universal fallback comma decimal handling for European fallback countries (Sweden, Poland, Norway, etc.)
+- [x] 9.4 Expanded `bank_sms_test_vectors.json` to 125 end-to-end vectors covering all continents and Play Console regions
+- [x] 9.5 Updated Dart (`dart_parser_test.dart`) and Kotlin (`GlobalBankParserTest.kt`) test suites to run all non-India vectors with fallback
+- [x] 9.6 Full Verification:
+  - `flutter analyze` → 0 issues (passed in 4.9s)
+  - `flutter test` → 270/270 passed (100%)
+  - `./gradlew :app:testDebugUnitTest --rerun-tasks` → 100% passed (320 tasks executed)
+- [x] 9.7 Documented comprehensive test report in `docs/agent/COMPREHENSIVE_GLOBAL_PARSING_REPORT.md`
