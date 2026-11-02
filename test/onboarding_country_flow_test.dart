@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:buddy/features/onboarding/onboarding_screen.dart';
 import 'package:buddy/services/currency_service.dart';
-import 'package:buddy/data/countries_data.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -163,6 +162,38 @@ void main() {
 
       // CTA should be conversion button
       expect(find.text('Start tracking free'), findsOneWidget);
+    });
+
+    testWidgets('Tapping search field maintains focus without unmounting or closing keyboard',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: OnboardingScreen(),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final searchField = find.byType(TextField);
+      expect(searchField, findsOneWidget);
+
+      // Tap to focus
+      await tester.tap(searchField);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Verify focus is acquired and remains on TextField
+      final textFieldWidget = tester.widget<TextField>(searchField);
+      expect(textFieldWidget.focusNode?.hasFocus, isTrue);
+
+      // Simulate keyboard insets appearing (viewInsets.bottom > 0)
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Verify searchField is still mounted and STILL HAS FOCUS
+      expect(find.byType(TextField), findsOneWidget);
+      expect(textFieldWidget.focusNode?.hasFocus, isTrue);
+
+      // Reset insets
+      tester.view.resetViewInsets();
     });
   });
 }

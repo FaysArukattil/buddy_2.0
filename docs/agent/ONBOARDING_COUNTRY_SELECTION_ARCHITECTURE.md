@@ -30,6 +30,17 @@
 ### B. Onboarding Flow Ordering
 - **Issue:** The Country & Currency selector was originally placed at the final step of onboarding. As a result, Steps 1, 2, and 3 were displaying generic or INR-centric placeholders rather than feeling custom-built for international users from the first second of using the app.
 
+### C. Keyboard Auto-Close / Flickering on Tap
+- **Issue:** When clicking on the search input, the keyboard would flash open and immediately dismiss/close automatically.
+- **Root Cause:**
+  1. **Structural Child Index Shifting:** The layout previously had `if (!keyboardOpen) ...[ _glass(preview card), SizedBox ]` above the `TextField` in a `Column`. When the IME began opening (`viewInsets.bottom > 0`), the preview card was removed from the tree. This shifted the `TextField`'s child index in the `Column` from index 5 to index 3 without keys. Flutter's element reconciliation treated this index change as an element replacement, detaching the active `EditableText`. Android's `InputMethodManager` detected the detachment of the focused view and immediately issued `hideSoftInput`, closing the keyboard.
+  2. **Gesture Conflict:** The outer `GestureDetector` on the `Scaffold` had `behavior: HitTestBehavior.opaque` with `onHorizontalDragEnd`, which intercepted touch slop and typing drag gestures, firing navigation triggers that unfocused the input.
+  3. **Unnecessary Focus Listener:** `_countrySearchFocus` had a listener invoking `setState(() {})` on focus change, triggering mid-event dispatch rebuilds.
+- **Resolution:**
+  1. **Permanent Fixed Hierarchy:** Removed conditional widget additions/removals above the search bar. The search bar is always at index 3, the chips at index 4, and the country list in `Expanded` at index 5. The `TextField` never shifts indices and never unmounts.
+  2. **Disabled `onHorizontalDragEnd` on Step 0:** `onHorizontalDragEnd: _page == 0 ? null : ...`, eliminating gesture arena conflicts.
+  3. **Clean Focus Model:** Removed the `FocusNode` listener; added `keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag` to the `ListView` so the keyboard stays up while typing and dismisses naturally on drag.
+
 ---
 
 ## 2. Architecture & Implementation

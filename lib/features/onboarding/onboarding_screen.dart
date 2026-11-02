@@ -139,9 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     _selectedCountry =
         CountriesData.findByCountryCode(CurrencyService.countryCode);
     _filteredCountries = List.of(CountriesData.all);
-    _countrySearchFocus = FocusNode()..addListener(() {
-      if (mounted) setState(() {});
-    });
+    _countrySearchFocus = FocusNode();
     _countrySearchController.addListener(_onCountrySearchChanged);
 
     _stage = AnimationController(
@@ -452,15 +450,17 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           ),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onHorizontalDragEnd: (details) {
-              final v = details.primaryVelocity ?? 0;
-              if (v < -240) {
-                // Swipe never triggers signup; only advances to the last page.
-                if (_page < _pageCount - 1) _next();
-              } else if (v > 240) {
-                _prev();
-              }
-            },
+            onHorizontalDragEnd: _page == 0
+                ? null
+                : (details) {
+                    final v = details.primaryVelocity ?? 0;
+                    if (v < -240) {
+                      // Swipe never triggers signup; only advances to the last page.
+                      if (_page < _pageCount - 1) _next();
+                    } else if (v > 240) {
+                      _prev();
+                    }
+                  },
             child: _page == 0
                 ? _buildCountrySelectionScreen(isDark)
                 : Column(
@@ -2318,13 +2318,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   // ─────────────────────────────────────────────────────────────
   Widget _buildCountrySelectionScreen(bool isDark) {
     final colors = isDark ? _kHeroDark : _kHeroLight;
-    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
     final screenH = MediaQuery.sizeOf(context).height;
-
-    final sampleMerchant =
-        _sampleMerchantForCountry(_selectedCountry.countryCode);
-    final sampleTileAmount =
-        _sampleShortAmountForCountry(_selectedCountry.currencyCode);
 
     return Container(
       width: double.infinity,
@@ -2344,243 +2338,174 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildTopBar(),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
 
               // ── Header Title & Subtitle ──
-              if (!keyboardOpen) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Where are you based?\nChoose your currency.',
-                        style: TextStyle(
-                          fontSize: screenH < 720 ? 23 : 27,
-                          fontWeight: FontWeight.w900,
-                          height: 1.15,
-                          letterSpacing: -0.8,
-                          color: Colors.white,
-                        ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Where are you based?\nChoose your currency.',
+                      style: TextStyle(
+                        fontSize: screenH < 720 ? 22 : 25,
+                        fontWeight: FontWeight.w900,
+                        height: 1.15,
+                        letterSpacing: -0.7,
+                        color: Colors.white,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Auto-tracking and money symbols will be tuned specifically for your country.',
-                        style: TextStyle(
-                          fontSize: screenH < 720 ? 12.5 : 13.5,
-                          fontWeight: FontWeight.w500,
-                          height: 1.35,
-                          color: Colors.white.withValues(alpha: 0.78),
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Auto-tracking and money symbols will be tuned specifically for your country.',
+                      style: TextStyle(
+                        fontSize: screenH < 720 ? 12 : 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        color: Colors.white.withValues(alpha: 0.78),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ] else ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 4, 4, 6),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Select Country & Currency',
-                        style: TextStyle(
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 9,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _kIncomeOnHero.withValues(alpha: 0.6),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _selectedCountry.flag,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              '${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: _kIncomeOnHero,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
 
-              // ── Live Interactive Preview Card (collapsed when keyboard open) ──
-              if (!keyboardOpen) ...[
-                _glass(
-                  padding: const EdgeInsets.all(12),
-                  radius: 18,
-                  fill: 0.12,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
+              // ── Active Selection Badge (Compact & Informative) ──
+              _glass(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                radius: 14,
+                fill: 0.12,
+                child: Row(
+                  children: [
+                    Text(
+                      _selectedCountry.flag,
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _selectedCountry.flag,
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _selectedCountry.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                    letterSpacing: -0.2,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Currency: ${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol}) • ${_selectedCountry.localeCode}',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white.withValues(alpha: 0.75),
-                                  ),
-                                ),
-                              ],
+                            _selectedCountry.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: _kIncomeOnHero.withValues(alpha: 0.35),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              _selectedCountry.currencySymbol,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0F3632),
-                              ),
+                          Text(
+                            'Currency: ${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.75),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
-                      _appTile(
-                        title: sampleMerchant,
-                        catColor: AppColors.getCategoryColor('Food & Dining'),
-                        icon: Icons.restaurant_rounded,
-                        category: 'Food & Dining',
-                        time: 'Just now',
-                        amount:
-                            '-${_selectedCountry.currencySymbol}$sampleTileAmount',
-                        auto: true,
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
                       ),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [_kIncomeOnHero, Color(0xFF00BFA5)],
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _kIncomeOnHero.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        _selectedCountry.currencySymbol,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F3632),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 10),
+
+              // ── Embedded Search Bar (Always at fixed location, tap anywhere to focus) ──
+              GestureDetector(
+                onTap: () => _countrySearchFocus.requestFocus(),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.22),
+                      width: 1.0,
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.search_rounded,
+                        size: 20,
+                        color: Colors.white.withValues(alpha: 0.75),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _countrySearchController,
+                          focusNode: _countrySearchFocus,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          cursorColor: _kIncomeOnHero,
+                          textInputAction: TextInputAction.search,
+                          decoration: InputDecoration(
+                            hintText: 'Search 195+ countries or currencies...',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.50),
+                            ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                      if (_countrySearchController.text.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _countrySearchController.clear(),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 13,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 10),
-              ],
-
-              // ── Embedded Search Bar ──
-              Container(
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _countrySearchFocus.hasFocus
-                        ? _kIncomeOnHero
-                        : Colors.white.withValues(alpha: 0.22),
-                    width: _countrySearchFocus.hasFocus ? 1.5 : 1.0,
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.search_rounded,
-                      size: 19,
-                      color: _countrySearchFocus.hasFocus
-                          ? _kIncomeOnHero
-                          : Colors.white.withValues(alpha: 0.75),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _countrySearchController,
-                        focusNode: _countrySearchFocus,
-                        style: const TextStyle(
-                          fontSize: 13.5,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        cursorColor: _kIncomeOnHero,
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration(
-                          hintText: 'Search 195+ countries or currencies...',
-                          hintStyle: TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.white.withValues(alpha: 0.50),
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
-                    if (_countrySearchController.text.isNotEmpty)
-                      GestureDetector(
-                        onTap: () => _countrySearchController.clear(),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 13,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
               ),
 
@@ -2659,10 +2584,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
 
+              const SizedBox(height: 8),
+
               // ── Full-Size Scrollable Countries List (Expanded, NO FittedBox!) ──
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.20),
                     borderRadius: BorderRadius.circular(16),
@@ -2703,6 +2630,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           ),
                         )
                       : ListView.separated(
+                          keyboardDismissBehavior:
+                              ScrollViewKeyboardDismissBehavior.onDrag,
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           physics: const BouncingScrollPhysics(),
                           itemCount: _filteredCountries.length,
@@ -2807,59 +2736,42 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               ),
 
               // ── Bottom Dock / Continue Action ──
-              if (!keyboardOpen) ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _GradientButton(
-                        label: 'Continue',
-                        icon: Icons.arrow_forward_rounded,
-                        onTap: () {
-                          _countrySearchFocus.unfocus();
-                          _next();
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(
-                            Icons.verified_user_rounded,
-                            size: 13,
-                            color: _kIncomeOnHero,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            'Tuned for ${_selectedCountry.name} (${_selectedCountry.currencyCode})',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.75),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, bottom: 6),
-                  child: SizedBox(
-                    height: 44,
-                    child: _GradientButton(
-                      label: 'Continue with ${_selectedCountry.currencySymbol}',
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 6),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _GradientButton(
+                      label: 'Continue',
                       icon: Icons.arrow_forward_rounded,
                       onTap: () {
                         _countrySearchFocus.unfocus();
                         _next();
                       },
                     ),
-                  ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.verified_user_rounded,
+                          size: 13,
+                          color: _kIncomeOnHero,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Tuned for ${_selectedCountry.name} (${_selectedCountry.currencyCode})',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.75),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ],
           ),
         ),
