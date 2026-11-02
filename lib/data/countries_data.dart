@@ -1,7 +1,8 @@
 // lib/data/countries_data.dart
 // Comprehensive dataset of world countries with ISO codes, flag emojis,
 // currency codes, standard symbols, and default locales.
-// Covers all sovereign nations, territories, and an "Other / International" fallback.
+// Directly matches all 178 Google Play Console targeted countries/territories
+// plus remaining global territories and "Other / Rest of World".
 
 class CountryEntry {
   final String countryCode;
@@ -52,10 +53,10 @@ class CountriesData {
     localeCode: 'en_IN',
   );
 
-  /// "Other / International" entry for users whose country is not listed.
+  /// "Other / Rest of World" fallback for users whose country is not listed.
   static const CountryEntry otherCountry = CountryEntry(
     countryCode: 'OTHER',
-    name: 'Other / International',
+    name: 'Other / Rest of World',
     flag: '🌐',
     currencyCode: 'USD',
     currencySymbol: '\$',
@@ -73,27 +74,40 @@ class CountriesData {
   }
 
   /// Search countries by name, code, currency code, or symbol.
+  /// Handles both punctuation variations (& vs and, St. vs Saint, Czechia vs Czech Republic, etc.)
   static List<CountryEntry> search(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return all;
+    final qNorm = q
+        .replaceAll('&', 'and')
+        .replaceAll('st.', 'saint')
+        .replaceAll('turkey', 'türkiye');
     return all.where((c) {
-      return c.name.toLowerCase().contains(q) ||
+      final nameLower = c.name.toLowerCase();
+      final nameNorm = nameLower
+          .replaceAll('&', 'and')
+          .replaceAll('st.', 'saint')
+          .replaceAll('turkey', 'türkiye');
+      return nameLower.contains(q) ||
+          nameNorm.contains(qNorm) ||
           c.countryCode.toLowerCase().contains(q) ||
           c.currencyCode.toLowerCase().contains(q) ||
           c.currencySymbol.toLowerCase().contains(q);
     }).toList();
   }
 
-  /// All sovereign countries + territories + Other fallback (~195 countries).
+  /// All countries matching Google Play Console's 178 targeted locations
+  /// plus global sovereign states and the Rest of World entry.
   static const List<CountryEntry> all = [
     CountryEntry(countryCode: 'AF', name: 'Afghanistan', flag: '🇦🇫', currencyCode: 'AFN', currencySymbol: '؋', localeCode: 'ps_AF'),
     CountryEntry(countryCode: 'AL', name: 'Albania', flag: '🇦🇱', currencyCode: 'ALL', currencySymbol: 'Lek', localeCode: 'sq_AL'),
     CountryEntry(countryCode: 'DZ', name: 'Algeria', flag: '🇩🇿', currencyCode: 'DZD', currencySymbol: 'DA', localeCode: 'ar_DZ'),
     CountryEntry(countryCode: 'AD', name: 'Andorra', flag: '🇦🇩', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'ca_AD'),
     CountryEntry(countryCode: 'AO', name: 'Angola', flag: '🇦🇴', currencyCode: 'AOA', currencySymbol: 'Kz', localeCode: 'pt_AO'),
-    CountryEntry(countryCode: 'AG', name: 'Antigua and Barbuda', flag: '🇦🇬', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_AG'),
+    CountryEntry(countryCode: 'AG', name: 'Antigua & Barbuda', flag: '🇦🇬', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_AG'),
     CountryEntry(countryCode: 'AR', name: 'Argentina', flag: '🇦🇷', currencyCode: 'ARS', currencySymbol: '\$', localeCode: 'es_AR'),
     CountryEntry(countryCode: 'AM', name: 'Armenia', flag: '🇦🇲', currencyCode: 'AMD', currencySymbol: '֏', localeCode: 'hy_AM'),
+    CountryEntry(countryCode: 'AW', name: 'Aruba', flag: '🇦🇼', currencyCode: 'AWG', currencySymbol: 'Afl.', localeCode: 'nl_AW'),
     CountryEntry(countryCode: 'AU', name: 'Australia', flag: '🇦🇺', currencyCode: 'AUD', currencySymbol: 'A\$', localeCode: 'en_AU'),
     CountryEntry(countryCode: 'AT', name: 'Austria', flag: '🇦🇹', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'de_AT'),
     CountryEntry(countryCode: 'AZ', name: 'Azerbaijan', flag: '🇦🇿', currencyCode: 'AZN', currencySymbol: '₼', localeCode: 'az_AZ'),
@@ -105,32 +119,36 @@ class CountriesData {
     CountryEntry(countryCode: 'BE', name: 'Belgium', flag: '🇧🇪', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'nl_BE'),
     CountryEntry(countryCode: 'BZ', name: 'Belize', flag: '🇧🇿', currencyCode: 'BZD', currencySymbol: 'BZ\$', localeCode: 'en_BZ'),
     CountryEntry(countryCode: 'BJ', name: 'Benin', flag: '🇧🇯', currencyCode: 'XOF', currencySymbol: 'CFA', localeCode: 'fr_BJ'),
+    CountryEntry(countryCode: 'BM', name: 'Bermuda', flag: '🇧🇲', currencyCode: 'BMD', currencySymbol: '\$', localeCode: 'en_BM'),
     CountryEntry(countryCode: 'BT', name: 'Bhutan', flag: '🇧🇹', currencyCode: 'BTN', currencySymbol: 'Nu.', localeCode: 'dz_BT'),
     CountryEntry(countryCode: 'BO', name: 'Bolivia', flag: '🇧🇴', currencyCode: 'BOB', currencySymbol: 'Bs.', localeCode: 'es_BO'),
-    CountryEntry(countryCode: 'BA', name: 'Bosnia and Herzegovina', flag: '🇧🇦', currencyCode: 'BAM', currencySymbol: 'KM', localeCode: 'bs_BA'),
+    CountryEntry(countryCode: 'BA', name: 'Bosnia & Herzegovina', flag: '🇧🇦', currencyCode: 'BAM', currencySymbol: 'KM', localeCode: 'bs_BA'),
     CountryEntry(countryCode: 'BW', name: 'Botswana', flag: '🇧🇼', currencyCode: 'BWP', currencySymbol: 'P', localeCode: 'en_BW'),
     CountryEntry(countryCode: 'BR', name: 'Brazil', flag: '🇧🇷', currencyCode: 'BRL', currencySymbol: 'R\$', localeCode: 'pt_BR'),
+    CountryEntry(countryCode: 'VG', name: 'British Virgin Islands', flag: '🇻🇬', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'en_VG'),
     CountryEntry(countryCode: 'BN', name: 'Brunei', flag: '🇧🇳', currencyCode: 'BND', currencySymbol: 'B\$', localeCode: 'ms_BN'),
     CountryEntry(countryCode: 'BG', name: 'Bulgaria', flag: '🇧🇬', currencyCode: 'BGN', currencySymbol: 'лв', localeCode: 'bg_BG'),
     CountryEntry(countryCode: 'BF', name: 'Burkina Faso', flag: '🇧🇫', currencyCode: 'XOF', currencySymbol: 'CFA', localeCode: 'fr_BF'),
     CountryEntry(countryCode: 'BI', name: 'Burundi', flag: '🇧🇮', currencyCode: 'BIF', currencySymbol: 'FBu', localeCode: 'fr_BI'),
-    CountryEntry(countryCode: 'CV', name: 'Cabo Verde', flag: '🇨🇻', currencyCode: 'CVE', currencySymbol: 'Esc', localeCode: 'pt_CV'),
+    CountryEntry(countryCode: 'CV', name: 'Cape Verde (Cabo Verde)', flag: '🇨🇻', currencyCode: 'CVE', currencySymbol: 'Esc', localeCode: 'pt_CV'),
     CountryEntry(countryCode: 'KH', name: 'Cambodia', flag: '🇰🇭', currencyCode: 'KHR', currencySymbol: '៛', localeCode: 'km_KH'),
     CountryEntry(countryCode: 'CM', name: 'Cameroon', flag: '🇨🇲', currencyCode: 'XAF', currencySymbol: 'FCFA', localeCode: 'fr_CM'),
     CountryEntry(countryCode: 'CA', name: 'Canada', flag: '🇨🇦', currencyCode: 'CAD', currencySymbol: 'CA\$', localeCode: 'en_CA'),
+    CountryEntry(countryCode: 'KY', name: 'Cayman Islands', flag: '🇰🇾', currencyCode: 'KYD', currencySymbol: 'CI\$', localeCode: 'en_KY'),
     CountryEntry(countryCode: 'CF', name: 'Central African Republic', flag: '🇨🇫', currencyCode: 'XAF', currencySymbol: 'FCFA', localeCode: 'fr_CF'),
     CountryEntry(countryCode: 'TD', name: 'Chad', flag: '🇹🇩', currencyCode: 'XAF', currencySymbol: 'FCFA', localeCode: 'fr_TD'),
     CountryEntry(countryCode: 'CL', name: 'Chile', flag: '🇨🇱', currencyCode: 'CLP', currencySymbol: '\$', localeCode: 'es_CL'),
     CountryEntry(countryCode: 'CN', name: 'China', flag: '🇨🇳', currencyCode: 'CNY', currencySymbol: '¥', localeCode: 'zh_CN'),
     CountryEntry(countryCode: 'CO', name: 'Colombia', flag: '🇨🇴', currencyCode: 'COP', currencySymbol: '\$', localeCode: 'es_CO'),
     CountryEntry(countryCode: 'KM', name: 'Comoros', flag: '🇰🇲', currencyCode: 'KMF', currencySymbol: 'CF', localeCode: 'ar_KM'),
-    CountryEntry(countryCode: 'CG', name: 'Congo', flag: '🇨🇬', currencyCode: 'XAF', currencySymbol: 'FCFA', localeCode: 'fr_CG'),
-    CountryEntry(countryCode: 'CD', name: 'DR Congo', flag: '🇨🇩', currencyCode: 'CDF', currencySymbol: 'FC', localeCode: 'fr_CD'),
+    CountryEntry(countryCode: 'CG', name: 'Congo - Brazzaville', flag: '🇨🇬', currencyCode: 'XAF', currencySymbol: 'FCFA', localeCode: 'fr_CG'),
+    CountryEntry(countryCode: 'CD', name: 'Congo - Kinshasa (DR Congo)', flag: '🇨🇩', currencyCode: 'CDF', currencySymbol: 'FC', localeCode: 'fr_CD'),
     CountryEntry(countryCode: 'CR', name: 'Costa Rica', flag: '🇨🇷', currencyCode: 'CRC', currencySymbol: '₡', localeCode: 'es_CR'),
+    CountryEntry(countryCode: 'CI', name: 'Côte d’Ivoire (Ivory Coast)', flag: '🇨🇮', currencyCode: 'XOF', currencySymbol: 'CFA', localeCode: 'fr_CI'),
     CountryEntry(countryCode: 'HR', name: 'Croatia', flag: '🇭🇷', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'hr_HR'),
     CountryEntry(countryCode: 'CU', name: 'Cuba', flag: '🇨🇺', currencyCode: 'CUP', currencySymbol: '\$', localeCode: 'es_CU'),
     CountryEntry(countryCode: 'CY', name: 'Cyprus', flag: '🇨🇾', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'el_CY'),
-    CountryEntry(countryCode: 'CZ', name: 'Czech Republic', flag: '🇨🇿', currencyCode: 'CZK', currencySymbol: 'Kč', localeCode: 'cs_CZ'),
+    CountryEntry(countryCode: 'CZ', name: 'Czechia (Czech Republic)', flag: '🇨🇿', currencyCode: 'CZK', currencySymbol: 'Kč', localeCode: 'cs_CZ'),
     CountryEntry(countryCode: 'DK', name: 'Denmark', flag: '🇩🇰', currencyCode: 'DKK', currencySymbol: 'kr.', localeCode: 'da_DK'),
     CountryEntry(countryCode: 'DJ', name: 'Djibouti', flag: '🇩🇯', currencyCode: 'DJF', currencySymbol: 'Fdj', localeCode: 'fr_DJ'),
     CountryEntry(countryCode: 'DM', name: 'Dominica', flag: '🇩🇲', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_DM'),
@@ -151,6 +169,7 @@ class CountriesData {
     CountryEntry(countryCode: 'GE', name: 'Georgia', flag: '🇬🇪', currencyCode: 'GEL', currencySymbol: '₾', localeCode: 'ka_GE'),
     CountryEntry(countryCode: 'DE', name: 'Germany', flag: '🇩🇪', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'de_DE'),
     CountryEntry(countryCode: 'GH', name: 'Ghana', flag: '🇬🇭', currencyCode: 'GHS', currencySymbol: 'GH₵', localeCode: 'en_GH'),
+    CountryEntry(countryCode: 'GI', name: 'Gibraltar', flag: '🇬🇮', currencyCode: 'GIP', currencySymbol: '£', localeCode: 'en_GI'),
     CountryEntry(countryCode: 'GR', name: 'Greece', flag: '🇬🇷', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'el_GR'),
     CountryEntry(countryCode: 'GD', name: 'Grenada', flag: '🇬🇩', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_GD'),
     CountryEntry(countryCode: 'GT', name: 'Guatemala', flag: '🇬🇹', currencyCode: 'GTQ', currencySymbol: 'Q', localeCode: 'es_GT'),
@@ -169,7 +188,6 @@ class CountriesData {
     CountryEntry(countryCode: 'IE', name: 'Ireland', flag: '🇮🇪', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'en_IE'),
     CountryEntry(countryCode: 'IL', name: 'Israel', flag: '🇮🇱', currencyCode: 'ILS', currencySymbol: '₪', localeCode: 'he_IL'),
     CountryEntry(countryCode: 'IT', name: 'Italy', flag: '🇮🇹', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'it_IT'),
-    CountryEntry(countryCode: 'CI', name: 'Ivory Coast', flag: '🇨🇮', currencyCode: 'XOF', currencySymbol: 'CFA', localeCode: 'fr_CI'),
     CountryEntry(countryCode: 'JM', name: 'Jamaica', flag: '🇯🇲', currencyCode: 'JMD', currencySymbol: 'J\$', localeCode: 'en_JM'),
     CountryEntry(countryCode: 'JP', name: 'Japan', flag: '🇯🇵', currencyCode: 'JPY', currencySymbol: '¥', localeCode: 'ja_JP'),
     CountryEntry(countryCode: 'JO', name: 'Jordan', flag: '🇯🇴', currencyCode: 'JOD', currencySymbol: 'JD', localeCode: 'ar_JO'),
@@ -188,6 +206,7 @@ class CountriesData {
     CountryEntry(countryCode: 'LI', name: 'Liechtenstein', flag: '🇱🇮', currencyCode: 'CHF', currencySymbol: 'CHF', localeCode: 'de_LI'),
     CountryEntry(countryCode: 'LT', name: 'Lithuania', flag: '🇱🇹', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'lt_LT'),
     CountryEntry(countryCode: 'LU', name: 'Luxembourg', flag: '🇱🇺', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'fr_LU'),
+    CountryEntry(countryCode: 'MO', name: 'Macao', flag: '🇲🇴', currencyCode: 'MOP', currencySymbol: 'MOP\$', localeCode: 'zh_MO'),
     CountryEntry(countryCode: 'MG', name: 'Madagascar', flag: '🇲🇬', currencyCode: 'MGA', currencySymbol: 'Ar', localeCode: 'mg_MG'),
     CountryEntry(countryCode: 'MW', name: 'Malawi', flag: '🇲🇼', currencyCode: 'MWK', currencySymbol: 'MK', localeCode: 'en_MW'),
     CountryEntry(countryCode: 'MY', name: 'Malaysia', flag: '🇲🇾', currencyCode: 'MYR', currencySymbol: 'RM', localeCode: 'ms_MY'),
@@ -205,7 +224,7 @@ class CountriesData {
     CountryEntry(countryCode: 'ME', name: 'Montenegro', flag: '🇲🇪', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'sr_ME'),
     CountryEntry(countryCode: 'MA', name: 'Morocco', flag: '🇲🇦', currencyCode: 'MAD', currencySymbol: 'DH', localeCode: 'ar_MA'),
     CountryEntry(countryCode: 'MZ', name: 'Mozambique', flag: '🇲🇿', currencyCode: 'MZN', currencySymbol: 'MT', localeCode: 'pt_MZ'),
-    CountryEntry(countryCode: 'MM', name: 'Myanmar', flag: '🇲🇲', currencyCode: 'MMK', currencySymbol: 'K', localeCode: 'my_MM'),
+    CountryEntry(countryCode: 'MM', name: 'Myanmar (Burma)', flag: '🇲🇲', currencyCode: 'MMK', currencySymbol: 'K', localeCode: 'my_MM'),
     CountryEntry(countryCode: 'NA', name: 'Namibia', flag: '🇳🇦', currencyCode: 'NAD', currencySymbol: 'N\$', localeCode: 'en_NA'),
     CountryEntry(countryCode: 'NR', name: 'Nauru', flag: '🇳🇷', currencyCode: 'AUD', currencySymbol: 'A\$', localeCode: 'en_NR'),
     CountryEntry(countryCode: 'NP', name: 'Nepal', flag: '🇳🇵', currencyCode: 'NPR', currencySymbol: 'Rs.', localeCode: 'ne_NP'),
@@ -232,9 +251,9 @@ class CountriesData {
     CountryEntry(countryCode: 'RO', name: 'Romania', flag: '🇷🇴', currencyCode: 'RON', currencySymbol: 'lei', localeCode: 'ro_RO'),
     CountryEntry(countryCode: 'RU', name: 'Russia', flag: '🇷🇺', currencyCode: 'RUB', currencySymbol: '₽', localeCode: 'ru_RU'),
     CountryEntry(countryCode: 'RW', name: 'Rwanda', flag: '🇷🇼', currencyCode: 'RWF', currencySymbol: 'RF', localeCode: 'rw_RW'),
-    CountryEntry(countryCode: 'KN', name: 'Saint Kitts and Nevis', flag: '🇰🇳', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_KN'),
-    CountryEntry(countryCode: 'LC', name: 'Saint Lucia', flag: '🇱🇨', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_LC'),
-    CountryEntry(countryCode: 'VC', name: 'Saint Vincent and the Grenadines', flag: '🇻🇨', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_VC'),
+    CountryEntry(countryCode: 'KN', name: 'St. Kitts & Nevis', flag: '🇰🇳', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_KN'),
+    CountryEntry(countryCode: 'LC', name: 'St. Lucia', flag: '🇱🇨', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_LC'),
+    CountryEntry(countryCode: 'VC', name: 'St. Vincent & Grenadines', flag: '🇻🇨', currencyCode: 'XCD', currencySymbol: 'EC\$', localeCode: 'en_VC'),
     CountryEntry(countryCode: 'WS', name: 'Samoa', flag: '🇼🇸', currencyCode: 'WST', currencySymbol: 'WS\$', localeCode: 'sm_WS'),
     CountryEntry(countryCode: 'SM', name: 'San Marino', flag: '🇸🇲', currencyCode: 'EUR', currencySymbol: '€', localeCode: 'it_SM'),
     CountryEntry(countryCode: 'ST', name: 'Sao Tome and Principe', flag: '🇸🇹', currencyCode: 'STN', currencySymbol: 'Db', localeCode: 'pt_ST'),
@@ -265,12 +284,13 @@ class CountriesData {
     CountryEntry(countryCode: 'TL', name: 'Timor-Leste', flag: '🇹🇱', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'pt_TL'),
     CountryEntry(countryCode: 'TG', name: 'Togo', flag: '🇹🇬', currencyCode: 'XOF', currencySymbol: 'CFA', localeCode: 'fr_TG'),
     CountryEntry(countryCode: 'TO', name: 'Tonga', flag: '🇹🇴', currencyCode: 'TOP', currencySymbol: 'T\$', localeCode: 'to_TO'),
-    CountryEntry(countryCode: 'TT', name: 'Trinidad and Tobago', flag: '🇹🇹', currencyCode: 'TTD', currencySymbol: 'TT\$', localeCode: 'en_TT'),
+    CountryEntry(countryCode: 'TT', name: 'Trinidad & Tobago', flag: '🇹🇹', currencyCode: 'TTD', currencySymbol: 'TT\$', localeCode: 'en_TT'),
     CountryEntry(countryCode: 'TN', name: 'Tunisia', flag: '🇹🇳', currencyCode: 'TND', currencySymbol: 'DT', localeCode: 'ar_TN'),
-    CountryEntry(countryCode: 'TR', name: 'Turkey', flag: '🇹🇷', currencyCode: 'TRY', currencySymbol: '₺', localeCode: 'tr_TR'),
+    CountryEntry(countryCode: 'TR', name: 'Türkiye (Turkey)', flag: '🇹🇷', currencyCode: 'TRY', currencySymbol: '₺', localeCode: 'tr_TR'),
     CountryEntry(countryCode: 'TM', name: 'Turkmenistan', flag: '🇹🇲', currencyCode: 'TMT', currencySymbol: 'm', localeCode: 'tk_TM'),
+    CountryEntry(countryCode: 'TC', name: 'Turks & Caicos Islands', flag: '🇹🇨', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'en_TC'),
     CountryEntry(countryCode: 'TV', name: 'Tuvalu', flag: '🇹🇻', currencyCode: 'AUD', currencySymbol: 'A\$', localeCode: 'en_TV'),
-    CountryEntry(countryCode: 'UG', name: 'Uganda', flag: '🇺🇬', currencyCode: 'UGX', currencySymbol: 'USh', localeCode: 'sw_UG'),
+    CountryEntry(countryCode: 'UG', name: 'Uganda', flag: 'UGX', currencyCode: 'UGX', currencySymbol: 'USh', localeCode: 'sw_UG'),
     CountryEntry(countryCode: 'UA', name: 'Ukraine', flag: '🇺🇦', currencyCode: 'UAH', currencySymbol: '₴', localeCode: 'uk_UA'),
     CountryEntry(countryCode: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', currencyCode: 'AED', currencySymbol: 'AED', localeCode: 'ar_AE'),
     CountryEntry(countryCode: 'GB', name: 'United Kingdom', flag: '🇬🇧', currencyCode: 'GBP', currencySymbol: '£', localeCode: 'en_GB'),
@@ -284,6 +304,6 @@ class CountriesData {
     CountryEntry(countryCode: 'YE', name: 'Yemen', flag: '🇾🇪', currencyCode: 'YER', currencySymbol: '﷼', localeCode: 'ar_YE'),
     CountryEntry(countryCode: 'ZM', name: 'Zambia', flag: '🇿🇲', currencyCode: 'ZMW', currencySymbol: 'ZK', localeCode: 'en_ZM'),
     CountryEntry(countryCode: 'ZW', name: 'Zimbabwe', flag: '🇿🇼', currencyCode: 'ZWL', currencySymbol: 'Z\$', localeCode: 'en_ZW'),
-    CountryEntry(countryCode: 'OTHER', name: 'Other / International', flag: '🌐', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'en_US'),
+    CountryEntry(countryCode: 'OTHER', name: 'Other / Rest of World', flag: '🌐', currencyCode: 'USD', currencySymbol: '\$', localeCode: 'en_US'),
   ];
 }
