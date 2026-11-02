@@ -124,3 +124,4 @@ BUILD SUCCESSFUL in 27s
    Selecting or changing a country only updates UI display symbols and notification parsing rules. Pre-existing transaction values and balances are never mutated.
 4. **Universal Play Console Readiness**:
    Every single country targeted in the Google Play Console (178 countries + overseas territories + Rest of World) has full currency, flag, and notification parsing support.
+
