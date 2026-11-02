@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found - Buddy Expense Tracker</title>
+  <link rel="icon" type="image/png" href="docs/assets/icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (function() {
+      var path = window.location.pathname.toLowerCase();
+      var base = '/buddy_2.0/docs/';
+      if (path.indexOf('privacy') !== -1) {
+        window.location.replace(base + 'privacy.html');
+      } else if (path.indexOf('term') !== -1) {
+        window.location.replace(base + 'terms.html');
+      } else if (path.indexOf('delete') !== -1) {
+        window.location.replace(base + 'delete-account.html');
+      }
+    })();
+  </script>
+  <style>
+    :root {
+      --primary: #10B981;
+      --primary-dark: #059669;
+      --primary-light: #34D399;
+      --bg: #03080A;
+      --surface: #0B1217;
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #F3F4F6;
+      --text-muted: #94A3B8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 32px 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 48px 36px;
+      max-width: 580px;
+      width: 100%;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--primary-light);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 42px;
+      font-weight: 900;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    p {
+      color: var(--text-muted);
+      font-size: 16px;
+      margin-bottom: 32px;
+    }
+    .links-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 13px 20px;
+      border-radius: 12px;
+      font-size: 14.5px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: #042F24;
+    }
+    .btn-primary:hover {
+      background: var(--primary-light);
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="badge">Buddy Documentation</div>
+    <h1>Looking for a Page?</h1>
+    <p>Choose one of the verified links below to access the official documentation:</p>
+
+    <div class="links-grid">
+      <a href="/buddy_2.0/docs/index.html" class="btn btn-primary">🏠 Buddy Home</a>
+      <a href="/buddy_2.0/docs/privacy.html" class="btn btn-secondary">🛡️ Privacy Policy</a>
+      <a href="/buddy_2.0/docs/terms.html" class="btn btn-secondary">⚖️ Terms of Service</a>
+      <a href="/buddy_2.0/docs/delete-account.html" class="btn btn-secondary">🗑️ Data & Account Deletion</a>
+      <a href="https://github.com/FaysArukattil/buddy_2.0" class="btn btn-secondary" target="_blank" rel="noopener">💻 GitHub Repository</a>
+    </div>
+  </div>
+
+</body>
+</html>
