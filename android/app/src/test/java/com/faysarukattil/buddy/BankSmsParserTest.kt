@@ -168,6 +168,30 @@ class BankSmsParserTest {
     }
 
     @Test
+    fun `IN_012 SBI Card Mathematical Unicode RCS spend`() {
+        val vector = indiaVectors.first { it.id == "IN_012" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_013 Credit card spend with Available Limit disclaimer`() {
+        val vector = indiaVectors.first { it.id == "IN_013" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_014 Modern fintech OneCard purchase`() {
+        val vector = indiaVectors.first { it.id == "IN_014" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_015 UPI transaction with raw VPA handle`() {
+        val vector = indiaVectors.first { it.id == "IN_015" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
     fun `IN_IGNORE_001 OTP must be ignored`() {
         val vector = indiaVectors.first { it.id == "IN_IGNORE_001" }
         runVectorAssertion(vector)
@@ -200,6 +224,30 @@ class BankSmsParserTest {
     @Test
     fun `IN_IGNORE_006 Cashback offer must be ignored`() {
         val vector = indiaVectors.first { it.id == "IN_IGNORE_006" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_007 ASBA IPO hold must be ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_007" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_008 Future recurring debit reminder must be ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_008" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_009 SmartEMI promotional notice must be ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_009" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_010 Hyphenated OTP must be ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_010" }
         runVectorAssertion(vector)
     }
 
@@ -311,6 +359,13 @@ class TestableNotificationParser {
             "bill reminder", "recharge reminder", "upcoming bill", "upcoming payment", "overdue",
             "outstanding balance", "recharge now", "plan expiry", "plan expiring", "validity expiring",
             "renew plan", "auto-pay scheduled", "mandate scheduled",
+            "will be debited", "will be auto-debited", "will be auto debited", "will be deducted",
+            "scheduled to be debited", "mandate set for", "upcoming mandate", "e-mandate created",
+            "mandate successfully registered",
+            "is blocked in your", "has been blocked in", "amount has been blocked", "funds blocked",
+            "blocked in your a/c", "blocked in your account", "asba", "earmarked in your",
+            "earmarked for", "amount earmarked",
+            "convert your", "smartemi", "into emi", "into easy emi", "convert to emi", "convert this transaction",
             "requested money", "has requested", "request received", "collect request", "payment request",
             "request to pay",
             "failed", "declined", "unsuccessful", "cancelled", "rejected", "timed out", "could not be processed",
@@ -325,7 +380,8 @@ class TestableNotificationParser {
             "emi starts from", "emi will start",
             "loan eligibility", "eligible for loan", "loan offer",
             "credit limit increased", "limit enhanced",
-            "otp", "verification code", "one time password", "secret code", "login code",
+            "otp", "verification code", "one time password", "one-time password", "one-time-password",
+            "one-time passcode", "one time passcode", "auth code", "security code", "secret code", "login code",
             "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
         )
 
@@ -335,7 +391,17 @@ class TestableNotificationParser {
         )
 
         private val BALANCE_PATTERN = Regex(
-            """(?:bal|balance|avbl\.?\s*bal(?:ance)?|avl\.?\s*bal(?:ance)?|avail\.?\s*bal(?:ance)?|available\s*bal(?:ance)?|total\s*bal(?:ance)?|clear\s*bal(?:ance)?|net\s*bal(?:ance)?|updated\s*bal(?:ance)?|a/c\s*bal(?:ance)?|avail\.?\s*lmt|available\s*limit)[\\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
+            """(?:bal|balance|avbl\.?\s*bal(?:ance)?|avl\.?\s*bal(?:ance)?|avail\.?\s*bal(?:ance)?|available\s*bal(?:ance)?|total\s*bal(?:ance)?|total\s*avail\.?\s*bal(?:ance)?|clear\s*bal(?:ance)?|net\s*bal(?:ance)?|updated\s*bal(?:ance)?|new\s*bal(?:ance)?|remaining\s*bal(?:ance)?|a/c\s*bal(?:ance)?|avail\.?\s*(?:credit\s*)?lmt|avail\.?\s*(?:credit\s*)?limit|available\s*(?:credit\s*)?limit|total\s*(?:credit\s*)?limit|credit\s*limit|card\s*limit)[\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
+            RegexOption.IGNORE_CASE
+        )
+
+        private val CREDIT_LIMIT_CLAUSE = Regex(
+            """\b(?:avl|avail|available|total)?\.?\s*(?:credit\s+)?(?:limit|lmt)\b\s*(?:is)?\s*:?\s*(?:inr|rs\.?|₹|[A-Z]{3}|[$€£¥₩])?\s*[0-9,]*\.?\d+""",
+            RegexOption.IGNORE_CASE
+        )
+
+        private val UPI_REF_PATTERN = Regex(
+            """(?:upi\s*(?:ref|reference)?(?:\s*no)?|ref(?:\s*no)?\.?|txn(?:\s*id)?\.?|transaction\s*id|rrn|utr(?:\s*no)?|imps(?:\s*ref)?|neft(?:\s*ref)?|rtgs(?:\s*ref)?|upi\/(?:dr|cr|rev|p2a|p2m|p2p)?\/?\d{6,})[\s:.-]*[A-Za-z0-9]{6,}""",
             RegexOption.IGNORE_CASE
         )
 
@@ -344,13 +410,13 @@ class TestableNotificationParser {
             RegexOption.IGNORE_CASE
         )
 
-        private val DEBIT_PATTERN = Regex(
-            """(?:debited\s*(?:(?:from|for|with|by|towards|on)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s*(?:has been\s+|is\s+|was\s+|got\s+)?(?:debited|withdrawn|spent|paid|transferred|sent|deducted|charged|utilized)|withdrawn\s*[@]?)""",
+        private val DEBIT_ACTION_PATTERN = Regex(
+            """(?:debited\s*(?:(?:from|for|with|by|towards|on)\s*)?(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)\s*[0-9,.]+\s*(?:has been\s+|is\s+|was\s+|got\s+)?(?:debited|withdrawn|spent|paid|transferred|sent|deducted|charged|utilized)|(?:debit|debiting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:spent|paid|withdrawn|transferred|sent|deducted|charged|utilized)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|(?:rs\.?|inr|₹)?\s*[0-9,.]+\s*withdrawn\s*[@]?)""",
             RegexOption.IGNORE_CASE
         )
 
-        private val CREDIT_PATTERN = Regex(
-            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|received\s*(?:rs\.?|inr|₹)?|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
+        private val CREDIT_ACTION_PATTERN = Regex(
+            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in|into|to)?|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
             RegexOption.IGNORE_CASE
         )
 
@@ -389,28 +455,118 @@ class TestableNotificationParser {
      * Returns null if the message should be ignored.
      */
     fun parseForTest(text: String, packageName: String): ParseResult? {
-        val lowerText = text.lowercase()
+        val cleanText = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD)
+        val lowerText = cleanText.lowercase(java.util.Locale.US)
 
         // Step 1: Reject promotional / spam
         for (keyword in PROMOTIONAL_AND_SPAM_KEYWORDS) {
             if (lowerText.contains(keyword)) {
                 if ((keyword == "block your" || keyword == "freeze") && isFraudReportingDisclaimer(lowerText)) continue
-                if (keyword == "otp" && !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) continue
+                if (keyword == "otp" && !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(cleanText)) continue
                 return null
             }
         }
 
         // Step 2: Debit / credit check
-        val hasDebit = DEBIT_PATTERN.containsMatchIn(text) ||
-                lowerText.contains("debited by") || lowerText.contains("debited for") ||
-                lowerText.contains("debited with") || lowerText.contains("withdrawn") ||
-                lowerText.contains("paid to") || lowerText.contains("payment of") ||
-                lowerText.contains("successfully executed") || lowerText.contains("mandate executed") ||
-                lowerText.contains("auto-debited") || lowerText.contains("autopay")
+        val hasDebit = DEBIT_ACTION_PATTERN.containsMatchIn(cleanText) ||
+                lowerText.contains("debited from") ||
+                lowerText.contains("debited by") ||
+                lowerText.contains("debited for") ||
+                lowerText.contains("debited with") ||
+                lowerText.contains("debited towards") ||
+                lowerText.contains("debited on") ||
+                lowerText.contains("debited rs") ||
+                lowerText.contains("debited inr") ||
+                lowerText.contains("debited ₹") ||
+                lowerText.contains("has been debited") ||
+                lowerText.contains("is debited") ||
+                lowerText.contains("was debited") ||
+                lowerText.contains("got debited") ||
+                lowerText.contains("debit of") ||
+                lowerText.contains("debit by") ||
+                lowerText.contains("has a debit") ||
+                lowerText.contains("withdrawn from") ||
+                lowerText.contains("withdrawn at") ||
+                lowerText.contains("withdrawn@") ||
+                lowerText.contains("withdrawn @") ||
+                lowerText.contains("cash withdrawn") ||
+                lowerText.contains("card withdrawn") ||
+                Regex("""\bwithdrawn\b""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+                lowerText.contains("you paid") ||
+                lowerText.contains("paid to") ||
+                lowerText.contains("paid at") ||
+                lowerText.contains("paid rs") ||
+                lowerText.contains("paid inr") ||
+                lowerText.contains("paid ₹") ||
+                lowerText.contains("payment to") ||
+                lowerText.contains("payment of") ||
+                lowerText.contains("money sent to") ||
+                lowerText.contains("purchase of") ||
+                lowerText.contains("spent on") ||
+                lowerText.contains("spent at") ||
+                lowerText.contains("spent using") ||
+                lowerText.contains("spent rs") ||
+                lowerText.contains("spent inr") ||
+                lowerText.contains("spent ₹") ||
+                Regex("""\bspent\b""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+                lowerText.contains("used for") ||
+                lowerText.contains("used at") ||
+                lowerText.contains("transferred to") ||
+                lowerText.contains("transfer to") ||
+                lowerText.contains("transfer of") ||
+                lowerText.contains("sent rs") ||
+                lowerText.contains("sent inr") ||
+                lowerText.contains("sent ₹") ||
+                lowerText.contains("auto-debited") ||
+                lowerText.contains("auto debited") ||
+                lowerText.contains("successfully executed") ||
+                lowerText.contains("mandate executed") ||
+                lowerText.contains("autopay")
 
-        val hasCredit = CREDIT_PATTERN.containsMatchIn(text) ||
-                lowerText.contains("credited with") || lowerText.contains("credited by") ||
-                lowerText.contains("credited for") || lowerText.contains("received from") ||
+        val hasCredit = CREDIT_ACTION_PATTERN.containsMatchIn(cleanText) ||
+                lowerText.contains("credited to") ||
+                lowerText.contains("credited with") ||
+                lowerText.contains("credited by") ||
+                lowerText.contains("credited for") ||
+                lowerText.contains("credit of") ||
+                lowerText.contains("credit by") ||
+                lowerText.contains("credited in") ||
+                lowerText.contains("credited into") ||
+                lowerText.contains("credited rs") ||
+                lowerText.contains("credited inr") ||
+                lowerText.contains("credited ₹") ||
+                lowerText.contains("has been credited") ||
+                lowerText.contains("is credited") ||
+                lowerText.contains("was credited") ||
+                lowerText.contains("got credited") ||
+                lowerText.contains("has a credit") ||
+                lowerText.contains("deposited to") ||
+                lowerText.contains("deposited in") ||
+                lowerText.contains("deposited into") ||
+                lowerText.contains("deposited with") ||
+                lowerText.contains("received from") ||
+                lowerText.contains("received in") ||
+                lowerText.contains("received rs") ||
+                lowerText.contains("received inr") ||
+                lowerText.contains("received ₹") ||
+                lowerText.contains("you received") ||
+                (lowerText.contains("received") && lowerText.contains("from") &&
+                    !lowerText.contains("received your") &&
+                    !lowerText.contains("received application") &&
+                    !lowerText.contains("received request") &&
+                    !lowerText.contains("received document") &&
+                    !lowerText.contains("at branch")) ||
+                lowerText.contains("sent you") ||
+                lowerText.contains("paid you") ||
+                lowerText.contains("refund of") ||
+                lowerText.contains("refunded to") ||
+                lowerText.contains("refund received") ||
+                lowerText.contains("refund from") ||
+                lowerText.contains("reversal of") ||
+                lowerText.contains("reversed to") ||
+                lowerText.contains("amount reversed") ||
+                lowerText.contains("cashback of") ||
+                lowerText.contains("cashback received") ||
                 lowerText.contains("salary credited")
 
         if (!hasDebit && !hasCredit) return null
@@ -434,27 +590,33 @@ class TestableNotificationParser {
                 lowerText.contains("paid you")
             if (!isExplicitPaymentReceipt) return null
         } else {
-            val hasBankId = ACCOUNT_PATTERN.containsMatchIn(text) ||
+            val hasBankId = ACCOUNT_PATTERN.containsMatchIn(cleanText) ||
+                    BALANCE_PATTERN.containsMatchIn(cleanText) ||
+                    UPI_REF_PATTERN.containsMatchIn(cleanText) ||
                     lowerText.contains("a/c") || lowerText.contains("acct") ||
                     lowerText.contains("account") || lowerText.contains("card") ||
                     lowerText.contains("bank") || lowerText.contains("upi") ||
                     lowerText.contains("imps") || lowerText.contains("neft") ||
                     lowerText.contains("rtgs") || lowerText.contains("atm") ||
-                    lowerText.contains("ref no") || lowerText.contains("utr") ||
-                    lowerText.contains("rrn") || lowerText.contains("txn id") ||
+                    lowerText.contains("vpa") || lowerText.contains("pos") ||
+                    lowerText.contains("ref no") || lowerText.contains("ref:") ||
+                    lowerText.contains("utr") || lowerText.contains("rrn") ||
+                    lowerText.contains("txn id") ||
                     listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara",
                         "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank",
                         "indian bank", "central bank", "iob", "uco bank", "idbi", "okaxis",
-                        "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
+                        "okhdfcbank", "oksbi", "okicici", "mandate", "onecard", "slice", "jupiter",
+                        "fi money", "cred", "airtel bank", "ippb", "aubank", "simpl", "lazypay", "niyo").any { lowerText.contains(it) }
 
             if (!hasBankId) return null
         }
 
-        // Step 4: Extract amount (excluding balance)
-        val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
+        // Step 4: Extract amount (excluding balance and masked credit limit)
+        val textWithoutLimits = CREDIT_LIMIT_CLAUSE.replace(cleanText, " ")
+        val allAmounts = AMOUNT_PATTERN.findAll(textWithoutLimits).toList()
         if (allAmounts.isEmpty()) return null
 
-        val balanceMatches = BALANCE_PATTERN.findAll(text).toList()
+        val balanceMatches = BALANCE_PATTERN.findAll(textWithoutLimits).toList()
         val transactionAmounts = allAmounts.filter { amountMatch ->
             balanceMatches.none { balMatch ->
                 val aStart = amountMatch.range.first

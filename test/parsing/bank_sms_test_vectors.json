@@ -124,6 +124,50 @@
       "shouldIgnore": false
     },
     {
+      "id": "IN_012",
+      "country": "IN",
+      "description": "SBI Card Mathematical Unicode RCS spend",
+      "message": "Dear Cardholder, 𝗖𝗿𝗲𝗱𝗶𝘁 𝗖𝗮𝗿𝗱 𝗲𝗻𝗱𝗶𝗻𝗴 𝗫𝗫𝟭𝟮𝟯𝟰 𝘀𝗽𝗲𝗻𝘁 𝗥𝘀 𝟱𝟬𝟬.𝟬𝟬 at AMAZON on 02Nov26. Available limit: Rs 45,000.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": "expense",
+      "expectedAmount": 500.0,
+      "expectedCurrency": "INR",
+      "shouldIgnore": false
+    },
+    {
+      "id": "IN_013",
+      "country": "IN",
+      "description": "Credit card spend with Available Limit disclaimer",
+      "message": "SBI Card ending 1234 spent Rs 450.00 at Starbucks. Avail credit limit: Rs 45,000.00, Total limit: Rs 1,00,000.00.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": "expense",
+      "expectedAmount": 450.0,
+      "expectedCurrency": "INR",
+      "shouldIgnore": false
+    },
+    {
+      "id": "IN_014",
+      "country": "IN",
+      "description": "Modern fintech OneCard purchase",
+      "message": "OneCard ending 9988 spent Rs 120.00 at Swiggy",
+      "sourcePackage": "com.onecard.app",
+      "expectedType": "expense",
+      "expectedAmount": 120.0,
+      "expectedCurrency": "INR",
+      "shouldIgnore": false
+    },
+    {
+      "id": "IN_015",
+      "country": "IN",
+      "description": "UPI transaction with raw VPA handle",
+      "message": "Paid Rs 250.00 to swiggy@okhdfcbank Ref 3012938120",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": "expense",
+      "expectedAmount": 250.0,
+      "expectedCurrency": "INR",
+      "shouldIgnore": false
+    },
+    {
       "id": "IN_IGNORE_001",
       "country": "IN",
       "description": "OTP message — MUST be ignored",
@@ -183,6 +227,50 @@
       "country": "IN",
       "description": "Cashback offer — MUST be ignored",
       "message": "Get up to Rs.500 cashback on your next transaction. Offer valid till 30Nov26.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_007",
+      "country": "IN",
+      "description": "ASBA IPO hold — MUST be ignored",
+      "message": "Rs 14,850.00 is blocked in your A/c XX1234 towards ASBA IPO application.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_008",
+      "country": "IN",
+      "description": "Future recurring debit reminder — MUST be ignored",
+      "message": "Your A/c XX1234 will be auto-debited by Rs 199.00 on 05-Nov-2026 for Netflix subscription.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_009",
+      "country": "IN",
+      "description": "SmartEMI promotional notice — MUST be ignored",
+      "message": "Convert your recent spend of Rs 4,500 into easy SmartEMI starting at Rs 450/month.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_010",
+      "country": "IN",
+      "description": "Hyphenated OTP — MUST be ignored",
+      "message": "Your One-Time Password is 849-201 for payment of Rs 500.00 at Flipkart.",
       "sourcePackage": "com.google.android.apps.messaging",
       "expectedType": null,
       "expectedAmount": null,

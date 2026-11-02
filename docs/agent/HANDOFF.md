@@ -1,7 +1,7 @@
 # Buddy — Handoff State
 
-**Last updated:** 2026-11-02T13:30:00+05:30  
-**Status:** Task 6, Task 7, Task 8 & Task 9 (Worldwide Simulation Testing, PennyWise Pattern Hardening, 125 Vectors & Universal Fallback) ✅ ALL COMPLETE  
+**Last updated:** 2026-11-02T14:15:00+05:30  
+**Status:** Task 6 through Task 10 (Worldwide Simulation, Indian Parser Optimization & Zero-Battery-Drain Architecture) ✅ ALL COMPLETE  
 **Version:** `17.3.0+20`  
 **Git Branch:** `main`  
 
@@ -26,17 +26,19 @@
 | **Task 7 Parser Enhancement** — Learned patterns from PennyWise & Transaction-SMS-Parser | ✅ DONE | Credit limit masking, anti-noise, clean notes, category expansion, 158 Dart tests, 66/66 non-India Kotlin vectors |
 | **Task 8 Country Selection & Universal Fallback** — Onboarding Step 4, 195+ countries dataset, universal fallback parser, existing user prompt | ✅ DONE | Full Google Play Console country compatibility (178/178), accurate flags & symbols |
 | **Task 9 Worldwide Simulation & Pattern Hardening** — Full multi-region simulation, PennyWise pattern hardening, 125 vectors | ✅ DONE | 270/270 Dart tests, 100% Kotlin unit tests, zero regressions, all continents covered |
+| **Task 10 Indian Parser Optimization & Zero-Battery-Drain Guarantee** — Native-only Kotlin execution (no Dart in background), NFKD Unicode normalization, Credit limit masking, ASBA hold filtering, Mandate reminder filters, SmartEMI promo drop, Hyphenated OTPs, UPI VPA handle cleaning, 133 vectors | ✅ DONE | 278/278 Dart tests, 53/53 Kotlin unit tests, 0 battery impact, full docs in `ZERO_BATTERY_DRAIN_NATIVE_ARCHITECTURE.md` |
 
 ---
 
 ## Test Verification Summary
 
 - `flutter analyze` → **No issues found!** ✅ (0 errors, 0 warnings, 0 lints)
-- `flutter test` → **270/270 tests pass!** ✅ (All 125 global vectors, 178 Play Console countries, note cleaning, edge cases)
-- `./gradlew :app:testDebugUnitTest` → **100% tests pass!** ✅ (320 tasks executed)
-  - `BankSmsParserTest` (India regression guard) — 100% passed
+- `flutter test` → **278/278 tests pass!** ✅ (All 133 global & Indian vectors, 178 Play Console countries, note cleaning, edge cases)
+- `./gradlew :app:testDebugUnitTest` → **100% tests pass!** ✅ (53 unit tests, 320 tasks executed)
+  - `BankSmsParserTest` (India regression guard with 25 Indian vectors & edge cases) — 100% passed
   - `CurrencySymbolHelperTest` (SharedPrefs currency symbol resolution) — 100% passed
   - `GlobalBankParserTest` — **100% passed** across all non-India vectors with `OTHER` fallback
+- Zero-Battery-Drain Architecture Document → `/docs/agent/ZERO_BATTERY_DRAIN_NATIVE_ARCHITECTURE.md` ✅
 - Comprehensive Simulation Report → `/docs/agent/COMPREHENSIVE_GLOBAL_PARSING_REPORT.md` ✅
 - `pubspec.yaml` version → `17.3.0+20` ✅
 

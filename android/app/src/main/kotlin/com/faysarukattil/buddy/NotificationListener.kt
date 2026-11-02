@@ -156,12 +156,22 @@ class NotificationListener : NotificationListenerService() {
             "com.equitasbank.mobilebanking",
 
             // Modern Neo-banks & Digital Banking
+            "com.onecard.app",                        // OneCard
             "money.jupiter",                          // Jupiter Money
             "money.fi",                               // Fi Money
             "co.slice.android",                       // Slice
             "org.flippay.app",                        // Slice (alternate)
             "money.super",                            // Super.money
             "com.naviapp",                            // Navi
+            "com.airtel.bank",                        // Airtel Payments Bank
+            "com.msf.ippb",                           // India Post Payments Bank
+            "com.simpl.android",                      // Simpl
+            "com.lazypay.android",                    // LazyPay
+            "com.paytmbank.mobile",                   // Paytm Payments Bank
+            "com.jio.jiopay",                         // Jio Payments Bank / JioPay
+            "in.org.npci.credence.passbook",          // BHIM Passbook
+            "com.niyo.equitas",                       // NiyoX
+            "com.niyo.bharat",                        // Niyo Global
             "com.samsung.android.spay",               // Samsung Wallet
             "com.samsung.android.spaymini",           // Samsung Wallet Mini
 
@@ -232,6 +242,17 @@ class NotificationListener : NotificationListenerService() {
             "bill reminder", "recharge reminder", "upcoming bill", "upcoming payment", "overdue",
             "outstanding balance", "recharge now", "plan expiry", "plan expiring", "validity expiring",
             "renew plan", "auto-pay scheduled", "mandate scheduled",
+            "will be debited", "will be auto-debited", "will be auto debited", "will be deducted",
+            "scheduled to be debited", "mandate set for", "upcoming mandate", "e-mandate created",
+            "mandate successfully registered",
+
+            // IPO / ASBA Blocked Funds & Liens (Funds held, NOT actual spend)
+            "is blocked in your", "has been blocked in", "amount has been blocked", "funds blocked",
+            "blocked in your a/c", "blocked in your account", "asba", "earmarked in your",
+            "earmarked for", "amount earmarked",
+
+            // EMI Conversion Marketing (Marketing spend conversion, NOT new spend)
+            "convert your", "smartemi", "into emi", "into easy emi", "convert to emi", "convert this transaction",
 
             // Payment Requests (someone asking for money, NOT a completed payment)
             "requested money", "has requested", "request received", "collect request", "payment request",
@@ -253,8 +274,9 @@ class NotificationListener : NotificationListenerService() {
             "loan eligibility", "eligible for loan", "loan offer",
             "credit limit increased", "limit enhanced",
 
-            // Security & Admin (not transactions)
-            "otp", "verification code", "one time password", "secret code", "login code",
+            // Security, Admin & OTPs (not transactions)
+            "otp", "verification code", "one time password", "one-time password", "one-time-password",
+            "one-time passcode", "one time passcode", "auth code", "security code", "secret code", "login code",
             "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
         )
 
@@ -272,7 +294,13 @@ class NotificationListener : NotificationListenerService() {
 
         // Bank balance pattern — matching BAL-Rs.60001.27, Bal Rs 37010.08, Avail Bal: Rs 15000, Avl Bal: Rs. 15000, etc.
         private val BALANCE_PATTERN = Regex(
-            """(?:bal|balance|avbl\.?\s*bal(?:ance)?|avl\.?\s*bal(?:ance)?|avail\.?\s*bal(?:ance)?|available\s*bal(?:ance)?|total\s*bal(?:ance)?|total\s*avail\.?\s*bal(?:ance)?|clear\s*bal(?:ance)?|net\s*bal(?:ance)?|updated\s*bal(?:ance)?|new\s*bal(?:ance)?|remaining\s*bal(?:ance)?|a/c\s*bal(?:ance)?|avail\.?\s*lmt|available\s*limit|credit\s*limit)[\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
+            """(?:bal|balance|avbl\.?\s*bal(?:ance)?|avl\.?\s*bal(?:ance)?|avail\.?\s*bal(?:ance)?|available\s*bal(?:ance)?|total\s*bal(?:ance)?|total\s*avail\.?\s*bal(?:ance)?|clear\s*bal(?:ance)?|net\s*bal(?:ance)?|updated\s*bal(?:ance)?|new\s*bal(?:ance)?|remaining\s*bal(?:ance)?|a/c\s*bal(?:ance)?|avail\.?\s*(?:credit\s*)?lmt|avail\.?\s*(?:credit\s*)?limit|available\s*(?:credit\s*)?limit|total\s*(?:credit\s*)?limit|credit\s*limit|card\s*limit)[\s:.-]*(?:is\s*)?(?:rs\.?\s*|inr\s*|₹\s*)?[0-9,]+\.?[0-9]*""",
+            RegexOption.IGNORE_CASE
+        )
+
+        // Dedicated credit limit clause pattern to mask out available credit limit clauses
+        private val CREDIT_LIMIT_CLAUSE = Regex(
+            """\b(?:avl|avail|available|total)?\.?\s*(?:credit\s+)?(?:limit|lmt)\b\s*(?:is)?\s*:?\s*(?:inr|rs\.?|₹|[A-Z]{3}|[$€£¥₩])?\s*[0-9,]*\.?\d+""",
             RegexOption.IGNORE_CASE
         )
 
@@ -842,7 +870,9 @@ class NotificationListener : NotificationListenerService() {
     // ── Parsing ──
 
     private fun parseTransaction(text: String, packageName: String): Transaction? {
-        val lowerText = text.lowercase()
+        // Step 0: Unicode NFKD normalization (converts Mathematical Bold/Sans-Serif RCS fonts to ASCII)
+        val cleanText = java.text.Normalizer.normalize(text, java.text.Normalizer.Form.NFKD)
+        val lowerText = cleanText.lowercase(Locale.US)
 
         // Read country code once for analytics (SharedPrefs read is cheap; value is cached by OS)
         val countryCode: String by lazy {
@@ -865,13 +895,15 @@ class NotificationListener : NotificationListenerService() {
                     continue
                 }
                 // Avoid matching "otp" inside merchant or reference words (e.g., "HOTPOT", "FOOTPRINT")
-                if (keyword == "otp" && !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(text)) {
+                if (keyword == "otp" && !Regex("""\botp\b""", RegexOption.IGNORE_CASE).containsMatchIn(cleanText)) {
                     continue
                 }
-                Log.d(TAG, "🚫 Rejected spam/promotional message (keyword '$keyword'): ${text.take(60)}")
+                Log.d(TAG, "🚫 Rejected spam/promotional message (keyword '$keyword'): ${cleanText.take(60)}")
                 // Log parse_ignored with reason: 'otp' for OTP messages, 'promo' for others.
                 val reason = if (keyword == "otp" || keyword == "verification code" ||
-                    keyword == "one time password" || keyword == "secret code" || keyword == "login code")
+                    keyword == "one time password" || keyword == "one-time password" ||
+                    keyword == "one-time-password" || keyword == "auth code" ||
+                    keyword == "security code" || keyword == "secret code" || keyword == "login code")
                     "otp" else "promo"
                 logParserEvent("parse_ignored", countryCode, packageName, reasonCode = reason)
                 return null
@@ -890,13 +922,13 @@ class NotificationListener : NotificationListenerService() {
             listOf("sms", "message", "messaging", "mms").any { lowerPkg.contains(it) }
         val isPaymentApp = PAYMENT_APPS.contains(packageName)
         val isBankApp = BANK_APPS.contains(packageName) ||
-            listOf("bank", "sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "fedmobile", "fedbook", "idfc", "indus", "yesbank", "rbl", "union", "wallet", "credit", "card", "finance", "money", "iob", "uco", "idbi", "karnataka", "bandhan", "csb", "tmb", "dcb", "dhanlaxmi", "dbs", "digibank", "hsbc", "standard", "citibank", "baroda", "sbicard").any { lowerPkg.contains(it) }
+            listOf("bank", "sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "fedmobile", "fedbook", "idfc", "indus", "yesbank", "rbl", "union", "wallet", "credit", "card", "finance", "money", "iob", "uco", "idbi", "karnataka", "bandhan", "csb", "tmb", "dcb", "dhanlaxmi", "dbs", "digibank", "hsbc", "standard", "citibank", "baroda", "sbicard", "onecard", "slice", "jupiter", "fi money", "airtel bank", "ippb", "aubank", "simpl", "lazypay", "niyo").any { lowerPkg.contains(it) }
 
         // ────────────────────────────────────────────────────────────────
         // STEP 3: Debit vs Credit Action Determination
         // Must contain an explicit, completed transaction action verb.
         // ────────────────────────────────────────────────────────────────
-        val hasDebitVerb = DEBIT_ACTION_PATTERN.containsMatchIn(text) ||
+        val hasDebitVerb = DEBIT_ACTION_PATTERN.containsMatchIn(cleanText) ||
             lowerText.contains("debited from") ||
             lowerText.contains("debited by") ||
             lowerText.contains("debited for") ||
@@ -933,6 +965,10 @@ class NotificationListener : NotificationListenerService() {
             lowerText.contains("spent on") ||
             lowerText.contains("spent at") ||
             lowerText.contains("spent using") ||
+            lowerText.contains("spent rs") ||
+            lowerText.contains("spent inr") ||
+            lowerText.contains("spent ₹") ||
+            Regex("""\bspent\b""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
             lowerText.contains("used for") ||
             lowerText.contains("used at") ||
             lowerText.contains("transferred to") ||
@@ -1042,9 +1078,9 @@ class NotificationListener : NotificationListenerService() {
         //   past-tense confirmed action ("you paid", "paid to", "received from", etc.)
         // - For Bank Apps: Must have account, balance, or explicit transaction text.
         // ────────────────────────────────────────────────────────────────
-        val hasAccount = ACCOUNT_PATTERN.containsMatchIn(text)
-        val hasBalance = BALANCE_PATTERN.containsMatchIn(text)
-        val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(text)
+        val hasAccount = ACCOUNT_PATTERN.containsMatchIn(cleanText)
+        val hasBalance = BALANCE_PATTERN.containsMatchIn(cleanText)
+        val hasUpiRef = UPI_REF_PATTERN.containsMatchIn(cleanText)
 
         if (isSms || isBankApp) {
             // Authentic bank SMS/alerts must have at least one banking identifier
@@ -1057,9 +1093,9 @@ class NotificationListener : NotificationListenerService() {
                 lowerText.contains("atm") || lowerText.contains("ref no") ||
                 lowerText.contains("ref:") || lowerText.contains("utr") ||
                 lowerText.contains("rrn") || lowerText.contains("txn id") ||
-                listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank", "indian bank", "central bank", "iob", "indian overseas", "uco bank", "idbi", "karnataka bank", "bandhan", "csb", "catholic syrian", "tmb", "tamilnad", "dcb bank", "dhanlaxmi", "dbs bank", "digibank", "hsbc", "standard chartered", "citi", "au bank", "au small", "equitas", "ujjivan", "south indian", "karur vysya", "kvb", "lakshmi vilas", "sbi card", "okaxis", "okhdfcbank", "oksbi", "okicici", "mandate").any { lowerText.contains(it) }
+                listOf("sbi", "hdfc", "icici", "axis", "kotak", "pnb", "bob", "canara", "federal", "fedalert", "idfc", "indusind", "rbl", "yes bank", "union bank", "indian bank", "central bank", "iob", "indian overseas", "uco bank", "idbi", "karnataka bank", "bandhan", "csb", "catholic syrian", "tmb", "tamilnad", "dcb bank", "dhanlaxmi", "dbs bank", "digibank", "hsbc", "standard chartered", "citi", "au bank", "au small", "equitas", "ujjivan", "south indian", "karur vysya", "kvb", "lakshmi vilas", "sbi card", "okaxis", "okhdfcbank", "oksbi", "okicici", "mandate", "onecard", "slice", "jupiter", "fi money", "cred", "airtel bank", "ippb", "aubank", "simpl", "lazypay", "niyo").any { lowerText.contains(it) }
             if (!hasBankIdentifier) {
-                Log.d(TAG, "🚫 Ignored message without banking identifier: ${text.take(60)}")
+                Log.d(TAG, "🚫 Ignored message without banking identifier: ${cleanText.take(60)}")
                 logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_bank_id")
                 return null
             }
@@ -1083,7 +1119,7 @@ class NotificationListener : NotificationListenerService() {
                 (lowerText.contains("cashback credited") && (lowerText.contains("bank") || lowerText.contains("account")))
 
             if (!isExplicitPaymentReceipt) {
-                Log.d(TAG, "🚫 Ignored payment app notification without confirmed receipt action: ${text.take(60)}")
+                Log.d(TAG, "🚫 Ignored payment app notification without confirmed receipt action: ${cleanText.take(60)}")
                 logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_verb")
                 return null
             }
@@ -1103,16 +1139,17 @@ class NotificationListener : NotificationListenerService() {
         }
 
         // ────────────────────────────────────────────────────────────────
-        // STEP 5: Amount Extraction (Balance-Excluded)
-        // Never capture the bank balance (e.g., BAL-Rs.60001.27) as the transaction amount!
+        // STEP 5: Amount Extraction (Balance-Excluded & Limit-Masked)
+        // Never capture the bank balance or credit limit as the transaction amount!
         // ────────────────────────────────────────────────────────────────
-        val allAmounts = AMOUNT_PATTERN.findAll(text).toList()
+        val textWithoutLimits = CREDIT_LIMIT_CLAUSE.replace(cleanText, " ")
+        val allAmounts = AMOUNT_PATTERN.findAll(textWithoutLimits).toList()
         if (allAmounts.isEmpty()) {
             logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_amount")
             return null
         }
 
-        val balanceMatches = BALANCE_PATTERN.findAll(text).toList()
+        val balanceMatches = BALANCE_PATTERN.findAll(textWithoutLimits).toList()
 
         // Exclude amounts that fall within any balance regex match span
         val transactionAmounts = allAmounts.filter { amountMatch ->
@@ -1126,7 +1163,7 @@ class NotificationListener : NotificationListenerService() {
         }
 
         if (transactionAmounts.isEmpty()) {
-            Log.d(TAG, "🚫 Only balance amount found, no transaction amount in: ${text.take(60)}")
+            Log.d(TAG, "🚫 Only balance amount found, no transaction amount in: ${cleanText.take(60)}")
             logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "no_amount")
             return null
         }
@@ -1151,38 +1188,57 @@ class NotificationListener : NotificationListenerService() {
         val (category, icon) = detectCategory(lowerText, type)
 
         // Extract clean note for ATM/cash withdrawals, sender or recipient
-        var note = text.take(100)
-        val atmMatch = Regex("""withdrawn\s*[@at]\s*([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+        var note = cleanText.take(100)
+        val atmMatch = Regex("""(?:withdrawn\s*[@at]|cash\s+withdrawal\s+at)\s+([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(cleanText)
         if (atmMatch != null) {
-            val location = atmMatch.groupValues[1].trim()
+            val location = cleanMerchantString(atmMatch.groupValues[1])
             if (location.isNotEmpty()) {
                 note = "Cash Withdrawal ($location)"
             }
         } else if (!isDebit) {
-            val fromMatch = Regex("""from\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+            val fromMatch = Regex("""from\s+([A-Za-z0-9\s._@-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(cleanText)
             if (fromMatch != null) {
-                val sender = fromMatch.groupValues[1].trim()
-                if (sender.isNotEmpty() && !sender.equals("account", ignoreCase = true) && !sender.equals("a/c", ignoreCase = true)) {
-                    note = "Received from $sender"
+                val rawSender = cleanMerchantString(fromMatch.groupValues[1])
+                if (rawSender.isNotEmpty() && !rawSender.equals("account", ignoreCase = true) && !rawSender.equals("a/c", ignoreCase = true)) {
+                    val displaySender = if (rawSender.all { it.isLowerCase() }) rawSender.replaceFirstChar { it.uppercase() } else rawSender
+                    note = "Received from $displaySender"
                 }
             }
         } else {
-            val toMatch = Regex("""(?:to|transfer\s+to|trf\s+to|paid\s+to)\s+([A-Za-z0-9\s._-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(text)
+            val toMatch = Regex("""(?:to|transfer\s+to|trf\s+to|paid\s+to)\s+([A-Za-z0-9\s._@-]+?)(?:\s*;|\s+upi|\s+ref|\s+bal|\s+on|\s*\.|\s*$)""", RegexOption.IGNORE_CASE).find(cleanText)
             if (toMatch != null) {
-                val recipient = toMatch.groupValues[1].trim()
-                if (recipient.isNotEmpty() && !recipient.equals("account", ignoreCase = true) && !recipient.equals("a/c", ignoreCase = true)) {
-                    note = "Paid to $recipient"
+                val rawRecipient = cleanMerchantString(toMatch.groupValues[1])
+                if (rawRecipient.isNotEmpty() && !rawRecipient.equals("account", ignoreCase = true) && !rawRecipient.equals("a/c", ignoreCase = true)) {
+                    val displayRecipient = if (rawRecipient.all { it.isLowerCase() }) rawRecipient.replaceFirstChar { it.uppercase() } else rawRecipient
+                    note = "Paid to $displayRecipient"
                 }
             }
         }
 
         // Extract UPI / Reference ID if present
-        val upiMatch = UPI_REF_PATTERN.find(text)
+        val upiMatch = UPI_REF_PATTERN.find(cleanText)
         val upiRef = upiMatch?.value?.replace(Regex("""^[^\d]*"""), "")?.trim()
 
         // Extract transaction date if explicitly formatted in SMS (e.g. "on 19/09/26" or "on 19-09-2026")
         var transactionDateIso: String? = null
-        val dateMatch = Regex("""\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b""", RegexOption.IGNORE_CASE).find(text)
+        val dateMatch = Regex("""\bon\s+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b""", RegexOption.IGNORE_CASE).find(cleanText)
+        if (dateMatch != null) {
+            try {
+                val rawDate = dateMatch.groupValues[1].replace("-", "/")
+                val parts = rawDate.split("/")
+                val day = parts[0].toInt()
+                val month = parts[1].toInt()
+                var year = parts[2].toInt()
+                if (year < 100) year += 2000
+                val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    set(year, month - 1, day, 12, 0, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+                transactionDateIso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(cal.time)
+            } catch (_: Exception) {}
+        }
         if (dateMatch != null) {
             try {
                 val rawDate = dateMatch.groupValues[1].replace("-", "/")
@@ -1325,6 +1381,7 @@ class NotificationListener : NotificationListenerService() {
     private fun cleanMerchantString(raw: String): String {
         return raw.trim()
             .replace(Regex("""\s*\(.*?\)\s*$"""), "")
+            .replace(Regex("""@[a-zA-Z0-9._-]+$"""), "")
             .replace(Regex("""(\s+PVT\.?\s*LTD\.?|\s+PRIVATE\s+LIMITED)$""", RegexOption.IGNORE_CASE), "")
             .replace(Regex("""(\s+LTD\.?|\s+LIMITED)$""", RegexOption.IGNORE_CASE), "")
             .replace(Regex("""\s+Ref\s+No.*""", RegexOption.IGNORE_CASE), "")
