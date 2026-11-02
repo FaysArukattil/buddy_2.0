@@ -141,3 +141,4 @@ Following the inspection of reference repositories (`https://github.com/sarim200
 1. **Zero External Logging**: No SMS text, transaction amount, account number, or merchant string is ever sent to external servers or logged in analytics.
 2. **Privacy-Safe Categorical Analytics**: Only non-PII categorical events (`parse_success`, `parse_ignored`, `parse_failed`) with `countryCode`, `source_pkg`, and `reasonCode` are logged to Firebase Analytics.
 3. **Local Android Storage**: Transactions are stored in the app's sandboxed private `SharedPreferences` (`FlutterSharedPreferences`), inaccessible to any other app on the device.
+
