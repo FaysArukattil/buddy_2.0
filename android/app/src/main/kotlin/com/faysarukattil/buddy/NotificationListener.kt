@@ -332,6 +332,9 @@ class NotificationListener : NotificationListenerService() {
             "blinkit" to Pair("Zepto", 62922),
             "bigbasket" to Pair("Instamart", 983521),
             "dunzo" to Pair("Zepto", 62922),
+            "talabat" to Pair("Local Food", 63609),
+            "deliveroo" to Pair("Local Food", 63609),
+            "careem food" to Pair("Local Food", 63609),
 
             // Shopping & E-commerce
             "amazon" to Pair("Amazon", 63522),
@@ -344,11 +347,39 @@ class NotificationListener : NotificationListenerService() {
             "croma" to Pair("Flipkart", 983407),
             "reliance" to Pair("Amazon", 63522),
             "decathlon" to Pair("Amazon", 63522),
+            "ikea" to Pair("Amazon", 63522),
+            "shein" to Pair("Amazon", 63522),
+            "temu" to Pair("Amazon", 63522),
+            "costco" to Pair("Amazon", 63522),
+            "target" to Pair("Amazon", 63522),
+            "walmart" to Pair("Amazon", 63522),
+            "zara" to Pair("Myntra", 63033),
+            "centrepoint" to Pair("Amazon", 63522),
+            "sharaf dg" to Pair("Flipkart", 983407),
+
+            // Groceries & Supermarkets
+            "carrefour" to Pair("Instamart", 983521),
+            "lulu" to Pair("Instamart", 983521),
+            "spinneys" to Pair("Instamart", 983521),
+            "waitrose" to Pair("Instamart", 983521),
+            "spar" to Pair("Instamart", 983521),
+            "supermarket" to Pair("Instamart", 983521),
+            "hypermarket" to Pair("Instamart", 983521),
+            "dmart" to Pair("Instamart", 983521),
+            "jiomart" to Pair("Instamart", 983521),
+            "grocery" to Pair("Instamart", 983521),
 
             // Rides & Transport & Fuel
             "uber" to Pair("Uber", 63616),
             "ola" to Pair("Ola", 63616),
             "rapido" to Pair("Rapido", 983646),
+            "careem" to Pair("Uber", 63616),
+            "grab" to Pair("Uber", 63616),
+            "bolt" to Pair("Uber", 63616),
+            "yango" to Pair("Uber", 63616),
+            "salik" to Pair("Transport", 63155),
+            "toll" to Pair("Transport", 63155),
+            "parking" to Pair("Transport", 63155),
             "namma yatri" to Pair("Uber", 63616),
             "fuel" to Pair("Fuel", 63597),
             "petrol" to Pair("Fuel", 63597),
@@ -391,6 +422,14 @@ class NotificationListener : NotificationListenerService() {
             "water bill" to Pair("Bills & Utilities", 983265),
             "gas bill" to Pair("Bills & Utilities", 983265),
             "bill" to Pair("Bills & Utilities", 983265),
+            "dewa" to Pair("Bills & Utilities", 983265),
+            "sewa" to Pair("Bills & Utilities", 983265),
+            "stc" to Pair("Recharge", 983160),
+            "etisalat" to Pair("Recharge", 983160),
+            "du " to Pair("Recharge", 983160),
+            "mobily" to Pair("Recharge", 983160),
+            "ooredoo" to Pair("Recharge", 983160),
+            "zain" to Pair("Recharge", 983160),
 
             // Food & Cafes
             "coffee" to Pair("Coffee", 63061),
@@ -405,6 +444,14 @@ class NotificationListener : NotificationListenerService() {
             "restaurant" to Pair("Local Food", 63609),
             "bakery" to Pair("Local Food", 63609),
             "food" to Pair("Local Food", 63609),
+            "al baik" to Pair("Local Food", 63609),
+            "jollibee" to Pair("Local Food", 63609),
+            "chipotle" to Pair("Local Food", 63609),
+            "nando" to Pair("Local Food", 63609),
+            "canteen" to Pair("Local Food", 63609),
+            "dhaba" to Pair("Local Food", 63609),
+            "biryani" to Pair("Local Food", 63609),
+            "shawarma" to Pair("Local Food", 63609),
 
             // Health & Medical
             "pharmacy" to Pair("Medical", 63664),
@@ -662,12 +709,14 @@ class NotificationListener : NotificationListenerService() {
                         // Convert GlobalBankParser.ParsedResult into the same Transaction the
                         // India path produces, reusing detectCategory for consistency.
                         val (cat, icon) = detectCategory(fullText.lowercase(), globalResult.type)
+                        val isDebit = globalResult.type == "expense"
+                        val note = extractCleanNote(fullText, isDebit)
                         Transaction(
                             amount = globalResult.amount,
                             type = globalResult.type,
                             category = cat,
                             icon = icon,
-                            note = fullText.take(200),
+                            note = note,
                             dateIso = null,
                             upiRef = null,
                         )
@@ -1214,6 +1263,85 @@ class NotificationListener : NotificationListenerService() {
                 else -> Pair("Other", 983074)
             }
         }
+    }
+
+    /**
+     * Extracts a clean merchant note for global transactions using lookahead,
+     * suffix stripping, and anti-noise guards learned from industry parsers.
+     */
+    private fun extractCleanNote(text: String, isDebit: Boolean): String {
+        // ATM / Cash withdrawal check
+        val atmMatch = Regex(
+            """(?:withdrawn\s*[@at]|cash\s+withdrawal\s+at)\s+([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)""",
+            RegexOption.IGNORE_CASE
+        ).find(text)
+        if (atmMatch != null) {
+            val location = cleanMerchantString(atmMatch.groupValues[1])
+            if (location.isNotEmpty()) return "Cash Withdrawal ($location)"
+        }
+
+        // UPI VPA with parenthesis check: VPA xyz@upi (Merchant Name)
+        val vpaMatch = Regex(
+            """VPA\s+[^@\s]+@[^\s]+\s*\(([^)]+)\)""",
+            RegexOption.IGNORE_CASE
+        ).find(text)
+        if (vpaMatch != null) {
+            val vpaName = cleanMerchantString(vpaMatch.groupValues[1])
+            if (isValidMerchantString(vpaName)) {
+                return if (isDebit) "Paid to $vpaName" else "Received from $vpaName"
+            }
+        }
+
+        if (isDebit) {
+            val toMatch = Regex(
+                """\b(?:at|to|transfer\s+to|trf\s+to|paid\s+to|sent\s+to|towards)\s+([A-Za-z0-9&'][^,;:\n]*?)""" +
+                """(?=\s+(?:on|at|via|using|with|ref|for|dated|avl|avail|available|bal|balance|txn|from|to)\b|\.(?:\s|$)|[,;:\n]|$)""",
+                RegexOption.IGNORE_CASE
+            ).find(text)
+            if (toMatch != null) {
+                val candidate = cleanMerchantString(toMatch.groupValues[1])
+                if (isValidMerchantString(candidate)) {
+                    val isAt = Regex("""\bat\s+""", RegexOption.IGNORE_CASE).containsMatchIn(text)
+                    return if (isAt) "Paid at $candidate" else "Paid to $candidate"
+                }
+            }
+        } else {
+            val fromMatch = Regex(
+                """\bfrom\s+([A-Za-z0-9&'][^,;:\n]*?)""" +
+                """(?=\s+(?:on|at|via|using|with|ref|for|dated|avl|avail|available|bal|balance|txn|to)\b|\.(?:\s|$)|[,;:\n]|$)""",
+                RegexOption.IGNORE_CASE
+            ).find(text)
+            if (fromMatch != null) {
+                val candidate = cleanMerchantString(fromMatch.groupValues[1])
+                if (isValidMerchantString(candidate)) {
+                    return "Received from $candidate"
+                }
+            }
+        }
+
+        return text.take(100)
+    }
+
+    private fun cleanMerchantString(raw: String): String {
+        return raw.trim()
+            .replace(Regex("""\s*\(.*?\)\s*$"""), "")
+            .replace(Regex("""(\s+PVT\.?\s*LTD\.?|\s+PRIVATE\s+LIMITED)$""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""(\s+LTD\.?|\s+LIMITED)$""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s+Ref\s+No.*""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s+UPI.*""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s+on\s+\d{2}.*""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s+at\s+\d{2}:\d{2}.*""", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("""\s*-\s*$"""), "")
+            .trim()
+    }
+
+    private fun isValidMerchantString(candidate: String): Boolean {
+        if (candidate.length < 2) return false
+        val lower = candidate.lowercase(Locale.US)
+        val notMerchantPrefixes = listOf("your", "you", "a/c", "ac ", "acct", "account", "card", "the", "my ")
+        if (notMerchantPrefixes.any { lower.startsWith(it) || lower == it.trim() }) return false
+        if (candidate.all { it.isDigit() || it == '-' || it == '/' || it == '.' }) return false
+        return candidate.any { it.isLetter() }
     }
 
     // ── Storage ──

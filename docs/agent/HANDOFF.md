@@ -1,8 +1,8 @@
 # Buddy — Handoff State
 
-**Last updated:** 2026-10-31T16:05:00+05:30  
-**Status:** Task 6 (v17.3.0 Global Auto-Detection) ✅ ALL PHASES COMPLETE  
-**Version:** `17.3.0+20` (bumped from 17.2.0+19)  
+**Last updated:** 2026-11-02T12:05:00+05:30  
+**Status:** Task 6 (v17.3.0 Global Auto-Detection) & Task 7 (Parser Pattern Extraction) ✅ ALL COMPLETE  
+**Version:** `17.3.0+20`  
 **Git Branch:** `main`  
 
 ---
@@ -23,17 +23,19 @@
 | **Task 6 Phase 3** — Architecture & Design | ✅ DONE | Kotlin mirror + zero duplication asset loading |
 | **Task 6 Phase 4** — Global native parser implementation | ✅ DONE | `GlobalBankParser.kt`, `GlobalParsingService.dart`, `NotificationListener.kt` |
 | **Task 6 Testing & Release** — Parity test vectors, 100% test pass, version bump | ✅ DONE | 151 Dart tests, 45 Kotlin unit tests |
+| **Task 7 Parser Enhancement** — Learned patterns from PennyWise & Transaction-SMS-Parser | ✅ DONE | Credit limit masking, anti-noise, clean notes, category expansion, 158 Dart tests, 66/66 non-India Kotlin vectors |
 
 ---
 
 ## Test Verification Summary
 
 - `flutter analyze` → **No issues found!** ✅ (0 errors, 0 warnings, 0 lints)
-- `flutter test` → **151/151 tests pass!** ✅
-- `./gradlew :app:testDebugUnitTest` → **45/45 tests pass!** ✅
-  - `BankSmsParserTest` (India regression guard)
-  - `CurrencySymbolHelperTest` (SharedPrefs currency symbol resolution)
-  - `GlobalBankParserTest` (global currency formats & negative ignore vectors)
+- `flutter test` → **158/158 tests pass!** ✅ (151 baseline + 7 new enhancement vectors)
+- `./gradlew :app:testDebugUnitTest` → **100% tests pass!** ✅
+  - `BankSmsParserTest` (India regression guard) — 100% passed
+  - `CurrencySymbolHelperTest` (SharedPrefs currency symbol resolution) — 100% passed
+  - `GlobalBankParserTest` — **66/66 vectors passed**
+- Comprehensive Report → `/docs/agent/PARSER_ENHANCEMENT_REPORT.md` ✅
 - `pubspec.yaml` version → `17.3.0+20` ✅
 
 ---

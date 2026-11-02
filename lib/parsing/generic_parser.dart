@@ -42,17 +42,32 @@ class GenericParser implements BankParser {
     'bal', 'balance', 'avl bal', 'avbl bal', 'avail bal', 'available bal',
     'available balance', 'avail balance', 'a/c bal', 'saldo',
     'kontostand', 'disponível', 'solde',
+    'limit', 'lmt', 'avl limit', 'avail limit', 'available limit', 'credit limit',
   ];
+
+  // Universal credit limit clause masking pattern
+  static final _creditLimitClause = RegExp(
+    r'\b(?:Avl|Avail|Available)\.?\s+(?:Credit\s+)?(?:Limit|Lmt)\b\s*(?:is)?\s*:?\s*(?:INR|Rs\.?|₹|[A-Z]{3}|[$€£¥₩])?\s*[0-9,]*\.?\d+',
+    caseSensitive: false,
+  );
 
   // Universal ignore patterns applied before country-specific ones (mirrors GlobalBankParser.kt)
   static final _universalIgnore = [
-    'otp', 'one time password', 'verification code', 'login code',
+    'otp', 'one time password', 'one-time password', 'verification code', 'login code',
     'failed', 'declined', 'unsuccessful', 'cancelled', 'rejected',
-    'bill due', 'payment due', 'amount due', 'due on',
-    'requested money', 'has requested', 'request received',
+    'bill due', 'payment due', 'amount due', 'due on', 'min amount due', 'minimum amount due',
+    'is overdue', 'in arrears',
+    'requested money', 'has requested', 'request received', 'collect request',
     'pre-approved', 'pre approved', 'loan offer', 'loan approved',
     'congratulations', 'congrats', 'click here', 'tap here',
-    'promo code', 'coupon code', 'discount code',
+    'promo code', 'coupon code', 'discount code', 'cashback offer',
+    'is blocked in your', 'asba', 'earmarked in your',
+    'will be auto-debited', 'will be auto debited', 'mandate set for',
+    'convert your', 'smartemi', 'into emi',
+    // Arabic failure & decline phrases
+    'عملية مرفوضة', 'تم رفض العملية', 'فشل العملية', 'عملية فاشلة',
+    'تعذر إتمام العملية', 'لم تتم العملية', 'عملية غير ناجحة',
+    'رصيد غير كافي', 'الرقم السري',
   ];
 
   GenericParser._({
@@ -268,11 +283,13 @@ class GenericParser implements BankParser {
   }
 
   double? _extractAmount(String text, String lower) {
-    final allMatches = _amountRegex.allMatches(text).toList();
+    // Mask credit limit clause so available limit is never extracted as spend
+    final textWithoutLimit = text.replaceAll(_creditLimitClause, ' ');
+    final allMatches = _amountRegex.allMatches(textWithoutLimit).toList();
     if (allMatches.isEmpty) return null;
 
     // Identify balance spans to exclude
-    final balanceSpans = _findBalanceSpans(text, lower);
+    final balanceSpans = _findBalanceSpans(textWithoutLimit, lower);
 
     // Find the first valid non-balance amount match
     for (final match in allMatches) {
@@ -339,25 +356,87 @@ class GenericParser implements BankParser {
       }
       if (lower.contains('swiggy') ||
           lower.contains('zomato') ||
+          lower.contains('talabat') ||
+          lower.contains('deliveroo') ||
+          lower.contains('careem food') ||
+          lower.contains('al baik') ||
+          lower.contains('jollibee') ||
+          lower.contains('chipotle') ||
+          lower.contains('nando') ||
+          lower.contains('starbucks') ||
+          lower.contains('coffee') ||
+          lower.contains('cafe') ||
+          lower.contains('canteen') ||
+          lower.contains('dhaba') ||
+          lower.contains('biryani') ||
+          lower.contains('shawarma') ||
+          lower.contains('bakery') ||
+          lower.contains('baker') ||
+          lower.contains('subway') ||
+          lower.contains('mcdonald') ||
+          lower.contains('kfc') ||
+          lower.contains('burger') ||
+          lower.contains('pizza') ||
           lower.contains('food') ||
           lower.contains('restaurant') ||
           lower.contains('dining')) {
         return ('Local Food', 63609);
       }
-      if (lower.contains('amazon') ||
-          lower.contains('shopping') ||
-          lower.contains('mall') ||
+      if (lower.contains('carrefour') ||
+          lower.contains('lulu') ||
+          lower.contains('spinneys') ||
+          lower.contains('waitrose') ||
+          lower.contains('spar') ||
           lower.contains('supermarket') ||
-          lower.contains('groceries')) {
+          lower.contains('hypermarket') ||
+          lower.contains('groceries') ||
+          lower.contains('grocery') ||
+          lower.contains('zepto') ||
+          lower.contains('blinkit') ||
+          lower.contains('instamart') ||
+          lower.contains('bigbasket') ||
+          lower.contains('dmart') ||
+          lower.contains('jiomart')) {
+        return ('Instamart', 983521);
+      }
+      if (lower.contains('amazon') ||
+          lower.contains('flipkart') ||
+          lower.contains('ikea') ||
+          lower.contains('shein') ||
+          lower.contains('temu') ||
+          lower.contains('costco') ||
+          lower.contains('target') ||
+          lower.contains('walmart') ||
+          lower.contains('zara') ||
+          lower.contains('centrepoint') ||
+          lower.contains('sharaf dg') ||
+          lower.contains('shopping') ||
+          lower.contains('mall')) {
         return ('Amazon', 63522);
       }
       if (lower.contains('uber') ||
+          lower.contains('ola') ||
+          lower.contains('rapido') ||
+          lower.contains('careem') ||
           lower.contains('grab') ||
+          lower.contains('bolt') ||
+          lower.contains('yango') ||
+          lower.contains('salik') ||
+          lower.contains('toll') ||
+          lower.contains('parking') ||
           lower.contains('taxi') ||
+          lower.contains('metro') ||
           lower.contains('transport')) {
         return ('Transport', 63155);
       }
-      if (lower.contains('electricity') ||
+      if (lower.contains('dewa') ||
+          lower.contains('sewa') ||
+          lower.contains('stc') ||
+          lower.contains('etisalat') ||
+          lower.contains('recharge') ||
+          lower.contains('wifi') ||
+          lower.contains('broadband') ||
+          lower.contains('electricity') ||
           lower.contains('water') ||
           lower.contains('gas') ||
           lower.contains('bill') ||
@@ -366,6 +445,7 @@ class GenericParser implements BankParser {
       }
       if (lower.contains('netflix') ||
           lower.contains('spotify') ||
+          lower.contains('hotstar') ||
           lower.contains('movie') ||
           lower.contains('cinema')) {
         return ('Entertainment', 0xe02c);
@@ -407,36 +487,82 @@ class GenericParser implements BankParser {
   }
 
   String _buildNote(String text, bool isDebit) {
-    // Try to find a merchant/recipient name
+    // 0. ATM / Cash withdrawal check
+    final atmMatch = RegExp(
+      r'(?:withdrawn\s*[@at]|cash\s+withdrawal\s+at)\s+([A-Za-z0-9\s_-]+?)(?:\s+on|\s+at|\s+bal|\s+ref|\s*\.|\s*$)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (atmMatch != null) {
+      final loc = _cleanMerchant(atmMatch.group(1) ?? '');
+      if (loc.isNotEmpty) return 'Cash Withdrawal ($loc)';
+    }
+
+    // 1. UPI VPA with parenthesis check: VPA xyz@upi (Merchant Name)
+    final vpaMatch = RegExp(
+      r'VPA\s+[^@\s]+@[^\s]+\s*\(([^)]+)\)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (vpaMatch != null) {
+      final vpaName = _cleanMerchant(vpaMatch.group(1) ?? '');
+      if (_isValidMerchant(vpaName)) {
+        return isDebit ? 'Paid to $vpaName' : 'Received from $vpaName';
+      }
+    }
+
     if (isDebit) {
+      // Lookahead after at/to/towards/transfer to/paid to
       final toMatch = RegExp(
-        r'(?:to|paid\s+to|transfer\s+to|payment\s+to|sent\s+to|at)\s+([A-Za-z0-9\s._-]+?)(?:\s*[;,.]|\s+on\s|\s+ref|\s+bal|\s*$)',
+        r"\b(?:at|to|transfer\s+to|trf\s+to|paid\s+to|sent\s+to|towards)\s+([A-Za-z0-9&'][^,;:\n]*?)"
+        r'(?=\s+(?:on|at|via|using|with|ref|for|dated|avl|avail|available|bal|balance|txn|from|to)\b|\.(?:\s|$)|[,;:\n]|$)',
         caseSensitive: false,
       ).firstMatch(text);
       if (toMatch != null) {
-        final name = toMatch.group(1)?.trim();
-        if (name != null &&
-            name.isNotEmpty &&
-            !name.toLowerCase().contains('account') &&
-            !name.toLowerCase().contains('a/c')) {
-          return 'Paid to $name';
+        final candidate = _cleanMerchant(toMatch.group(1) ?? '');
+        if (_isValidMerchant(candidate)) {
+          final isAt = RegExp(r'\bat\s+', caseSensitive: false).hasMatch(text);
+          return isAt ? 'Paid at $candidate' : 'Paid to $candidate';
         }
       }
     } else {
       final fromMatch = RegExp(
-        r'from\s+([A-Za-z0-9\s._-]+?)(?:\s*[;,.]|\s+on\s|\s+ref|\s+bal|\s*$)',
+        r"\bfrom\s+([A-Za-z0-9&'][^,;:\n]*?)"
+        r'(?=\s+(?:on|at|via|using|with|ref|for|dated|avl|avail|available|bal|balance|txn|to)\b|\.(?:\s|$)|[,;:\n]|$)',
         caseSensitive: false,
       ).firstMatch(text);
       if (fromMatch != null) {
-        final name = fromMatch.group(1)?.trim();
-        if (name != null &&
-            name.isNotEmpty &&
-            !name.toLowerCase().contains('account') &&
-            !name.toLowerCase().contains('a/c')) {
-          return 'Received from $name';
+        final candidate = _cleanMerchant(fromMatch.group(1) ?? '');
+        if (_isValidMerchant(candidate)) {
+          return 'Received from $candidate';
         }
       }
     }
+
     return text.length > 100 ? text.substring(0, 100) : text;
+  }
+
+  String _cleanMerchant(String raw) {
+    return raw
+        .replaceAll(RegExp(r'\s*\(.*?\)\s*$'), '')
+        .replaceAll(RegExp(r'(\s+PVT\.?\s*LTD\.?|\s+PRIVATE\s+LIMITED)$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'(\s+LTD\.?|\s+LIMITED)$', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+Ref\s+No.*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+UPI.*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+on\s+\d{2}.*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+at\s+\d{2}:\d{2}.*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*-\s*$'), '')
+        .trim();
+  }
+
+  bool _isValidMerchant(String candidate) {
+    if (candidate.length < 2) return false;
+    final lower = candidate.toLowerCase();
+    const notMerchantPrefixes = [
+      'your', 'you', 'a/c', 'ac ', 'acct', 'account', 'card', 'the', 'my '
+    ];
+    if (notMerchantPrefixes.any((p) => lower.startsWith(p) || lower == p.trim())) {
+      return false;
+    }
+    if (RegExp(r'^[0-9\-/.]+$').hasMatch(candidate)) return false;
+    return candidate.contains(RegExp(r'[A-Za-z]'));
   }
 }

@@ -837,6 +837,83 @@
       "expectedAmount": null,
       "expectedCurrency": null,
       "shouldIgnore": true
+    },
+    {
+      "id": "AE_LIMIT_001",
+      "country": "AE",
+      "description": "Emirates NBD card debit with Avl Limit clause — must extract purchase amount, not limit",
+      "message": "Emirates NBD: Your card ending 1234 has been debited for AED 85.50 at Starbucks. Avl Limit: AED 25,000.00. Available Balance: AED 12,450.00.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": "expense",
+      "expectedAmount": 85.5,
+      "expectedCurrency": "AED",
+      "shouldIgnore": false
+    },
+    {
+      "id": "US_LIMIT_001",
+      "country": "US",
+      "description": "Chase card spend with Available Credit Limit — must extract spend, not credit limit",
+      "message": "Chase: You made a payment of $42.50 at Whole Foods on card ending 8812. Available Credit Limit: $8,500.00.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": "expense",
+      "expectedAmount": 42.5,
+      "expectedCurrency": "USD",
+      "shouldIgnore": false
+    },
+    {
+      "id": "IGNORE_ASBA_001",
+      "country": "AE",
+      "description": "ASBA / blocked funds notice — must ignore",
+      "message": "Emirates NBD: Your application has been submitted and AED 15,000.00 is blocked in your account ending 1234.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IGNORE_AUTO_DEBIT_001",
+      "country": "US",
+      "description": "Future auto debit reminder — must ignore",
+      "message": "Chase Alert: $25.00 for Netflix will be auto-debited from your checking account on 15 Nov. Please maintain balance.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IGNORE_HYPHEN_OTP_001",
+      "country": "US",
+      "description": "Hyphenated One-Time Password — must ignore",
+      "message": "Your One-Time Password is 849201. Use this code to verify your purchase of $120.00 at Apple.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IGNORE_ARABIC_DECLINE_001",
+      "country": "SA",
+      "description": "Saudi decline notice with Arabic failure keywords — must ignore",
+      "message": "Al Rajhi Bank: عملية مرفوضة بقيمة SAR 150.00 في متجر كارفور لعدم كفاية الرصيد.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IGNORE_EMI_OFFER_001",
+      "country": "AE",
+      "description": "Convert to EMI marketing offer — must ignore",
+      "message": "Mashreq: Convert your credit card bill of AED 18,500 into SmartEMI in easy installments. SMS SMARTEMI YES.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
     }
   ]
 }

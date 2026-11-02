@@ -223,3 +223,15 @@
 - [x] P5.5 Bump version to 17.3.0+20 in pubspec.yaml
 - [x] P5.6 Update RELEASE_CHECKLIST.md
 - [x] P5.7 Final commit + short report
+
+---
+
+## Task 7: Parser Pattern Extraction & Enhancement (from PennyWise & Transaction-SMS-Parser) ✅ DONE
+- [x] 7.1 Clone and inspect `sarim2000/pennywiseai-tracker` and `saurabhgupta050890/transaction-sms-parser`
+- [x] 7.2 Extract credit limit clause masking pattern (`CREDIT_LIMIT_CLAUSE`) into `GlobalBankParser.kt` & `generic_parser.dart`
+- [x] 7.3 Extract false-positive rejection filters (ASBA/IPO blocked funds, future auto-debit reminders, hyphenated OTPs, convert-to-EMI, Arabic decline phrases) into universal ignore lists
+- [x] 7.4 Implement `extractCleanNote` with lookaheads (`at`, `to`, `towards`), suffix stripping, `NOT_MERCHANT` guards, and VPA parsing
+- [x] 7.5 Expand regional & international category mappings (`MERCHANT_CATEGORY_MAP` and `detectCategory`)
+- [x] 7.6 Add test vectors to `bank_sms_test_vectors.json` (7 new vectors: credit limit masking, ASBA, auto-debit, Arabic decline, etc.)
+- [x] 7.7 Verify tests: `flutter analyze` (0 issues), `flutter test` (158/158 passed), `./gradlew :app:testDebugUnitTest` (66/66 non-India vectors passed, 100% India regression passed)
+- [x] 7.8 Create comprehensive report in `/docs/agent/PARSER_ENHANCEMENT_REPORT.md`

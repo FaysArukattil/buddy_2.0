@@ -85,7 +85,9 @@ class GlobalBankParser private constructor(
         }
 
         // Step 5: Extract amounts (excluding balance amounts)
-        val allMatches = amountPattern.findAll(text).toList()
+        // Mask out credit limit clause so available limit is never extracted as spend
+        val textWithoutLimit = CREDIT_LIMIT_CLAUSE.replace(text, " ")
+        val allMatches = amountPattern.findAll(textWithoutLimit).toList()
         if (allMatches.isEmpty()) return null
 
         // Find balance marker spans so we can exclude amounts inside them
@@ -181,17 +183,32 @@ class GlobalBankParser private constructor(
             "available bal", "available balance", "avail balance",
             "a/c bal", "saldo", "kontostand", "disponível", "solde",
             "bakiye", "残高", "잔액",
+            "limit", "lmt", "avl limit", "avail limit", "available limit", "credit limit",
+        )
+
+        // Credit limit clause masking pattern
+        private val CREDIT_LIMIT_CLAUSE = Regex(
+            """\b(?:Avl|Avail|Available)\.?\s+(?:Credit\s+)?(?:Limit|Lmt)\b\s*(?:is)?\s*:?\s*(?:INR|Rs\.?|₹|[A-Z]{3}|[$€£¥₩])?\s*[0-9,]*\.?\d+""",
+            RegexOption.IGNORE_CASE
         )
 
         // Universal ignore patterns applied before country-specific ones
         private val UNIVERSAL_IGNORE = listOf(
-            "otp", "one time password", "verification code", "login code",
+            "otp", "one time password", "one-time password", "verification code", "login code",
             "failed", "declined", "unsuccessful", "cancelled", "rejected",
-            "bill due", "payment due", "amount due", "due on",
-            "requested money", "has requested", "request received",
+            "bill due", "payment due", "amount due", "due on", "min amount due", "minimum amount due",
+            "is overdue", "in arrears",
+            "requested money", "has requested", "request received", "collect request",
             "pre-approved", "pre approved", "loan offer", "loan approved",
             "congratulations", "congrats", "click here", "tap here",
-            "promo code", "coupon code", "discount code",
+            "promo code", "coupon code", "discount code", "cashback offer",
+            "is blocked in your", "asba", "earmarked in your",
+            "will be auto-debited", "will be auto debited", "mandate set for",
+            "convert your", "smartemi", "into emi",
+            // Arabic failure and decline patterns (Saudi, UAE, Egypt, etc.)
+            "عملية مرفوضة", "تم رفض العملية", "فشل العملية", "عملية فاشلة",
+            "تعذر إتمام العملية", "لم تتم العملية", "عملية غير ناجحة",
+            "رصيد غير كافي", "الرقم السري",
         )
 
         /**
