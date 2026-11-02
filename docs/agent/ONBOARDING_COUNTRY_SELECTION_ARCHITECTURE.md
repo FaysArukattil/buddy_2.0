@@ -130,22 +130,49 @@ When a user selects their country on Step 0, all subsequent screens immediately 
 | **Eurozone (`DE`/`FR`/`ES`)** | `€` | Carrefour Express via Card / Wallet | Carrefour Express via Card | `€0 / forever` |
 | **Rest of World / Other** | Target Symbol | Local Grocery Market via Card / Wallet | Verified Bank Transaction | `{symbol}0 / forever` |
 
+### D. National Pride & High-Converting Viewport Architecture
+
+1. **National Pride Glass Card (`_nationalPrideTitle` & `_nationalPrideSubtitle`)**:
+   - Rather than displaying a generic duplicate transaction card, Step 0 features an ultra-sleek, compact 48px National Pride Glass Card.
+   - Highlights the user's selected country with tailored pride headlines and localized banking auto-tracking:
+     - `Proudly Tuned for India 🇮🇳` — *Auto-detects UPI & 40+ Indian banks in ₹ (INR)*
+     - `Optimized for UAE 🇦🇪` — *Auto-detects ENBD, ADCB, FAB & cards in AED*
+     - `Built for United States 🇺🇸` — *Auto-detects Chase, BoA, Amex & Apple Pay in $*
+     - `Tuned for United Kingdom 🇬🇧` — *Auto-detects Monzo, Barclays, Revolut & cards in £*
+     - `Proudly Made for Saudi Arabia 🇸🇦` — *Auto-detects Al Rajhi, SNB, Riyad & mada in SAR*
+     - `Tuned for Canada 🇨🇦` — *Auto-detects RBC, TD, Scotiabank & Interac in CA$*
+     - `Optimized for Australia 🇦🇺` — *Auto-detects CommBank, ANZ, NAB & cards in A$*
+     - `Tuned for Singapore 🇸🇬` — *Auto-detects DBS, OCBC, UOB & PayNow in S$*
+     - `Tuned for Pakistan 🇵🇰` — *Auto-detects HBL, Meezan, Raast & JazzCash in Rs*
+     - `Tuned for Bangladesh 🇧🇩` — *Auto-detects bKash, Nagad & local banks in ৳*
+     - `Tuned for Nigeria 🇳🇬` — *Auto-detects GTBank, Access, Zenith & transfers in ₦*
+     - `Tuned for Kenya 🇰🇪` — *Auto-detects M-PESA & Kenyan bank alerts in KSh*
+     - `Optimized for Germany 🇩🇪` / `France 🇫🇷` / `Japan 🇯🇵` / `Brazil 🇧🇷` / All 178 Play Store Countries.
+
+2. **Vertical Space Budget Math for Mobile Viewports**:
+   - On a typical 780–800px mobile screen with a 330px IME keyboard:
+     - Usable height: `~450–470px`.
+     - Streamlined top elements (TopBar, Compact Header, Pride Card, SearchBar, Chips): `~180px`.
+     - Bottom continue action is cleanly hidden when keyboard is open (`if (!keyboardOpen)` at index 6 after the list, ensuring indices 0..5 never shift).
+     - **Resulting Expanded List Viewport:** **280–300px** of unconstrained vertical scroll space, fitting **6 to 7 full country rows** simultaneously while typing.
+
 ---
 
 ## 3. Verification & Test Coverage
 
 ### A. Flutter Unit & Widget Tests
 Command: `flutter test`
-- **Result:** **283 / 283 tests passed** (including 5 new tests in `test/onboarding_country_flow_test.dart`):
+- **Result:** **284 / 284 tests passed** (including 6 tests in `test/onboarding_country_flow_test.dart`):
   1. `Step 0 displays Country Selection first with search & popular chips` (Verified)
   2. `Selecting a country via chip updates CurrencyService immediately` (Verified)
   3. `Search input filters country list without crashing` (Verified)
   4. `Step 1 auto-log preview adapts to selected country` (Verified)
   5. `Step 3 Pro Hub displays selected country currency symbol and CTA` (Verified)
+  6. `Tapping search field maintains focus without unmounting or closing keyboard` (Verified)
 
 ### B. Static Code Analysis
 Command: `flutter analyze`
-- **Result:** **0 issues found** (clean code, 0 warnings, 0 errors).
+- **Result:** **0 issues found** across all files.
 
 ### C. Android Native Unit Tests
 Command: `./gradlew :app:testDebugUnitTest`

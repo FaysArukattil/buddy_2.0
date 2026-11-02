@@ -67,7 +67,15 @@ void main() {
       expect(CurrencyService.symbol, 'AED');
 
       // The live preview card or tuned message should mention UAE
-      expect(find.textContaining('United Arab Emirates'), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (w) =>
+              w is Text &&
+              (w.data?.contains('UAE') == true ||
+                  w.data?.contains('United Arab Emirates') == true),
+        ),
+        findsWidgets,
+      );
     });
 
     testWidgets('Search input filters country list without crashing',

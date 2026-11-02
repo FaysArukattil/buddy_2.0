@@ -2313,12 +2313,54 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     };
   }
 
+  String _nationalPrideTitle(CountryEntry country) {
+    return switch (country.countryCode) {
+      'IN' => 'Proudly Tuned for India 🇮🇳',
+      'AE' => 'Optimized for UAE 🇦🇪',
+      'US' => 'Built for United States 🇺🇸',
+      'GB' => 'Tuned for United Kingdom 🇬🇧',
+      'SA' => 'Proudly Made for Saudi Arabia 🇸🇦',
+      'CA' => 'Tuned for Canada 🇨🇦',
+      'AU' => 'Optimized for Australia 🇦🇺',
+      'SG' => 'Tuned for Singapore 🇸🇬',
+      'PK' => 'Tuned for Pakistan 🇵🇰',
+      'BD' => 'Tuned for Bangladesh 🇧🇩',
+      'NG' => 'Tuned for Nigeria 🇳🇬',
+      'KE' => 'Tuned for Kenya 🇰🇪',
+      'DE' => 'Optimized for Germany 🇩🇪',
+      'FR' => 'Optimized for France 🇫🇷',
+      'JP' => 'Tuned for Japan 🇯🇵',
+      'BR' => 'Tuned for Brazil 🇧🇷',
+      _ => 'Tuned for ${country.name} ${country.flag}',
+    };
+  }
+
+  String _nationalPrideSubtitle(CountryEntry country) {
+    return switch (country.countryCode) {
+      'IN' => 'Auto-detects UPI & 40+ Indian banks in ₹ (INR)',
+      'AE' => 'Auto-detects ENBD, ADCB, FAB & cards in AED',
+      'US' => 'Auto-detects Chase, BoA, Amex & Apple Pay in \$',
+      'GB' => 'Auto-detects Monzo, Barclays, Revolut & cards in £',
+      'SA' => 'Auto-detects Al Rajhi, SNB, Riyad & mada in SAR',
+      'CA' => 'Auto-detects RBC, TD, Scotiabank & Interac in CA\$',
+      'AU' => 'Auto-detects CommBank, ANZ, NAB & cards in A\$',
+      'SG' => 'Auto-detects DBS, OCBC, UOB & PayNow in S\$',
+      'PK' => 'Auto-detects HBL, Meezan, Raast & JazzCash in Rs',
+      'BD' => 'Auto-detects bKash, Nagad & local banks in ৳',
+      'NG' => 'Auto-detects GTBank, Access, Zenith & transfers in ₦',
+      'KE' => 'Auto-detects M-PESA & Kenyan bank alerts in KSh',
+      _ => '100% on-device private tracking in ${country.currencySymbol} (${country.currencyCode})',
+    };
+  }
+
   // ─────────────────────────────────────────────────────────────
   // STEP 0 — Dedicated Country & Currency Screen (Keyboard Safe)
   // ─────────────────────────────────────────────────────────────
   Widget _buildCountrySelectionScreen(bool isDark) {
     final colors = isDark ? _kHeroDark : _kHeroLight;
-    final screenH = MediaQuery.sizeOf(context).height;
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final prideTitle = _nationalPrideTitle(_selectedCountry);
+    final prideSub = _nationalPrideSubtitle(_selectedCountry);
 
     return Container(
       width: double.infinity,
@@ -2333,53 +2375,90 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       child: SafeArea(
         bottom: true,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildTopBar(),
-              const SizedBox(height: 6),
+              const SizedBox(height: 2),
 
-              // ── Header Title & Subtitle ──
+              // ── Header Title (Compact & clean) ──
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 2, 4, 6),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Where are you based?\nChoose your currency.',
                       style: TextStyle(
-                        fontSize: screenH < 720 ? 22 : 25,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
                         height: 1.15,
-                        letterSpacing: -0.7,
+                        letterSpacing: -0.5,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Auto-tracking and money symbols will be tuned specifically for your country.',
-                      style: TextStyle(
-                        fontSize: screenH < 720 ? 12 : 13,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                        color: Colors.white.withValues(alpha: 0.78),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: _kIncomeOnHero.withValues(alpha: 0.5),
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _selectedCountry.flag,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: _kIncomeOnHero,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
 
-              // ── Active Selection Badge (Compact & Informative) ──
+              // ── National Pride Card (Celebrating user's nation & bank auto-tracking!) ──
               _glass(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                radius: 14,
-                fill: 0.12,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                radius: 13,
+                fill: 0.14,
+                borderColor: _kIncomeOnHero.withValues(alpha: 0.35),
                 child: Row(
                   children: [
-                    Text(
-                      _selectedCountry.flag,
-                      style: const TextStyle(fontSize: 24),
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.12),
+                        border: Border.all(
+                          color: _kIncomeOnHero.withValues(alpha: 0.6),
+                          width: 1.2,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _selectedCountry.flag,
+                        style: const TextStyle(fontSize: 19),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -2388,31 +2467,35 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            _selectedCountry.name,
+                            prideTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w900,
                               color: Colors.white,
                               letterSpacing: -0.2,
                             ),
                           ),
+                          const SizedBox(height: 1),
                           Text(
-                            'Currency: ${_selectedCountry.currencyCode} (${_selectedCountry.currencySymbol})',
+                            prideSub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.white.withValues(alpha: 0.75),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w600,
+                              color: _kIncomeOnHero.withValues(alpha: 0.95),
                             ),
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                        horizontal: 8,
+                        vertical: 3.5,
                       ),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -2422,7 +2505,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         boxShadow: [
                           BoxShadow(
                             color: _kIncomeOnHero.withValues(alpha: 0.35),
-                            blurRadius: 8,
+                            blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -2430,7 +2513,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       child: Text(
                         _selectedCountry.currencySymbol,
                         style: const TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF0F3632),
                         ),
@@ -2440,28 +2523,28 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
 
-              // ── Embedded Search Bar (Always at fixed location, tap anywhere to focus) ──
+              // ── Search Bar (Always fixed at index 3, tap anywhere to focus) ──
               GestureDetector(
                 onTap: () => _countrySearchFocus.requestFocus(),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  height: 44,
+                  height: 38,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.22),
                       width: 1.0,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Row(
                     children: [
                       Icon(
                         Icons.search_rounded,
-                        size: 20,
+                        size: 18,
                         color: Colors.white.withValues(alpha: 0.75),
                       ),
                       const SizedBox(width: 8),
@@ -2470,7 +2553,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           controller: _countrySearchController,
                           focusNode: _countrySearchFocus,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13.5,
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2479,7 +2562,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           decoration: InputDecoration(
                             hintText: 'Search 195+ countries or currencies...',
                             hintStyle: TextStyle(
-                              fontSize: 13,
+                              fontSize: 12,
                               color: Colors.white.withValues(alpha: 0.50),
                             ),
                             border: InputBorder.none,
@@ -2492,14 +2575,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         GestureDetector(
                           onTap: () => _countrySearchController.clear(),
                           child: Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(3),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.18),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(
                               Icons.close_rounded,
-                              size: 13,
+                              size: 12,
                               color: Colors.white,
                             ),
                           ),
@@ -2509,11 +2592,11 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // ── Popular Quick Select Chips (always pinned right below search) ──
               SizedBox(
-                height: 34,
+                height: 30,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
@@ -2530,18 +2613,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                           _selectCountry(item);
                           _countrySearchFocus.unfocus();
                         },
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
+                            horizontal: 8,
+                            vertical: 4,
                           ),
                           decoration: BoxDecoration(
                             color: isSel
                                 ? Colors.white.withValues(alpha: 0.28)
                                 : Colors.white.withValues(alpha: 0.09),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: isSel
                                   ? _kIncomeOnHero
@@ -2567,7 +2650,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                   _ => item.name.split(' ').first,
                                 },
                                 style: TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight:
                                       isSel ? FontWeight.w800 : FontWeight.w600,
                                   color: isSel
@@ -2584,15 +2667,15 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
-              // ── Full-Size Scrollable Countries List (Expanded, NO FittedBox!) ──
+              // ── Full-Size Scrollable Countries List (Spacious & Always Visible!) ──
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.only(bottom: 8),
+                  margin: EdgeInsets.only(bottom: keyboardOpen ? 4 : 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.20),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(15),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.12),
                       width: 1.0,
@@ -2606,10 +2689,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                             children: [
                               Icon(
                                 Icons.search_off_rounded,
-                                size: 32,
+                                size: 28,
                                 color: Colors.white.withValues(alpha: 0.5),
                               ),
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 5),
                               Text(
                                 'No matching country found',
                                 style: TextStyle(
@@ -2632,7 +2715,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       : ListView.separated(
                           keyboardDismissBehavior:
                               ScrollViewKeyboardDismissBehavior.onDrag,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(vertical: 2),
                           physics: const BouncingScrollPhysics(),
                           itemCount: _filteredCountries.length,
                           separatorBuilder: (_, __) => Divider(
@@ -2656,7 +2739,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 14,
-                                    vertical: 9,
+                                    vertical: 8,
                                   ),
                                   child: Row(
                                     children: [
@@ -2735,43 +2818,46 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 ),
               ),
 
-              // ── Bottom Dock / Continue Action ──
-              Padding(
-                padding: const EdgeInsets.only(top: 2, bottom: 6),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _GradientButton(
-                      label: 'Continue',
-                      icon: Icons.arrow_forward_rounded,
-                      onTap: () {
-                        _countrySearchFocus.unfocus();
-                        _next();
-                      },
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.verified_user_rounded,
-                          size: 13,
-                          color: _kIncomeOnHero,
-                        ),
-                        const SizedBox(width: 5),
-                        Text(
-                          'Tuned for ${_selectedCountry.name} (${_selectedCountry.currencyCode})',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.75),
+              // ── High-Converting Bottom Action & Trust Reassurance ──
+              if (!keyboardOpen) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 6),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _GradientButton(
+                        label: 'Continue',
+                        icon: Icons.arrow_forward_rounded,
+                        onTap: () {
+                          _countrySearchFocus.unfocus();
+                          _next();
+                        },
+                      ),
+                      const SizedBox(height: 5),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 12,
+                            color: _kIncomeOnHero.withValues(alpha: 0.9),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 4),
+                          Text(
+                            '100% Private • No Bank Login • ${_selectedCountry.currencySymbol}0 Forever',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.1,
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
