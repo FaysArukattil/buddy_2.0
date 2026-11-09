@@ -238,13 +238,15 @@ class NotificationListener : NotificationListenerService() {
             "free recharge", "bonus cash", "spin and win", "spin & win",
 
             // Reminders & Due Dates (NOT a completed payment)
-            "bill due", "payment due", "amount due", "due on", "due date", "pay by ", "pay before",
+            "is due", "are due", "bill due", "payment due", "amount due", "due on", "due date", "pay by ", "pay before",
             "bill reminder", "recharge reminder", "upcoming bill", "upcoming payment", "overdue",
             "outstanding balance", "recharge now", "plan expiry", "plan expiring", "validity expiring",
             "renew plan", "auto-pay scheduled", "mandate scheduled",
             "will be debited", "will be auto-debited", "will be auto debited", "will be deducted",
-            "scheduled to be debited", "mandate set for", "upcoming mandate", "e-mandate created",
-            "mandate successfully registered",
+            "scheduled to be debited", "scheduled on", "scheduled for", "mandate set for", "upcoming mandate",
+            "e-mandate created", "mandate successfully registered", "pre-debit", "pre debit",
+            "ensure sufficient balance", "maintain sufficient balance", "keep sufficient balance",
+            "sufficient balance in", "sufficient balance to", "add funds", "avoid cancellation", "avoid failure",
 
             // IPO / ASBA Blocked Funds & Liens (Funds held, NOT actual spend)
             "is blocked in your", "has been blocked in", "amount has been blocked", "funds blocked",
@@ -273,6 +275,16 @@ class NotificationListener : NotificationListenerService() {
             "emi starts from", "emi will start",
             "loan eligibility", "eligible for loan", "loan offer",
             "credit limit increased", "limit enhanced",
+
+            // Chat, messaging, conversations & social updates (NOT financial transactions)
+            "sent you a message", "sent a message", "new message", "message from",
+            "chat from", "started a chat", "in chat", "unread message", "messages from",
+            "sent you a photo", "sent you a video", "sent you an image", "sent you a sticker",
+            "sent you a document", "sent you an audio", "sent you a file", "sent you a link",
+            "sent you a contact", "sent a photo", "sent a sticker", "sent a link",
+            "replied to your", "replied to you", "shared a link", "shared a post",
+            "shared a video", "shared a photo", "shared an image",
+            "rate us", "review us", "how was your experience",
 
             // Security, Admin & OTPs (not transactions)
             "otp", "verification code", "one time password", "one-time password", "one-time-password",
@@ -1051,8 +1063,8 @@ class NotificationListener : NotificationListenerService() {
                 !lowerText.contains("received request") &&
                 !lowerText.contains("received document") &&
                 !lowerText.contains("at branch")) ||
-            lowerText.contains("sent you") ||
-            lowerText.contains("paid you") ||
+            Regex("""\bsent\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+            Regex("""\bpaid\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
             lowerText.contains("refund of") ||
             lowerText.contains("refunded to") ||
             lowerText.contains("refund received") ||
@@ -1100,6 +1112,13 @@ class NotificationListener : NotificationListenerService() {
                 return null
             }
         } else if (isPaymentApp) {
+            // Reject any chat / message / conversation notifications from payment apps (e.g. Paytm Chat, GPay messaging)
+            if (lowerText.contains("message") || lowerText.contains("chat") || lowerText.contains("typing") || lowerText.contains("unread")) {
+                Log.d(TAG, "🚫 Ignored chat/message from payment app: ${cleanText.take(60)}")
+                logParserEvent("parse_ignored", countryCode, packageName, reasonCode = "chat_message")
+                return null
+            }
+
             // Payment apps (GPay, PhonePe, Paytm) send lots of promo notifications.
             // Require explicit payment receipt phrases:
             val isExplicitPaymentReceipt =
@@ -1114,8 +1133,8 @@ class NotificationListener : NotificationListenerService() {
                     !lowerText.contains("received your") &&
                     !lowerText.contains("received application") &&
                     !lowerText.contains("at branch")) ||
-                lowerText.contains("sent you") ||
-                lowerText.contains("paid you") ||
+                Regex("""\bsent\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+                Regex("""\bpaid\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
                 (lowerText.contains("cashback credited") && (lowerText.contains("bank") || lowerText.contains("account")))
 
             if (!isExplicitPaymentReceipt) {

@@ -98,15 +98,10 @@ class BottomNavbarScreenState extends State<BottomNavbarScreen>
     ).animate(CurvedAnimation(parent: _fabController, curve: Curves.easeInOut));
     _fabController.repeat(reverse: true);
 
-    // Defer non-critical background maintenance until AFTER initial rendering is complete & idle
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        AppInitHelper.initialize();
-      }
-    });
-
+    // Initialize app services and sync recognized transactions immediately on startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        AppInitHelper.initialize();
         SupportService.checkAndShowMonthlySupportPrompt(context);
       }
     });

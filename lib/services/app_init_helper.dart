@@ -1,4 +1,5 @@
 // lib/services/app_init_helper.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
@@ -74,26 +75,10 @@ class AppInitHelper {
       await FirestoreService.enableOfflinePersistence();
       debugPrint('✅ Firestore persistence enabled');
 
-      // 2. Seed default categories & clean duplicate transactions if user is logged in
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        debugPrint('🌱 Checking default categories & duplicate cleanup...');
-        try {
-          await FirestoreService.instance.seedDefaultCategories();
-          // Clean up any historical duplicate transactions for production users
-          FirestoreService.instance.cleanupDuplicateTransactions().catchError((e) {
-            debugPrint('⚠️ Non-critical duplicate cleanup error: $e');
-            return 0;
-          });
-        } catch (e) {
-          debugPrint('⚠️ Failed to seed categories (non-critical): $e');
-        }
-      }
-
-      // 3. Sync transactions from SharedPreferences to Firestore
-      //    These were saved by the native NotificationListenerService
-      //    while the app was closed.
-      debugPrint('🔄 Syncing saved transactions to Firestore...');
+      // 2. PRIORITY: Sync transactions from SharedPreferences to Firestore FIRST!
+      //    These were saved by the native NotificationListenerService while the app was closed.
+      //    Running this immediately ensures recognized transactions appear on screen within milliseconds.
+      debugPrint('🔄 Syncing saved transactions to Firestore immediately...');
       final syncedCount = await NotificationService.syncSavedTransactions(
         onTransactionDetected: (transactionMap, hash) async {
           debugPrint('🆕 Transaction synced: $hash');
@@ -110,6 +95,24 @@ class AppInitHelper {
         }
       } else {
         debugPrint('✅ No transactions to sync');
+      }
+
+      // 3. Background maintenance: Seed default categories & clean duplicate transactions
+      //    Run asynchronously in the background so it never delays user-visible transaction sync.
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        unawaited(() async {
+          debugPrint('🌱 Checking default categories & duplicate cleanup (background)...');
+          try {
+            await FirestoreService.instance.seedDefaultCategories();
+            await FirestoreService.instance.cleanupDuplicateTransactions().catchError((e) {
+              debugPrint('⚠️ Non-critical duplicate cleanup error: $e');
+              return 0;
+            });
+          } catch (e) {
+            debugPrint('⚠️ Failed to seed categories (non-critical): $e');
+          }
+        }());
       }
 
       _isInitialized = true;

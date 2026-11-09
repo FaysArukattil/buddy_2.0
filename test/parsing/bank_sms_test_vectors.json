@@ -278,6 +278,50 @@
       "shouldIgnore": true
     },
     {
+      "id": "IN_IGNORE_011",
+      "country": "IN",
+      "description": "Paytm chat feedback message — MUST be ignored",
+      "message": "Rahul sent you a message: the ui should be clean and smooth like apple tv and also better as well also should work seamlessly on any low end tv as well. also small option to see the total ram and storage as well an option as well which all apps are using it and all to end certain app if it is taking too much and all. also refer the project in github that did the thing at first so.",
+      "sourcePackage": "net.one97.paytm",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_012",
+      "country": "IN",
+      "description": "Paytm chat message with numbered feedback — MUST be ignored",
+      "message": "Friend sent you a message: 1) sync takes 2 seconds 2) fix paytm bug",
+      "sourcePackage": "net.one97.paytm",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_013",
+      "country": "IN",
+      "description": "Payment app media / chat alert — MUST be ignored",
+      "message": "Priya sent you a photo in chat",
+      "sourcePackage": "net.one97.paytm",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_014",
+      "country": "IN",
+      "description": "Pre-debit / e-mandate due reminder for Openai — MUST be ignored",
+      "message": "payment of Rs.399 is due for Openai Llc on 10-11-2026. Please ensure sufficient balance in your Federal Bank - 0242 or add funds to avoid cancellation of services",
+      "sourcePackage": "com.fedmobile",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
       "id": "PK_001",
       "country": "PK",
       "description": "HBL debit — Rs. prefix",

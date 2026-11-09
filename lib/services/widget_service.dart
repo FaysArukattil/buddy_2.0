@@ -58,6 +58,15 @@ class WidgetService {
       }
       todayTxns.sort((a, b) => b.date.compareTo(a.date));
 
+      final todayBalance = todayIncome - todayExpense;
+      final isTodayNegative = todayBalance < 0;
+      final todayBalanceFormatted = (isTodayNegative ? '-' : '') +
+          (todayBalance.abs() >= 1000000
+              ? FormatUtils.formatCompactCurrency(todayBalance.abs())
+              : FormatUtils.formatCurrency(todayBalance.abs()));
+      final todayBalanceCompact = (isTodayNegative ? '-' : '') +
+          FormatUtils.formatCompactCurrency(todayBalance.abs());
+
       // 3. Month totals: match HomeScreen._recalculateTotals exactly
       final bool includeDebts = PreferenceService.includeDebtsInHome;
       final monthBase = includeDebts
@@ -160,6 +169,10 @@ class WidgetService {
             : '+${FormatUtils.formatCurrency(todayIncome)}',
         'today_income_compact': '+${FormatUtils.formatCompactCurrency(todayIncome)}',
         'today_income_raw': todayIncome,
+        'today_balance': todayBalanceFormatted,
+        'today_balance_compact': todayBalanceCompact,
+        'today_balance_raw': todayBalance,
+        'today_is_negative': isTodayNegative,
         'today_count': todayTxns.length,
 
         // Month Page 3-Tile Data

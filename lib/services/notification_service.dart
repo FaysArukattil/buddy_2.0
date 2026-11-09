@@ -120,21 +120,27 @@ class NotificationService {
 
     final prefs = await SharedPreferences.getInstance();
     final allKeys = prefs.getKeys().toList();
+    final txnKeys = allKeys.where((k) => k.startsWith('txn_')).toList();
+    if (txnKeys.isEmpty) {
+      return 0;
+    }
+
     final firestore = FirestoreService.instance;
     int syncedCount = 0;
 
-    // Pre-fetch user categories for dynamic matching against user's custom categories
+    // Pre-fetch user categories concurrently for dynamic matching against user's custom categories
     List<cat.Category> userCategories = [];
     try {
-      final expenseCats = await firestore.getCategories('expense');
-      final incomeCats = await firestore.getCategories('income');
-      userCategories = [...expenseCats, ...incomeCats];
+      final results = await Future.wait([
+        firestore.getCategories('expense'),
+        firestore.getCategories('income'),
+      ]).timeout(const Duration(milliseconds: 600));
+      userCategories = [...results[0], ...results[1]];
     } catch (_) {
-      // If offline or not authenticated yet, continue with native detected category
+      // If offline, timeout, or not authenticated yet, continue with native detected category
     }
 
-    for (final key in allKeys) {
-      if (!key.startsWith('txn_')) continue;
+    for (final key in txnKeys) {
 
       final jsonStr = prefs.getString(key);
       if (jsonStr == null) continue;

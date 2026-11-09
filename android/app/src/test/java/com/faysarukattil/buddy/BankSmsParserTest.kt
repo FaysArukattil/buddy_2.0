@@ -325,6 +325,64 @@ class BankSmsParserTest {
             )
         }
     }
+
+    @Test
+    fun `Paytm chat message notification is ignored`() {
+        val result = parser.parseForTest(
+            "Rahul sent you a message: the ui should be clean and smooth like apple tv and also better as well also should work seamlessly on any low end tv as well. also small option to see the total ram and storage as well an option as well which all apps are using it and all to end certain app if it is taking too much and all. also refer the project in github that did the thing at first so.",
+            "net.one97.paytm"
+        )
+        assertNull("Paytm chat message must never be parsed as a payment", result)
+    }
+
+    @Test
+    fun `Paytm chat message with numbers and feedback is ignored`() {
+        val result = parser.parseForTest(
+            "Friend sent you a message: 1) sync takes 2 seconds 2) fix paytm bug",
+            "net.one97.paytm"
+        )
+        assertNull("Paytm chat with numbers must be ignored", result)
+    }
+
+    @Test
+    fun `Paytm payment of Rs 150 to Swiggy is parsed`() {
+        val result = parser.parseForTest(
+            "You paid Rs. 150 to Swiggy via Paytm UPI. Ref: 123456789012",
+            "net.one97.paytm"
+        )
+        assertNotNull("Legitimate Paytm payment should be parsed", result)
+        assertEquals("expense", result!!.type)
+        assertEquals(150.0, result.amount, 0.01)
+    }
+
+    @Test
+    fun `Paytm received Rs 500 is parsed as income`() {
+        val result = parser.parseForTest(
+            "Received Rs. 500 from Rohit via Paytm UPI",
+            "net.one97.paytm"
+        )
+        assertNotNull("Legitimate Paytm receipt should be parsed", result)
+        assertEquals("income", result!!.type)
+        assertEquals(500.0, result.amount, 0.01)
+    }
+
+    @Test
+    fun `Federal Bank Openai due reminder is ignored`() {
+        val result = parser.parseForTest(
+            "payment of Rs.399 is due for Openai Llc on 10-11-2026. Please ensure sufficient balance in your Federal Bank - 0242 or add funds to avoid cancellation of services",
+            "com.fedmobile"
+        )
+        assertNull("Pre-debit due reminder for Openai must be ignored", result)
+    }
+
+    @Test
+    fun `Federal Bank Openai due reminder via SMS is ignored`() {
+        val result = parser.parseForTest(
+            "payment of Rs.399 is due for Openai Llc on 10-11-2026. Please ensure sufficient balance in your Federal Bank - 0242 or add funds to avoid cancellation of services",
+            "com.google.android.apps.messaging"
+        )
+        assertNull("Pre-debit due reminder via SMS must be ignored", result)
+    }
 }
 
 /**
@@ -356,6 +414,9 @@ class TestableNotificationParser {
             "invite friends", "refer friends", "referral bonus", "refer & earn", "refer and earn",
             "free recharge", "bonus cash", "spin and win", "spin & win",
             "bill due", "payment due", "amount due", "due on", "due date", "pay by ", "pay before",
+            "is due", "are due", "ensure sufficient balance", "maintain sufficient balance", "keep sufficient balance",
+            "sufficient balance in", "sufficient balance to", "add funds", "avoid cancellation", "avoid failure",
+            "pre-debit", "pre debit", "scheduled on", "scheduled for",
             "bill reminder", "recharge reminder", "upcoming bill", "upcoming payment", "overdue",
             "outstanding balance", "recharge now", "plan expiry", "plan expiring", "validity expiring",
             "renew plan", "auto-pay scheduled", "mandate scheduled",
@@ -380,6 +441,17 @@ class TestableNotificationParser {
             "emi starts from", "emi will start",
             "loan eligibility", "eligible for loan", "loan offer",
             "credit limit increased", "limit enhanced",
+
+            // Chat, messaging, conversations & social updates (NOT financial transactions)
+            "sent you a message", "sent a message", "new message", "message from",
+            "chat from", "started a chat", "in chat", "unread message", "messages from",
+            "sent you a photo", "sent you a video", "sent you an image", "sent you a sticker",
+            "sent you a document", "sent you an audio", "sent you a file", "sent you a link",
+            "sent you a contact", "sent a photo", "sent a sticker", "sent a link",
+            "replied to your", "replied to you", "shared a link", "shared a post",
+            "shared a video", "shared a photo", "shared an image",
+            "rate us", "review us", "how was your experience",
+
             "otp", "verification code", "one time password", "one-time password", "one-time-password",
             "one-time passcode", "one time passcode", "auth code", "security code", "secret code", "login code",
             "kyc", "pan card", "aadhaar", "link aadhaar", "update kyc", "block your", "freeze"
@@ -556,8 +628,8 @@ class TestableNotificationParser {
                     !lowerText.contains("received request") &&
                     !lowerText.contains("received document") &&
                     !lowerText.contains("at branch")) ||
-                lowerText.contains("sent you") ||
-                lowerText.contains("paid you") ||
+                Regex("""\bsent\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+                Regex("""\bpaid\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
                 lowerText.contains("refund of") ||
                 lowerText.contains("refunded to") ||
                 lowerText.contains("refund received") ||
@@ -574,6 +646,9 @@ class TestableNotificationParser {
         // Step 3: Must have bank identifier (or be confirmed receipt from a payment app)
         val isPaymentApp = PAYMENT_APPS.contains(packageName)
         if (isPaymentApp) {
+            if (lowerText.contains("message") || lowerText.contains("chat") || lowerText.contains("typing") || lowerText.contains("unread")) {
+                return null
+            }
             val isExplicitPaymentReceipt =
                 lowerText.contains("you paid") ||
                 lowerText.contains("paid to") ||
@@ -586,8 +661,8 @@ class TestableNotificationParser {
                     !lowerText.contains("received your") &&
                     !lowerText.contains("received application") &&
                     !lowerText.contains("at branch")) ||
-                lowerText.contains("sent you") ||
-                lowerText.contains("paid you")
+                Regex("""\bsent\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText) ||
+                Regex("""\bpaid\s+you\s*(?:rs\.?|inr|₹)""", RegexOption.IGNORE_CASE).containsMatchIn(lowerText)
             if (!isExplicitPaymentReceipt) return null
         } else {
             val hasBankId = ACCOUNT_PATTERN.containsMatchIn(cleanText) ||

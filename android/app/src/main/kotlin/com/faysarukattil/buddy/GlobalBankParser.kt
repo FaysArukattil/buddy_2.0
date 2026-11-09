@@ -213,6 +213,8 @@ class GlobalBankParser private constructor(
             "otp", "one time password", "one-time password", "verification code", "login code",
             "failed", "declined", "unsuccessful", "cancelled", "rejected",
             "bill due", "payment due", "amount due", "due on", "min amount due", "minimum amount due",
+            "is due", "are due", "ensure sufficient balance", "maintain sufficient balance", "sufficient balance",
+            "add funds", "avoid cancellation", "pre-debit", "pre debit",
             "is overdue", "in arrears",
             "requested money", "has requested", "request received", "collect request",
             "pre-approved", "pre approved", "loan offer", "loan approved",
@@ -221,6 +223,10 @@ class GlobalBankParser private constructor(
             "is blocked in your", "asba", "earmarked in your",
             "will be auto-debited", "will be auto debited", "mandate set for",
             "convert your", "smartemi", "into emi",
+            // Chat and messaging
+            "sent you a message", "sent a message", "new message", "message from",
+            "chat from", "unread message", "sent you a photo", "sent you a sticker",
+            "sent you a link",
             // Arabic failure and decline patterns (Saudi, UAE, Egypt, etc.)
             "عملية مرفوضة", "تم رفض العملية", "فشل العملية", "عملية فاشلة",
             "تعذر إتمام العملية", "لم تتم العملية", "عملية غير ناجحة",

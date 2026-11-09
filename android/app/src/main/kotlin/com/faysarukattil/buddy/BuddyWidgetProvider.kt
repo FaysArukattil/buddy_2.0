@@ -271,9 +271,9 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             val is4x2 = !is2x2 && widthDp > 295 && heightDp <= 240
             val isTallMode = !is2x2 && heightDp > 240
 
-            // 1. 2×2 Mode: ONLY Add Transaction Button
+            // 1. Single Row / Small Pill Mode (2×1): + Button on left, Today Spent/Earned/Balance on right
             if (is2x2) {
-                val smallViews = buildSmallLayout(context, widgetId)
+                val smallViews = buildSmallLayout(context, widgetId, data)
                 manager.updateAppWidget(widgetId, smallViews)
                 return
             }
@@ -612,22 +612,70 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
     }
 
     // ==========================================
-    // 7. 2×2 LAYOUT: ONLY Add Transaction Button
-    // Tapping ANYWHERE on the 2×2 widget opens the instant transparent add modal!
+    // 7. 2×1 PILL LAYOUT: + Button on Left, Today's Spent/Earned/Balance on Right
+    // Left: circular + button opens instant quick-add modal
+    // Right: tapping opens main app
+    // Balance: green if net positive, red if net negative
     // ==========================================
-    private fun buildSmallLayout(context: Context, widgetId: Int): RemoteViews {
+    private fun buildSmallLayout(context: Context, widgetId: Int, data: SharedPreferences): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_buddy_small)
-
         val piFlags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+
+        // Left button: + button opens Instant Add Modal
         val addIntent = Intent(context, WidgetAddModalActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val addPi = PendingIntent.getActivity(context, widgetId * 40 + 1, addIntent, piFlags)
+        views.setOnClickPendingIntent(R.id.btn_widget_add_small, addPi)
 
-        // Attach add action to root background, app logo, and action container
-        views.setOnClickPendingIntent(android.R.id.background, addPi)
-        views.setOnClickPendingIntent(R.id.iv_small_app_logo, addPi)
-        views.setOnClickPendingIntent(R.id.btn_widget_add_hero, addPi)
+        // Right side / background: opens Main App
+        val mainIntent = Intent(context, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val mainPi = PendingIntent.getActivity(context, widgetId * 40 + 2, mainIntent, piFlags)
+        views.setOnClickPendingIntent(android.R.id.background, mainPi)
+        views.setOnClickPendingIntent(R.id.layout_small_stats, mainPi)
+
+        val symbol = getCurrencySymbol(data)
+
+        // Today Spent
+        val todaySpentRaw = data.getFloat("today_spent_raw", 0f).toDouble()
+        val todaySpentStr = data.getString("today_spent_compact", null)
+            ?: formatCompactCurrency(todaySpentRaw, isCompact = true, symbol = symbol)
+        views.setTextViewText(R.id.tv_small_spent, todaySpentStr)
+
+        // Today Earned
+        val todayIncomeRaw = data.getFloat("today_income_raw", 0f).toDouble()
+        val todayEarnedStr = if (todayIncomeRaw > 0) {
+            data.getString("today_income_compact", null)
+                ?: ("+" + formatCompactCurrency(todayIncomeRaw, isCompact = true, symbol = symbol))
+        } else {
+            "$symbol" + "0"
+        }
+        views.setTextViewText(R.id.tv_small_earned, todayEarnedStr)
+
+        // Today Balance (Net total of today)
+        val todayBalanceRaw = if (data.contains("today_balance_raw")) {
+            data.getFloat("today_balance_raw", 0f).toDouble()
+        } else {
+            todayIncomeRaw - todaySpentRaw
+        }
+        val isNegative = todayBalanceRaw < 0
+
+        val todayBalanceStr = data.getString("today_balance_compact", null)
+            ?: formatCompactCurrency(todayBalanceRaw, isCompact = true, symbol = symbol)
+        views.setTextViewText(R.id.tv_small_balance, todayBalanceStr)
+
+        // Color coordination: Green if net +, Red if negative -
+        if (isNegative) {
+            views.setViewVisibility(R.id.iv_small_balance_pos, View.GONE)
+            views.setViewVisibility(R.id.iv_small_balance_neg, View.VISIBLE)
+            views.setTextColor(R.id.tv_small_balance, COLOR_EXPENSE)
+        } else {
+            views.setViewVisibility(R.id.iv_small_balance_pos, View.VISIBLE)
+            views.setViewVisibility(R.id.iv_small_balance_neg, View.GONE)
+            views.setTextColor(R.id.tv_small_balance, COLOR_INCOME)
+        }
 
         return views
     }
@@ -786,7 +834,16 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
             editor.putFloat("today_spent_raw", todaySpent.toFloat())
             editor.putFloat("today_income_raw", todayEarned.toFloat())
             editor.putString("today_spent", formatCompactCurrency(todaySpent, isCompact = todaySpent >= 1000000.0, symbol = currSym))
+            editor.putString("today_spent_compact", formatCompactCurrency(todaySpent, isCompact = true, symbol = currSym))
             editor.putString("today_income_formatted", "+${formatCompactCurrency(todayEarned, isCompact = todayEarned >= 1000000.0, symbol = currSym)}")
+            editor.putString("today_income_compact", if (todayEarned > 0) "+${formatCompactCurrency(todayEarned, isCompact = true, symbol = currSym)}" else "${currSym}0")
+
+            val todayBal = todayEarned - todaySpent
+            val isTodayNeg = todayBal < 0
+            editor.putFloat("today_balance_raw", todayBal.toFloat())
+            editor.putString("today_balance_compact", formatCompactCurrency(todayBal, isCompact = true, symbol = currSym))
+            editor.putBoolean("today_is_negative", isTodayNeg)
+
             editor.putInt("today_count", todayCount)
             val dateFmt = SimpleDateFormat("EEE, d MMM", Locale.getDefault())
             editor.putString("today_date_label", dateFmt.format(Date()))

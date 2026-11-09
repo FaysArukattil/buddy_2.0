@@ -83,9 +83,10 @@ class HomeScreenState extends State<HomeScreen>
 
     _loadUser();
 
-    // Listen to Firestore transactions in real-time and check auto-tracking prompt
+    // Listen to Firestore transactions in real-time, sync any native transactions instantly, and check prompts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startListening();
+      AppInitHelper.syncNow();
       _checkAndPromptCountrySelection();
       _checkAndPromptAutoTracking();
       _startAutoCycleTimer();
