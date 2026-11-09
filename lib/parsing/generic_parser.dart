@@ -67,6 +67,11 @@ class GenericParser implements BankParser {
     'is blocked in your', 'asba', 'earmarked in your',
     'will be auto-debited', 'will be auto debited', 'mandate set for',
     'convert your', 'smartemi', 'into emi',
+    // Utility, Telecom & Biller Receipt Confirmations
+    'for your jiohome', 'for your jiofiber', 'jiohome connection', 'jiofiber connection',
+    'jiofixedvoice', 'jio fixedvoice', 'fixedvoice', 'for your connection',
+    'has been received', 'received with thanks', 'payment received with thanks',
+    'recharge successful', 'recharge is successful', 'recharge of rs', 'bill payment successful',
     // Chat and messaging
     'sent you a message', 'sent a message', 'new message', 'message from',
     'chat from', 'unread message', 'sent you a photo', 'sent you a sticker',

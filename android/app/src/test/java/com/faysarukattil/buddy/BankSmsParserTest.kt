@@ -383,6 +383,42 @@ class BankSmsParserTest {
         )
         assertNull("Pre-debit due reminder via SMS must be ignored", result)
     }
+
+    @Test
+    fun `IN_IGNORE_015 JioHome wifi recharge receipt is ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_015" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_016 Jio recharge successful confirmation is ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_016" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `IN_IGNORE_017 Airtel broadband bill payment receipt is ignored`() {
+        val vector = indiaVectors.first { it.id == "IN_IGNORE_017" }
+        runVectorAssertion(vector)
+    }
+
+    @Test
+    fun `JioHome wifi recharge receipt direct text is ignored`() {
+        val result = parser.parseForTest(
+            "JX-JIOFBR-S Dear Customer, Payment of Rs. 706.82 for your JioHome connection with JioFixedVoice Num. 04842999999 has been received on 09-Nov-2026 via UPI. Your transaction reference number is 2026110912345. Thank you, Team Jio.",
+            "com.google.android.apps.messaging"
+        )
+        assertNull("JioHome receipt must never be parsed as credit or transaction", result)
+    }
+
+    @Test
+    fun `JioHome truncated notification is ignored`() {
+        val result = parser.parseForTest(
+            "JX-JIOFBR-S Dear Customer, Payment of Rs. 706.82 for your JioHome connection with JioFixedVoice Num. ",
+            "com.google.android.apps.messaging"
+        )
+        assertNull("JioHome truncated notification must be ignored", result)
+    }
 }
 
 /**
@@ -423,6 +459,17 @@ class TestableNotificationParser {
             "will be debited", "will be auto-debited", "will be auto debited", "will be deducted",
             "scheduled to be debited", "mandate set for", "upcoming mandate", "e-mandate created",
             "mandate successfully registered",
+
+            // Utility, Telecom & Biller Receipt Confirmations (Operator receipts, NOT bank transaction alerts)
+            "for your jiohome", "for your jiofiber", "for your jio home", "for your jio fiber",
+            "jiohome connection", "jiofiber connection", "jio fixedvoice", "jiofixedvoice", "fixedvoice",
+            "for your connection", "towards your connection", "for your broadband", "for your dth",
+            "has been received", "is received with thanks", "received with thanks",
+            "payment received with thanks", "payment received for your", "payment received towards",
+            "payment received against", "received towards your", "received against your",
+            "recharge successful", "recharge is successful", "recharge of rs", "recharge with",
+            "recharge done", "bill payment successful", "bill payment received",
+            "bill paid successfully", "payment has been received",
             "is blocked in your", "has been blocked in", "amount has been blocked", "funds blocked",
             "blocked in your a/c", "blocked in your account", "asba", "earmarked in your",
             "earmarked for", "amount earmarked",
@@ -488,7 +535,7 @@ class TestableNotificationParser {
         )
 
         private val CREDIT_ACTION_PATTERN = Regex(
-            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in|into|to)?|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
+            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+|received\s+(?:from|in|into|to)\b|(?:you\s+(?:have\s+)?)?received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+|(?:\bcredited\b)|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
             RegexOption.IGNORE_CASE
         )
 
@@ -718,7 +765,8 @@ class TestableNotificationParser {
         val isDebit = if (hasCredit && !hasDebit) false
         else if (hasDebit && !hasCredit) true
         else !(lowerText.contains("refund") || lowerText.contains("credited") ||
-                lowerText.contains("received") || lowerText.contains("reversal"))
+                (lowerText.contains("received") && !lowerText.contains("has been received") && !lowerText.contains("is received") && !lowerText.contains("payment of") && !lowerText.contains("received with thanks")) ||
+                lowerText.contains("reversal"))
 
         val type = if (isDebit) "expense" else "income"
         return ParseResult(amount, type)

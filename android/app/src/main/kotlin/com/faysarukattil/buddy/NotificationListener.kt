@@ -248,6 +248,17 @@ class NotificationListener : NotificationListenerService() {
             "ensure sufficient balance", "maintain sufficient balance", "keep sufficient balance",
             "sufficient balance in", "sufficient balance to", "add funds", "avoid cancellation", "avoid failure",
 
+            // Utility, Telecom & Biller Receipt Confirmations (Operator receipts, NOT bank transaction alerts)
+            "for your jiohome", "for your jiofiber", "for your jio home", "for your jio fiber",
+            "jiohome connection", "jiofiber connection", "jio fixedvoice", "jiofixedvoice", "fixedvoice",
+            "for your connection", "towards your connection", "for your broadband", "for your dth",
+            "has been received", "is received with thanks", "received with thanks",
+            "payment received with thanks", "payment received for your", "payment received towards",
+            "payment received against", "received towards your", "received against your",
+            "recharge successful", "recharge is successful", "recharge of rs", "recharge with",
+            "recharge done", "bill payment successful", "bill payment received",
+            "bill paid successfully", "payment has been received",
+
             // IPO / ASBA Blocked Funds & Liens (Funds held, NOT actual spend)
             "is blocked in your", "has been blocked in", "amount has been blocked", "funds blocked",
             "blocked in your a/c", "blocked in your account", "asba", "earmarked in your",
@@ -330,7 +341,7 @@ class NotificationListener : NotificationListenerService() {
 
         // Explicit credit patterns in bank SMS / UPI text
         private val CREDIT_ACTION_PATTERN = Regex(
-            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s*(?:rs\.?|inr|₹)?\s*[0-9,.]*\s*(?:from|in|into|to)?|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
+            """(?:credited\s*(?:(?:to|with|by|in|into|for)\s*)?(?:your\s+)?(?:a/c|acct|account)?|(?:rs\.?|inr|₹)\s*[0-9,.]+\s+(?:has been\s+|is\s+|was\s+|got\s+)?credited|(?:credit|crediting)\s+(?:of|by|for)\s*(?:rs\.?|inr|₹)?\s*[0-9,]+|received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+|received\s+(?:from|in|into|to)\b|(?:you\s+(?:have\s+)?)?received\s+(?:rs\.?|inr|₹)\s*[0-9,.]+|(?:\bcredited\b)|(?:refund|reversal|cashback)\s*(?:of)?\s*(?:rs\.?|inr|₹)?\s*[0-9,]+)""",
             RegexOption.IGNORE_CASE
         )
 
@@ -1150,7 +1161,9 @@ class NotificationListener : NotificationListenerService() {
         } else if (hasDebitVerb && !hasCreditVerb) {
             true
         } else {
-            if (lowerText.contains("refund") || lowerText.contains("credited") || lowerText.contains("received") || lowerText.contains("reversal")) {
+            if (lowerText.contains("refund") || lowerText.contains("credited") ||
+                (lowerText.contains("received") && !lowerText.contains("has been received") && !lowerText.contains("is received") && !lowerText.contains("payment of") && !lowerText.contains("received with thanks")) ||
+                lowerText.contains("reversal")) {
                 false
             } else {
                 true

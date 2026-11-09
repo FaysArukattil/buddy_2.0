@@ -322,6 +322,39 @@
       "shouldIgnore": true
     },
     {
+      "id": "IN_IGNORE_015",
+      "country": "IN",
+      "description": "JioHome / JioFiber wifi recharge receipt confirmation — MUST be ignored",
+      "message": "JX-JIOFBR-S Dear Customer, Payment of Rs. 706.82 for your JioHome connection with JioFixedVoice Num. 04842999999 has been received on 09-Nov-2026 via UPI. Your transaction reference number is 2026110912345. Thank you, Team Jio.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_016",
+      "country": "IN",
+      "description": "Jio recharge successful confirmation — MUST be ignored",
+      "message": "Dear Customer, Recharge of Rs. 299 is successful for your Jio number 9876543210. Benefits: 1.5GB/day. Thank you, Team Jio.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
+      "id": "IN_IGNORE_017",
+      "country": "IN",
+      "description": "Airtel broadband bill payment receipt confirmation — MUST be ignored",
+      "message": "Dear Customer, Payment of Rs. 1178.82 for your Airtel Broadband connection 08012345678 has been received with thanks. Transaction ID: ATLBIL9988.",
+      "sourcePackage": "com.google.android.apps.messaging",
+      "expectedType": null,
+      "expectedAmount": null,
+      "expectedCurrency": null,
+      "shouldIgnore": true
+    },
+    {
       "id": "PK_001",
       "country": "PK",
       "description": "HBL debit — Rs. prefix",
