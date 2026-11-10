@@ -84,6 +84,20 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 if (success) {
                     Log.d(TAG, "✅ Transaction confirmed and saved (will sync on app open)")
                     showSuccessNotification(context, json)
+
+                    // Directly update widget with confirmed transaction
+                    try {
+                        BuddyWidgetProvider.recordNewTransactionAndRefresh(
+                            context.applicationContext,
+                            json.optDouble("amount", 0.0),
+                            json.optString("type", "expense").equals("income", ignoreCase = true),
+                            json.optString("category", "Other"),
+                            json.optString("note", "Other"),
+                            isAuto = true
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error updating widget on YES: ${e.message}")
+                    }
                 } else {
                     Log.e(TAG, "❌ Failed to save to SharedPreferences")
                 }

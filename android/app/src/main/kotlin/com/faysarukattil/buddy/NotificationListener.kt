@@ -1560,19 +1560,19 @@ class NotificationListener : NotificationListenerService() {
             .putString("${KEY_PREFIX}history_$hash", historyJson.toString())
             .apply()
 
-        // Notify widget of auto-tracked transaction update
+        // Directly update widget with new transaction and refresh launcher
         try {
-            val appWidgetManager = AppWidgetManager.getInstance(applicationContext)
-            val thisWidget = ComponentName(applicationContext, BuddyWidgetProvider::class.java)
-            val allWidgetIds = appWidgetManager.getAppWidgetIds(thisWidget)
-            if (allWidgetIds.isNotEmpty()) {
-                val updateIntent = Intent(applicationContext, BuddyWidgetProvider::class.java).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, allWidgetIds)
-                }
-                applicationContext.sendBroadcast(updateIntent)
-            }
-        } catch (_: Exception) {}
+            BuddyWidgetProvider.recordNewTransactionAndRefresh(
+                applicationContext,
+                transaction.amount,
+                transaction.type.equals("income", ignoreCase = true),
+                transaction.category,
+                transaction.note ?: transaction.category,
+                isAuto = true
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating widget on notification: ${e.message}")
+        }
     }
 
     private fun storePendingTransaction(prefs: android.content.SharedPreferences, hash: String, transaction: Transaction, source: String) {

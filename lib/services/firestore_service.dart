@@ -6,6 +6,7 @@ import 'package:buddy/models/transaction.dart';
 import 'package:buddy/models/category.dart' as cat;
 import 'package:buddy/utils/colors.dart';
 import 'package:buddy/utils/icon_helper.dart';
+import 'package:buddy/services/widget_service.dart';
 
 class FirestoreService {
   static final FirestoreService instance = FirestoreService._();
@@ -51,6 +52,21 @@ class FirestoreService {
   Future<String> addTransaction(TransactionModel txn) async {
     final doc = await _txnCol.add(txn.toFirestore());
     debugPrint('✅ FIRESTORE: Transaction added with ID: ${doc.id}');
+
+    // Optimistic cache update
+    final txnWithId = txn.copyWith(id: doc.id);
+    final current = List<TransactionModel>.from(_cachedTransactions);
+    current.removeWhere((t) =>
+        t.id == doc.id ||
+        (txn.notificationHash != null &&
+            t.notificationHash == txn.notificationHash));
+    current.insert(0, txnWithId);
+    current.sort((a, b) => b.date.compareTo(a.date));
+    _cachedTransactions = TransactionModel.deduplicate(current);
+
+    // Instant home widget update
+    WidgetService.updateFromTransactions(_cachedTransactions);
+
     return doc.id;
   }
 
@@ -62,12 +78,54 @@ class FirestoreService {
     }
     await _txnCol.doc(id).update(data);
     debugPrint('✅ FIRESTORE: Transaction $id updated');
+
+    // Optimistic cache update
+    final current = List<TransactionModel>.from(_cachedTransactions);
+    final index = current.indexWhere((t) => t.id == id);
+    if (index != -1) {
+      final old = current[index];
+      final newAmount = (data['amount'] as num?)?.toDouble() ?? old.amount;
+      final newType = (data['type'] as String?) ?? old.type;
+      final newDate = data['date'] is Timestamp
+          ? (data['date'] as Timestamp).toDate()
+          : (data['date'] is DateTime ? data['date'] as DateTime : old.date);
+      final newNote =
+          data.containsKey('note') ? data['note'] as String? : old.note;
+      final newCategory = (data['category'] as String?) ?? old.category;
+      final newIcon = (data['icon'] as num?)?.toInt() ?? old.icon;
+
+      current[index] = old.copyWith(
+        amount: newAmount,
+        type: newType,
+        date: newDate,
+        note: newNote,
+        category: newCategory,
+        icon: newIcon,
+      );
+      current.sort((a, b) => b.date.compareTo(a.date));
+      _cachedTransactions = TransactionModel.deduplicate(current);
+
+      // Instant home widget update
+      WidgetService.updateFromTransactions(_cachedTransactions);
+    } else {
+      getAllTransactions(forceRefresh: true).then((txns) {
+        WidgetService.updateFromTransactions(txns);
+      });
+    }
   }
 
   /// Delete a transaction
   Future<void> deleteTransaction(String id) async {
     await _txnCol.doc(id).delete();
     debugPrint('✅ FIRESTORE: Transaction $id deleted');
+
+    // Optimistic cache update
+    final current = List<TransactionModel>.from(_cachedTransactions);
+    current.removeWhere((t) => t.id == id);
+    _cachedTransactions = current;
+
+    // Instant home widget update
+    WidgetService.updateFromTransactions(_cachedTransactions);
   }
 
   // ── In-Memory Transaction Cache for Instant UI Rendering ──
@@ -122,6 +180,8 @@ class FirestoreService {
               .map((doc) => TransactionModel.fromFirestore(doc))
               .toList());
           _cachedTransactions = list;
+          // Keep home screen widget in sync with real-time Firestore updates
+          WidgetService.updateFromTransactions(list);
           return list;
         });
   }

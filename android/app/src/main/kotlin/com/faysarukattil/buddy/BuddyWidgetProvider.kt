@@ -93,6 +93,120 @@ open class BuddyWidgetProvider : AppWidgetProvider() {
                 }
             }
         }
+
+        /**
+         * Directly records a new auto-detected transaction into the widget SharedPreferences
+         * and triggers an immediate widget re-render on the home screen.
+         * Used by NotificationListener and NotificationActionReceiver for real-time background sync.
+         */
+        fun recordNewTransactionAndRefresh(
+            context: Context,
+            amount: Double,
+            isIncome: Boolean,
+            category: String,
+            note: String,
+            isAuto: Boolean = true
+        ) {
+            try {
+                val data = getData(context)
+                val editor = data.edit()
+                val symbol = getCurrencySymbol(data)
+
+                // 1. Update Today raw metrics
+                var todaySpentRaw = data.getFloat("today_spent_raw", 0f).toDouble()
+                var todayIncomeRaw = data.getFloat("today_income_raw", 0f).toDouble()
+                var todayCount = data.getInt("today_count", 0)
+
+                if (isIncome) {
+                    todayIncomeRaw += amount
+                } else {
+                    todaySpentRaw += amount
+                }
+                val todayBalanceRaw = todayIncomeRaw - todaySpentRaw
+                val isTodayNegative = todayBalanceRaw < 0
+                todayCount += 1
+
+                editor.putFloat("today_spent_raw", todaySpentRaw.toFloat())
+                editor.putString("today_spent", formatCompactCurrency(todaySpentRaw, isCompact = todaySpentRaw >= 1000000, symbol = symbol))
+                editor.putString("today_spent_compact", formatCompactCurrency(todaySpentRaw, isCompact = true, symbol = symbol))
+
+                editor.putFloat("today_income_raw", todayIncomeRaw.toFloat())
+                editor.putString("today_income", formatCompactCurrency(todayIncomeRaw, isCompact = todayIncomeRaw >= 1000000, symbol = symbol))
+                editor.putString("today_income_formatted", "+${formatCompactCurrency(todayIncomeRaw, isCompact = todayIncomeRaw >= 1000000, symbol = symbol)}")
+                editor.putString("today_income_compact", "+${formatCompactCurrency(todayIncomeRaw, isCompact = true, symbol = symbol)}")
+
+                editor.putFloat("today_balance_raw", todayBalanceRaw.toFloat())
+                val todayBalanceAbs = kotlin.math.abs(todayBalanceRaw)
+                val todayBalFormatted = (if (isTodayNegative) "-" else "") + formatCompactCurrency(todayBalanceAbs, isCompact = todayBalanceAbs >= 1000000, symbol = symbol)
+                val todayBalCompact = (if (isTodayNegative) "-" else "") + formatCompactCurrency(todayBalanceAbs, isCompact = true, symbol = symbol)
+                editor.putString("today_balance", todayBalFormatted)
+                editor.putString("today_balance_compact", todayBalCompact)
+                editor.putBoolean("today_is_negative", isTodayNegative)
+                editor.putInt("today_count", todayCount)
+
+                // 2. Prepend to recent_txns_json for charts and canvas
+                val cal = Calendar.getInstance()
+                val timeStr = SimpleDateFormat("h:mm a", Locale.US).format(cal.time)
+                val displayTitle = if (note.isNotBlank()) note else category
+                val amountStr = (if (isIncome) "+" else "-") + formatCompactCurrency(amount, isCompact = false, symbol = symbol)
+
+                val newTxnObj = JSONObject().apply {
+                    put("year", cal.get(Calendar.YEAR))
+                    put("month", cal.get(Calendar.MONTH) + 1)
+                    put("day", cal.get(Calendar.DAY_OF_MONTH))
+                    put("amount", amount)
+                    put("is_income", isIncome)
+                    put("is_auto", isAuto)
+                    put("is_debt", false)
+                    put("title", displayTitle)
+                    put("subtitle", "$category • ${if (isAuto) "Auto" else "Manual"} • $timeStr")
+                    put("amount_str", amountStr)
+                    put("category", category)
+                    put("color", if (isIncome) "#34D399" else "#FB7185")
+                }
+
+                val currentJsonStr = data.getString("recent_txns_json", "[]") ?: "[]"
+                val currentArr = try { JSONArray(currentJsonStr) } catch (_: Exception) { JSONArray() }
+                val newArr = JSONArray()
+                newArr.put(newTxnObj)
+                for (i in 0 until min(currentArr.length(), 200)) {
+                    newArr.put(currentArr.getJSONObject(i))
+                }
+                editor.putString("recent_txns_json", newArr.toString())
+
+                // 3. Shift the 8 row items for Today list
+                for (i in 7 downTo 1) {
+                    val prevExists = data.getBoolean("txn_${i - 1}_exists", false)
+                    editor.putBoolean("txn_${i}_exists", prevExists)
+                    if (prevExists) {
+                        editor.putString("txn_${i}_title", data.getString("txn_${i - 1}_title", ""))
+                        editor.putString("txn_${i}_subtitle", data.getString("txn_${i - 1}_subtitle", ""))
+                        editor.putString("txn_${i}_amount", data.getString("txn_${i - 1}_amount", ""))
+                        editor.putString("txn_${i}_category", data.getString("txn_${i - 1}_category", ""))
+                        editor.putString("txn_${i}_color", data.getString("txn_${i - 1}_color", ""))
+                        editor.putBoolean("txn_${i}_is_income", data.getBoolean("txn_${i - 1}_is_income", false))
+                        editor.putBoolean("txn_${i}_is_auto", data.getBoolean("txn_${i - 1}_is_auto", false))
+                    }
+                }
+                // Set row 0 as new transaction
+                editor.putBoolean("txn_0_exists", true)
+                editor.putString("txn_0_title", displayTitle)
+                editor.putString("txn_0_subtitle", "$category • $timeStr")
+                editor.putString("txn_0_amount", amountStr)
+                editor.putString("txn_0_category", category)
+                editor.putString("txn_0_color", if (isIncome) "#34D399" else "#FB7185")
+                editor.putBoolean("txn_0_is_income", isIncome)
+                editor.putBoolean("txn_0_is_auto", isAuto)
+
+                editor.commit()
+                Log.d(TAG, "⚡ Widget SharedPreferences updated with new transaction: $displayTitle ($amountStr)")
+
+                // 4. Trigger re-render across all widget providers immediately
+                BuddyWidgetChannel.triggerWidgetUpdate(context)
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error in recordNewTransactionAndRefresh: ${e.message}", e)
+            }
+        }
     }
 
     private class RowIds(

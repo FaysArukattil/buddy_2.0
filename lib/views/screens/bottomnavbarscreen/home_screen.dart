@@ -219,7 +219,9 @@ class HomeScreenState extends State<HomeScreen>
 
   void _startListening() {
     try {
-      _txnSubscription?.cancel();
+      if (_txnSubscription != null) {
+        return;
+      }
       _txnSubscription =
           FirestoreService.instance.getTransactionsStream().listen(
         (transactions) {
@@ -313,9 +315,22 @@ class HomeScreenState extends State<HomeScreen>
 
   Future<void> refreshData() async {
     await _loadUser();
-    if (_transactions.isNotEmpty) {
+    // 1. Immediately render with latest optimistic cache from FirestoreService
+    if (FirestoreService.cachedTransactions.isNotEmpty) {
+      _transactions = FirestoreService.cachedTransactions;
+      _recalculateTotals(_transactions);
+    } else if (_transactions.isNotEmpty) {
       _recalculateTotals(_transactions);
     }
+    // 2. Refresh from local offline cache / Firestore to ensure full parity
+    try {
+      final fresh =
+          await FirestoreService.instance.getAllTransactions(forceRefresh: true);
+      if (fresh.isNotEmpty && mounted) {
+        _transactions = fresh;
+        _recalculateTotals(fresh);
+      }
+    } catch (_) {}
     _startListening();
   }
 

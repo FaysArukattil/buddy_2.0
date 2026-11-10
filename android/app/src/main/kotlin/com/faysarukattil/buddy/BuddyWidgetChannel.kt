@@ -24,13 +24,49 @@ class BuddyWidgetChannel(private val context: Context) {
         // The home_widget plugin used this convention:
         //   context.getSharedPreferences(packageName + "_HomeWidgetPlugin", Context.MODE_PRIVATE)
         // We keep the same name so we remain 100% compatible with the existing Kotlin providers.
-        private fun getPrefs(context: Context): SharedPreferences =
+        fun getPrefs(context: Context): SharedPreferences =
             context.getSharedPreferences(
                 context.packageName + "_HomeWidgetPlugin",
                 Context.MODE_PRIVATE
             )
 
         private const val TAG = "BuddyWidgetChannel"
+
+        /**
+         * Re-renders all active Buddy widgets immediately.
+         * Broadcasts ACTION_APPWIDGET_UPDATE and invokes onUpdate directly
+         * for instant synchronous RemoteViews updates.
+         */
+        fun triggerWidgetUpdate(context: Context) {
+            val manager = AppWidgetManager.getInstance(context)
+
+            val providers = listOf(
+                BuddyWidgetProvider::class.java,
+                BuddyStatsWidgetProvider::class.java,
+                BuddyQuickAddWidgetProvider::class.java
+            )
+
+            for (providerClass in providers) {
+                val ids = manager.getAppWidgetIds(ComponentName(context, providerClass))
+                if (ids.isNotEmpty()) {
+                    // 1. Send system broadcast for the launcher
+                    val intent = android.content.Intent(context, providerClass).apply {
+                        action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+                        putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+                    }
+                    context.sendBroadcast(intent)
+
+                    // 2. Directly invoke onUpdate for 0ms synchronous in-process update
+                    try {
+                        val provider = providerClass.getDeclaredConstructor().newInstance()
+                        provider.onUpdate(context, manager, ids)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Direct onUpdate failed: ${e.message}")
+                    }
+                    Log.d(TAG, "📡 Triggered update for ${ids.size} ${providerClass.simpleName}(s)")
+                }
+            }
+        }
     }
 
     fun register(messenger: io.flutter.plugin.common.BinaryMessenger) {
@@ -42,7 +78,7 @@ class BuddyWidgetChannel(private val context: Context) {
                         if (args != null) {
                             saveToPrefs(args)
                         }
-                        triggerWidgetUpdate()
+                        triggerWidgetUpdate(context)
                         result.success(true)
                     } catch (e: Exception) {
                         Log.e(TAG, "❌ updateWidget failed: ${e.message}", e)
@@ -72,30 +108,8 @@ class BuddyWidgetChannel(private val context: Context) {
             }
         }
 
-        editor.apply()
-        Log.d(TAG, "💾 Saved ${args.size} widget prefs keys")
-    }
-
-    private fun triggerWidgetUpdate() {
-        val manager = AppWidgetManager.getInstance(context)
-
-        val providers = listOf(
-            BuddyWidgetProvider::class.java,
-            BuddyStatsWidgetProvider::class.java,
-            BuddyQuickAddWidgetProvider::class.java
-        )
-
-        for (providerClass in providers) {
-            val ids = manager.getAppWidgetIds(ComponentName(context, providerClass))
-            if (ids.isNotEmpty()) {
-                val intent = android.content.Intent(context, providerClass).apply {
-                    action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-                    putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
-                }
-                context.sendBroadcast(intent)
-                Log.d(TAG, "📡 Triggered update for ${ids.size} ${providerClass.simpleName}(s)")
-            }
-        }
+        editor.commit()
+        Log.d(TAG, "💾 Saved ${args.size} widget prefs keys (commit=true)")
     }
 }
 
